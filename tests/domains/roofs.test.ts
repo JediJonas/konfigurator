@@ -5,6 +5,10 @@ import { buildParts } from '../../src/core/pipeline/buildParts';
 import { evaluateDesign } from '../../src/core/rules/evaluateDesign';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { ROOF_TYPES } from '../../src/domains/gingerbread/objects/sectionParams';
+import { lowestHeightAt } from '../../src/core/geometry/heightPlanes';
+import { fitEave } from '../../src/domains/gingerbread/objects/roof/eaveFit';
+import { buildRoofLayout } from '../../src/domains/gingerbread/objects/roof/roofLayout';
+import { sectionParams } from '../../src/domains/gingerbread/objects/sectionParams';
 import { allCorners, countSharedEdges, houseWith, isRoofPart, partById, THICKNESS, worldCorners } from './roofFixtures';
 
 const BASE = { width: 140, depth: 180, wallHeight: 100, roofPitch: 45, eaveOverhang: 10, gableOverhang: 10 };
@@ -78,7 +82,8 @@ describe('valmat tak', () => {
 
 describe('mansardtak', () => {
   it('bryts vid brytpunkten och har gavlar som går ut', () => {
-    const parts = partsFor({ roof: 'mansard', mansardLowerPitch: 70, mansardBreakHeight: 40, roofPitch: 30 });
+    // Så stort takutsprång att takfoten går förbi väggen, så att gaveln följer takfallen ända ut.
+    const parts = partsFor({ roof: 'mansard', mansardLowerPitch: 70, mansardBreakHeight: 40, roofPitch: 30, eaveOverhang: 20 });
     expect(topOf(parts, 'S1/roof-lower-right')).toBeCloseTo(BASE.wallHeight + 40);
     expect(countSharedEdges(parts.filter(isRoofPart))).toBe(3);
     expect(lengthAlongX(parts, 'S1/gable-front')).toBeCloseTo(BASE.width);
@@ -118,7 +123,9 @@ describe('tornspira', () => {
     const parts = partsFor({ roof: 'spire4', spirePitch: 70 });
     const roof = parts.filter(isRoofPart);
     expect(roof).toHaveLength(4);
-    const apex = BASE.wallHeight + (BASE.width / 2) * Math.tan(degreesToRadians(70));
+    // Spirfallen står in så mycket att ovansidans kant når takutsprånget.
+    const slope = Math.tan(degreesToRadians(70));
+    const apex = BASE.wallHeight + (BASE.width / 2 - fitEave(BASE.eaveOverhang, slope, THICKNESS).inset) * slope;
     for (const part of roof) {
       expect(part.outline).toHaveLength(3);
       expect(Math.max(...worldCorners(part).map((corner) => corner.y))).toBeCloseTo(apex);
@@ -142,4 +149,43 @@ describe('tornspira', () => {
     expect(lengthAlongX(parts, 'S1/gable-front')).toBeCloseTo(120);
     expect(lengthAlongZ(parts, 'S1/side-right')).toBeCloseTo(120 - 2 * THICKNESS);
   });
+});
+
+describe('takutsprång vid takfoten', () => {
+  const PITCHES: Record<string, number> = { gable: 45, hip: 45, shed: 30, mansard: 70, spire4: 70 };
+
+  it.each(ROOF_TYPES)('%s sticker inte ut förbi väggarna vid 0 mm och vilar på dem', (roof) => {
+    const parts = partsFor({ roof, eaveOverhang: 0, gableOverhang: 0, spirePitch: 70 });
+    const corners = parts.filter(isRoofPart).flatMap(allCorners);
+    const reachX = Math.max(...corners.map((corner) => Math.abs(corner.x)));
+    const reachZ = Math.max(...corners.map((corner) => Math.abs(corner.z)));
+    expect(reachX).toBeLessThanOrEqual(BASE.width / 2 + 0.01);
+    expect(reachZ).toBeLessThanOrEqual(BASE.depth / 2 + 0.01);
+    expect(reachX).toBeGreaterThan(BASE.width / 2 - 0.5);
+    expect(reachZ).toBeGreaterThan(BASE.depth / 2 - 0.5);
+    // Väggarna har full höjd och taket vilar på dem utan glipa.
+    expect(topOf(parts, 'S1/side-right')).toBeGreaterThanOrEqual(BASE.wallHeight - 0.01);
+    expect(Math.min(...corners.map((corner) => corner.y))).toBeCloseTo(BASE.wallHeight);
+  });
+
+  it.each(Object.entries(PITCHES).flatMap(([roof, pitch]) => [0, 2, 10, 40].map((overhang) => [roof, pitch, overhang] as const)))(
+    '%s med lutning %i° och %i mm: ovansidans kant når utsprånget och väggen går inte upp i taket',
+    (roof, pitch, overhang) => {
+      const pitchKey = { mansard: 'mansardLowerPitch', spire4: 'spirePitch' }[roof] ?? 'roofPitch';
+      const params = sectionParams.parse({ ...BASE, roof, [pitchKey]: pitch, eaveOverhang: overhang });
+      const parts = partsFor(params);
+      const corners = parts.filter((part) => isRoofPart(part) && !part.id.includes('upper')).flatMap(allCorners);
+      const isShed = roof === 'shed';
+      const reach = Math.max(...corners.map((corner) => (isShed ? corner.z : Math.abs(corner.x))));
+      const wallFace = isShed ? BASE.depth / 2 : BASE.width / 2;
+      expect(reach).toBeCloseTo(wallFace + overhang * Math.cos(degreesToRadians(pitch)));
+      // Där takfoten går förbi väggen ligger undersidan på eller över väggens ytterkant.
+      const layout = buildRoofLayout(params, { thickness: THICKNESS, isExtension: false, reachesIntoHost: false });
+      const planes = layout.faces.map((face) => face.plane);
+      const outerEdge = isShed ? { x: 0, y: wallFace } : { x: wallFace, y: 0 };
+      const undersideReach = reach - THICKNESS * Math.sin(degreesToRadians(pitch));
+      if (undersideReach > wallFace) expect(lowestHeightAt(planes, outerEdge)).toBeGreaterThanOrEqual(BASE.wallHeight - 1e-6);
+      expect(Math.min(...corners.map((corner) => corner.y))).toBeLessThanOrEqual(BASE.wallHeight + 1e-6);
+    },
+  );
 });

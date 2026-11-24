@@ -5,6 +5,7 @@ import { degreesToRadians, vec2, vec3 } from '../../../../core/geometry/vector';
 import type { SectionParams } from '../sectionParams';
 import type { RoofContext, RoofFace, RoofLayout } from './roofLayout';
 import { extensionBackEdge } from './roofLayout';
+import { fitEave, measureTopLip } from './eaveFit';
 
 /**
  * Åttkantens avfasning i hörnen som andel av den kortaste sidan. Med
@@ -36,27 +37,44 @@ export function buildFlatLayout(params: SectionParams, context: RoofContext): Ro
  * takfallen mot gavlarna lutar så att alla möts i spetsen.
  */
 export function buildSpire4Layout(params: SectionParams, context: RoofContext): RoofLayout {
-  const halfX = params.width / 2;
-  const halfZ = params.depth / 2;
   const pitch = degreesToRadians(params.spirePitch);
-  const apexHeight = params.wallHeight + halfX * Math.tan(pitch);
   const slopeX = Math.tan(pitch);
-  const slopeZ = (apexHeight - params.wallHeight) / halfZ;
-  const right: HeightPlane = { slopeX: -slopeX, slopeZ: 0, height: apexHeight };
-  const front: HeightPlane = { slopeX: 0, slopeZ: -slopeZ, height: apexHeight };
+  const eaveX = fitEave(params.eaveOverhang, slopeX, context.thickness);
+  // Takfallen mot gavlarna lutar annorlunda; deras utsprång ger samma fall i höjd som långsidornas.
+  const outerSlopeZ = ((params.width / 2) * slopeX) / (params.depth / 2);
+  const overhangZ = (params.eaveOverhang * Math.sin(pitch)) / Math.sin(Math.atan(outerSlopeZ));
+  const eaveZ = fitEave(overhangZ, outerSlopeZ, context.thickness);
+  const halfX = params.width / 2 - eaveX.inset;
+  const halfZ = params.depth / 2 - eaveZ.inset;
+  const planes = spire4Planes(halfX, halfZ, slopeX, params.wallHeight);
   const faces: RoofFace[] = [
-    { id: 'roof-right', labelKey: 'part.spireFace', plane: right },
-    { id: 'roof-left', labelKey: 'part.spireFace', plane: { ...right, slopeX } },
-    { id: 'roof-front', labelKey: 'part.spireFace', plane: front },
+    { id: 'roof-right', labelKey: 'part.spireFace', plane: planes.right },
+    { id: 'roof-left', labelKey: 'part.spireFace', plane: planes.left },
+    { id: 'roof-front', labelKey: 'part.spireFace', plane: planes.front },
   ];
-  if (!context.isExtension) faces.push({ id: 'roof-back', labelKey: 'part.spireFace', plane: { ...front, slopeZ } });
-  // Takfoten ligger lika högt runt om: utsprånget mäts längs takfallen mot långväggarna.
-  const drop = params.eaveOverhang * Math.sin(pitch);
-  const reachX = params.eaveOverhang * Math.cos(pitch);
-  const reachZ = drop / slopeZ;
-  const back = context.isExtension ? extensionBackEdge(params, context) : -(halfZ + reachZ);
-  const plan = [vec2(-(halfX + reachX), back), vec2(halfX + reachX, back), vec2(halfX + reachX, halfZ + reachZ), vec2(-(halfX + reachX), halfZ + reachZ)];
+  if (!context.isExtension) faces.push({ id: 'roof-back', labelKey: 'part.spireFace', plane: planes.back });
+  // Takfoten ligger exakt lika högt runt om, så att takfallen förblir trekanter.
+  const reachX = eaveX.reach;
+  const eaveDrop = Math.max(0, params.width / 2 + reachX - halfX) * slopeX;
+  const reachZ = halfZ + eaveDrop / planes.slopeZ - params.depth / 2;
+  const back = context.isExtension ? extensionBackEdge(params, context) : -(params.depth / 2 + reachZ);
+  const outerX = params.width / 2 + reachX;
+  const outerZ = params.depth / 2 + reachZ;
+  const plan = [vec2(-outerX, back), vec2(outerX, back), vec2(outerX, outerZ), vec2(-outerX, outerZ)];
   return { faces, plan, support: faces.map((face) => face.plane) };
+}
+
+/** Fyra plan som går genom `baseHeight` vid ±halfX och ±halfZ och möts i en spets mitt över. */
+function spire4Planes(halfX: Mm, halfZ: Mm, slopeX: number, baseHeight: Mm) {
+  const apexHeight = baseHeight + halfX * slopeX;
+  const slopeZ = (halfX * slopeX) / halfZ;
+  return {
+    slopeZ,
+    right: { slopeX: -slopeX, slopeZ: 0, height: apexHeight } satisfies HeightPlane,
+    left: { slopeX, slopeZ: 0, height: apexHeight } satisfies HeightPlane,
+    front: { slopeX: 0, slopeZ: -slopeZ, height: apexHeight } satisfies HeightPlane,
+    back: { slopeX: 0, slopeZ, height: apexHeight } satisfies HeightPlane,
+  };
 }
 
 /**
@@ -67,8 +85,13 @@ export function buildSpire4Layout(params: SectionParams, context: RoofContext): 
 export function buildSpire8Layout(params: SectionParams, context: RoofContext): RoofLayout {
   const plate = plateOver(params, context);
   const base = params.wallHeight + context.thickness;
-  const octagon = buildOctagon(params.width / 2, params.depth / 2, Math.min(params.width, params.depth) * OCTAGON_CORNER_SHARE);
-  const apex = vec3(0, base + (params.width / 2) * Math.tan(degreesToRadians(params.spirePitch)), 0);
+  // Spirfallen står innanför skivans kant så att deras ovansida går jäms med den.
+  const slopeX = Math.tan(degreesToRadians(params.spirePitch));
+  const halfX = params.width / 2 - measureTopLip(slopeX, context.thickness);
+  const apexHeight = halfX * slopeX;
+  const halfZ = params.depth / 2 - measureTopLip(((params.width / 2) * slopeX) / (params.depth / 2), context.thickness);
+  const octagon = buildOctagon(halfX, halfZ, 2 * Math.min(halfX, halfZ) * OCTAGON_CORNER_SHARE);
+  const apex = vec3(0, base + apexHeight, 0);
   const faces: RoofFace[] = octagon.map((start, index) => {
     const end = octagon[(index + 1) % octagon.length] ?? start;
     return { id: `spire-${index + 1}`, labelKey: 'part.spireFace', plane: heightPlaneThrough(vec3(start.x, base, start.y), vec3(end.x, base, end.y), apex) };

@@ -50,6 +50,30 @@ export function profileAlong(support: readonly HeightPlane[], line: UprightLine)
   return lowestProfileAlong(support, line.outerStart, line.outerEnd);
 }
 
+/**
+ * Väggens överkant längs ytterkanten: takets undersida, men aldrig under
+ * väggens höjd. Där takfoten slutar ovanpå väggen (litet takutsprång) går
+ * undersidans plan under väggens höjd ytterst, men där finns inget tak.
+ */
+function wallProfileAlong(support: readonly HeightPlane[], line: UprightLine, wallHeight: Mm): Vec2[] {
+  const profile = profileAlong(support, line);
+  const raised: Vec2[] = [];
+  profile.forEach((point, index) => {
+    const before = profile[index - 1];
+    if (before && (before.y - wallHeight) * (point.y - wallHeight) < 0) {
+      const t = (wallHeight - before.y) / (point.y - before.y);
+      raised.push(vec2(before.x + t * (point.x - before.x), wallHeight));
+    }
+    raised.push(vec2(point.x, Math.max(point.y, wallHeight)));
+  });
+  return raised.filter((point, index) => {
+    const before = raised[index - 1];
+    const after = raised[index + 1];
+    // Punkter mitt på en vågrät sträcka behövs inte.
+    return !before || !after || !(before.y === point.y && after.y === point.y);
+  });
+}
+
 function isSloped(profile: readonly Vec2[]): boolean {
   const heights = profile.map((point) => point.y);
   return Math.max(...heights) - Math.min(...heights) > LEVEL_TOLERANCE_MM;
@@ -63,8 +87,8 @@ export function wallCornerRoles(params: SectionParams, context: RoofContext): { 
   const support = wallSupport(params, context);
   const [right, , front] = listWallSides(params, false);
   const roles = buttJoint.assignCornerRoles([
-    { id: 'gable', hasSlopedTop: front ? isSloped(profileAlong(support, front)) : false, length: params.width },
-    { id: 'side', hasSlopedTop: right ? isSloped(profileAlong(support, right)) : false, length: params.depth },
+    { id: 'gable', hasSlopedTop: front ? isSloped(wallProfileAlong(support, front, params.wallHeight)) : false, length: params.width },
+    { id: 'side', hasSlopedTop: right ? isSloped(wallProfileAlong(support, right, params.wallHeight)) : false, length: params.depth },
   ]);
   return { gable: roles.get('gable') ?? 'through', side: roles.get('side') ?? 'between' };
 }
@@ -91,30 +115,30 @@ function wallSpan(side: WallSide, role: CornerRole, thickness: Mm, isExtension: 
  * Väggens kontur: sned överkant som följer takets undersida längs ytterkanten,
  * eller rak överkant så hög att taket vilar på den utan att väggen går upp i taket.
  */
-export function wallOutline(support: readonly HeightPlane[], span: UprightLine, thickness: Mm): Polygon {
-  const profile = profileAlong(support, span);
+export function wallOutline(support: readonly HeightPlane[], span: UprightLine, thickness: Mm, wallHeight: Mm): Polygon {
+  const profile = wallProfileAlong(support, span, wallHeight);
   const length = profile.at(-1)?.x ?? 0;
   if (isSloped(profile)) return [vec2(0, 0), vec2(length, 0), ...[...profile].reverse()];
-  return rectangle(length, flatTopHeight(support, span, thickness));
+  return rectangle(length, flatTopHeight(support, span, thickness, wallHeight));
 }
 
 /** Rak överkant: den lägsta takhöjden över väggens ovansida, både ytter- och innerkant. */
-function flatTopHeight(support: readonly HeightPlane[], span: UprightLine, thickness: Mm): Mm {
+function flatTopHeight(support: readonly HeightPlane[], span: UprightLine, thickness: Mm, wallHeight: Mm): Mm {
   const dx = span.outerEnd.x - span.outerStart.x;
   const dz = span.outerEnd.y - span.outerStart.y;
   const length = Math.hypot(dx, dz);
   // Inåt är till vänster om ytterkanten sett med u × upp utåt.
   const inward = vec2((-dz / length) * -thickness, (dx / length) * -thickness);
   const corners = [span.outerStart, span.outerEnd].flatMap((point) => [point, vec2(point.x + inward.x, point.y + inward.y)]);
-  return Math.min(...corners.map((corner) => lowestHeightAt(support, corner)));
+  return Math.max(wallHeight, Math.min(...corners.map((corner) => lowestHeightAt(support, corner))));
 }
 
 /** Väggens överkant som höjd längs hela ytterkanten, från början till slut. */
 export function wallTopProfile(params: SectionParams, context: RoofContext, side: WallSide): Vec2[] {
   const support = wallSupport(params, context);
-  const profile = profileAlong(support, side);
+  const profile = wallProfileAlong(support, side, params.wallHeight);
   if (isSloped(profile)) return profile;
-  const height = flatTopHeight(support, side, context.thickness);
+  const height = flatTopHeight(support, side, context.thickness, params.wallHeight);
   return [vec2(0, height), vec2(profile.at(-1)?.x ?? 0, height)];
 }
 
@@ -131,7 +155,7 @@ export function buildWallParts(params: SectionParams, context: RoofContext): Par
     return {
       id: side.id,
       labelKey: side.labelKey,
-      outline: wallOutline(support, span, context.thickness),
+      outline: wallOutline(support, span, context.thickness, params.wallHeight),
       transform: uprightTransform(span, context.thickness, 0),
       buildStep: wallStep(context.isExtension),
     };
