@@ -3,6 +3,7 @@ export const uiStrings = {
   appName: 'Konfiguratorn',
   viewLabel: '3D-vy av huset',
   viewHint: 'Dra för att vrida, nyp eller scrolla för att zooma.',
+  fitView: 'Centrera',
   settings: 'Inställningar',
   showSettings: 'Visa inställningar',
   hideSettings: 'Dölj inställningar',
