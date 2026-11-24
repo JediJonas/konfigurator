@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      # Bygger appen och kör flödena i webbläsaren, även axe mot WCAG 2.2 AA.
+      - run: npm run e2e
+        env:
+          CI: 'true'
+      - name: Validera HTML med Nu-validatorn
+        run: |
+          npm install --no-save vnu-jar@24.10.17
+          java -jar node_modules/vnu-jar/build/dist/vnu.jar --errors-only dist/index.html
