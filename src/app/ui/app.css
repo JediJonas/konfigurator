@@ -1,0 +1,287 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --color-background: #f7efe4;
+  --color-surface: #fffaf3;
+  --color-text: #2b1d12;
+  --color-muted: #6b5442;
+  --color-border: #d9c6b0;
+  --color-accent: #8a4b1c;
+  --color-accent-text: #ffffff;
+  --color-error: #a3201a;
+  --color-focus: #1f5fbf;
+  --panel-width: 22rem;
+  --tap-size: 2.75rem;
+  /* Android, dator, iPad, hemskärmen och liggande: 16 px eller hemstrecket. */
+  --bottom-gap: max(1rem, env(safe-area-inset-bottom));
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--color-text);
+  background: var(--color-background);
+}
+
+/* Safari på stående iPhone: Safaris eget mellanrum (cirka 17 px) räcker. Med
+   adressfältet överst anger Safari 34 px för hemstrecket, och det står då kvar. */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: browser) and (orientation: portrait) and (max-width: 30rem) {
+    :root {
+      --bottom-gap: env(safe-area-inset-bottom);
+    }
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: #1f1915;
+    --color-surface: #2a221c;
+    --color-text: #f4e9dd;
+    --color-muted: #c8b6a4;
+    --color-border: #4d3f33;
+    --color-accent: #e0a066;
+    --color-accent-text: #1f1915;
+    --color-error: #ff8a80;
+    --color-focus: #8ab4ff;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.toolbar h1 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.toolbar-domain {
+  font-weight: normal;
+  color: var(--color-muted);
+}
+
+.workspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--panel-width);
+}
+
+.viewport {
+  position: relative;
+  min-height: 0;
+  touch-action: none;
+}
+
+.viewport-hint {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.5rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #5c4633;
+  pointer-events: none;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 1rem 1rem var(--bottom-gap);
+}
+
+.sheet-handle {
+  display: none;
+}
+
+.panel-section + .panel-section {
+  margin-top: 1.25rem;
+}
+
+.panel-section h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.instance-id {
+  font-weight: normal;
+  color: var(--color-muted);
+}
+
+.param-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.field label {
+  font-size: 0.875rem;
+}
+
+.unit {
+  color: var(--color-muted);
+}
+
+.field input,
+.field select {
+  min-height: var(--tap-size);
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-background);
+  color: var(--color-text);
+  /* 16 px hindrar Safari från att zooma in när fältet får fokus. */
+  font-size: 1rem;
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+
+.field-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--tap-size);
+}
+
+.field-error,
+.design-error {
+  margin: 0;
+  color: var(--color-error);
+  font-size: 0.875rem;
+}
+
+.panel-actions {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 1.25rem;
+}
+
+.field-inline {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.primary-button,
+.sheet-handle {
+  min-height: var(--tap-size);
+  padding: 0 1rem;
+  border: none;
+  border-radius: 0.625rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-button {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Mobil och iPad på höjden: 3D-vyn överst, panelen som ett ark nertill med knapparna nära tummen. */
+@media (max-width: 48rem) {
+  .workspace {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .viewport {
+    flex: 1 1 auto;
+    min-height: 12rem;
+  }
+
+  .panel {
+    flex: 0 0 auto;
+    max-height: 65dvh;
+    overflow: hidden;
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+    border-radius: 1rem 1rem 0 0;
+    padding-top: 0.5rem;
+  }
+
+  .sheet-handle {
+    display: block;
+    width: 100%;
+    margin-bottom: 0.5rem;
+    background: transparent;
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+  }
+
+  /* Formuläret rullar för sig, så att knapparna alltid står kvar nära tummen. */
+  .panel-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .panel[data-expanded='false'] .panel-content {
+    display: none;
+  }
+
+  .panel-actions {
+    padding-top: 0.75rem;
+  }
+}
+
+.probe {
+  position: fixed;
+  top: 4rem;
+  left: 0.5rem;
+  z-index: 10;
+  margin: 0;
+  padding: 0.5rem;
+  background: rgb(0 0 0 / 0.8);
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+.probe-line {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: red;
+  z-index: 10;
+}
