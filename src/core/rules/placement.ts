@@ -22,10 +22,15 @@ export interface ChildProposal {
 
 const ignoreLabel = (key: string) => key;
 
+/** Steget när ett nytt objekt letar efter en plats längs kopplingspunkten. Två snäppsteg räcker och halverar arbetet. */
+const SEARCH_STEP_MM = 2 * SNAP_STEP_MM;
+
 /**
  * Ett nytt objekt som snäpper mitt i kopplingspunkten, i den största storlek
- * som klarar reglerna. Klarar ingen storlek reglerna kommer den minsta med
- * sina regelbrott, så att panelen kan förklara varför det inte går.
+ * som klarar reglerna. Ryms ingen storlek i mitten, t.ex. för att en granne
+ * eller huvudhusets tak är i vägen, prövas lägen längre ut åt båda hållen.
+ * Klarar inget reglerna kommer det minsta förslaget i mitten med sina
+ * regelbrott, så att panelen kan förklara varför det inte går.
  */
 export function proposeChild(design: Design, domain: Domain, request: ChildRequest, resolveLabel = ignoreLabel): ChildProposal {
   const objectType = findObjectType(domain, request.objectTypeId);
@@ -33,21 +38,31 @@ export function proposeChild(design: Design, domain: Domain, request: ChildReque
   const socket = parent?.sockets.find((candidate) => candidate.id === request.socketId);
   if (!socket) throw new Error(`Kopplingspunkten "${request.socketId}" finns inte på "${request.parentId}".`);
   const candidates = objectType.paramCandidates?.(socket) ?? [{}];
-  let proposal: ChildProposal | undefined;
-  for (const params of candidates) {
-    const instance: Instance = {
-      id: nextInstanceId(design.root, objectType.instanceIdPrefix),
-      type: objectType.id,
-      params,
-      attachment: { socketId: request.socketId, u: 0, v: 0, rotationDegrees: 0 },
-      children: [],
-    };
+  const id = nextInstanceId(design.root, objectType.instanceIdPrefix);
+  const propose = (params: Record<string, unknown>, u: number): ChildProposal => {
+    const instance: Instance = { id, type: objectType.id, params, attachment: { socketId: request.socketId, u, v: 0, rotationDegrees: 0 }, children: [] };
     const candidateDesign = { ...design, root: addChildInstance(design.root, request.parentId, instance) };
-    proposal = { instance, violations: findErrorsFor(candidateDesign, domain, instance.id, resolveLabel) };
-    if (proposal.violations.length === 0) return proposal;
+    return { instance, violations: findErrorsFor(candidateDesign, domain, id, resolveLabel) };
+  };
+  const reach = Math.max(...socket.bounds.map((point) => Math.abs(point.x)));
+  const offsets = [0, ...listSearchOffsets(reach)];
+  let centered: ChildProposal | undefined;
+  for (const u of offsets) {
+    for (const params of candidates) {
+      const proposal = propose(params, u);
+      if (proposal.violations.length === 0) return proposal;
+      if (u === 0) centered = proposal;
+    }
   }
-  if (!proposal) throw new Error(`Objekttypen "${objectType.id}" har inga förslag på parametrar.`);
-  return proposal;
+  if (!centered) throw new Error(`Objekttypen "${objectType.id}" har inga förslag på parametrar.`);
+  return centered;
+}
+
+/** Lägen från mitten och utåt, omväxlande åt båda hållen: 10, −10, 20, −20 … */
+function listSearchOffsets(reach: number): number[] {
+  const offsets: number[] = [];
+  for (let distance = SEARCH_STEP_MM; distance <= reach; distance += SEARCH_STEP_MM) offsets.push(distance, -distance);
+  return offsets;
 }
 
 /**
@@ -102,4 +117,46 @@ export function findAllowedOffsetRange(design: Design, domain: Domain, request: 
     return last;
   };
   return { min: reach(-1), max: reach(1) };
+}
+
+export interface ParamRangeRequest {
+  instanceId: string;
+  param: string;
+  current: number;
+  step: number;
+  /** Schemats gränser, som sökningen aldrig går förbi. */
+  min: number;
+  max: number;
+}
+
+/**
+ * Hur långt ett mått kan ändras från sitt nuvarande värde utan att något i
+ * designen bryter mot reglerna, t.ex. att huset inte blir kortare än
+ * tillbyggnaden på dess vägg. Har designen redan fel används schemats
+ * gränser, så att man kan ändra sig ur felet.
+ */
+export function findAllowedParamRange(design: Design, domain: Domain, request: ParamRangeRequest): OffsetRange {
+  const schemaRange = { min: request.min, max: request.max };
+  if (hasAnyError(design, domain)) return schemaRange;
+  const withValue = (value: number): Design => ({
+    ...design,
+    root: updateInstance(design.root, request.instanceId, (instance) => ({ ...instance, params: { ...instance.params, [request.param]: value } })),
+  });
+  const reach = (direction: 1 | -1, limit: number) => {
+    let last = request.current;
+    for (let value = request.current + direction * request.step; direction * (limit - value) >= 0; value += direction * request.step) {
+      if (hasAnyError(withValue(value), domain)) break;
+      last = value;
+    }
+    return last;
+  };
+  return { min: reach(-1, request.min), max: reach(1, request.max) };
+}
+
+function hasAnyError(design: Design, domain: Domain): boolean {
+  try {
+    return evaluateDesign(design, domain, ignoreLabel).violations.some((violation) => violation.level === 'error');
+  } catch {
+    return true;
+  }
 }

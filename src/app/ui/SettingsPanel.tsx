@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { useOpenInstance } from './useOpenInstance';
 import type { RefObject } from 'react';
 import { buildDrawingPages } from '../../core/export/drawingDocument';
 import { PAPER_FORMATS } from '../../core/layout/paper';
@@ -9,7 +10,6 @@ import { downloadDrawingPdf } from '../export/downloadPdf';
 import type { CaptureOverview } from '../three/OverviewCapture';
 import { createDrawingRequest } from '../export/drawingRequest';
 import { useDesignStore } from '../state/designStore';
-import { AddObjectSection } from './AddObjectSection';
 import { InstanceSettings } from './InstanceSettings';
 import { NumberInput } from './ParamForm';
 import { uiStrings } from './strings.sv';
@@ -23,7 +23,7 @@ interface SettingsPanelProps {
 const THICKNESS_FIELD = { kind: 'number', key: 'thickness', meta: { labelKey: 'thickness', unit: 'mm', step: 0.5 }, min: 2, max: 10, defaultValue: 4 } as const;
 
 export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPanelProps) {
-  const { design, paper, setThickness, setPaper, selectSocket } = useDesignStore();
+  const { design, paper, setThickness, setPaper, selectSocket, selectedSocket } = useDesignStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [pdfState, setPdfState] = useState<'idle' | 'working' | 'failed'>('idle');
   const contentId = useId();
@@ -31,6 +31,8 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   const paperId = useId();
   const rootId = design.root.id;
   const canDownload = !error && !hasErrors(evaluation.violations);
+  const instanceEntries = evaluation.placed.filter((entry) => entry.parentId !== undefined);
+  const openInstance = useOpenInstance(instanceEntries.map((entry) => entry.instance.id), selectedSocket);
 
   async function handleDownload() {
     setPdfState('working');
@@ -53,18 +55,16 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
         {isExpanded ? uiStrings.hideSettings : uiStrings.showSettings}
       </button>
       <div className="panel-content" id={contentId}>
-        {/* Överst, så att knappen syns direkt när man har tryckt på en vägg. */}
-        <AddObjectSection placed={evaluation.placed} />
-        {evaluation.placed
-          .filter((entry) => entry.parentId !== undefined)
-          .map((entry) => (
-            <InstanceSettings
-              key={entry.instance.id}
-              entry={entry}
-              isRemovable={entry.parentId !== rootId}
-              violations={evaluation.violations.filter((violation) => violation.instanceId === entry.instance.id)}
-            />
-          ))}
+        {instanceEntries.map((entry) => (
+          <InstanceSettings
+            key={entry.instance.id}
+            entry={entry}
+            isRemovable={entry.parentId !== rootId}
+            isOpen={openInstance.isOpen(entry.instance.id)}
+            onToggle={() => openInstance.toggle(entry.instance.id)}
+            violations={evaluation.violations.filter((violation) => violation.instanceId === entry.instance.id)}
+          />
+        ))}
         <section className="panel-section">
           <h2>{uiStrings.material}</h2>
           <NumberInput id={thicknessId} label={uiStrings.thickness} field={THICKNESS_FIELD} value={design.material.thickness} onChange={setThickness} />

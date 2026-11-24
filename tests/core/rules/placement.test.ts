@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { findInstance } from '../../../src/core/model/instanceTree';
-import { findAllowedOffsetRange, proposeChild, snapAttachmentOffset } from '../../../src/core/rules/placement';
+import { findAllowedOffsetRange, findAllowedParamRange, proposeChild, snapAttachmentOffset } from '../../../src/core/rules/placement';
 import { gingerbreadDomain } from '../../../src/domains/gingerbread';
 import { SECTION_TYPE_ID } from '../../../src/domains/gingerbread/objects/section';
-import { designWithExtensions, extension, HOST_PARAMS } from '../../domains/extensionFixtures';
+import { designWithExtensions, extension, EXTENSION_PARAMS, HOST_PARAMS } from '../../domains/extensionFixtures';
 
 describe('nya objekt i en kopplingspunkt', () => {
   it('snäpper mitt på väggen i största storleken som ryms', () => {
@@ -40,5 +40,18 @@ describe('nya objekt i en kopplingspunkt', () => {
   it('räknar ut hur långt tillbyggnaden kan flyttas', () => {
     const design = designWithExtensions(extension('side-right'));
     expect(findAllowedOffsetRange(design, gingerbreadDomain, { instanceId: 'S2', currentU: 0, maxReachMm: 90 })).toEqual({ min: -50, max: 50 });
+  });
+
+  it('låter inte huset bli kortare eller lägre än tillbyggnaden på dess vägg', () => {
+    const design = designWithExtensions(extension('side-right'));
+    const depth = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'depth', current: 180, step: 5, min: 60, max: 400 });
+    expect(depth).toEqual({ min: 80, max: 400 });
+    const wallHeight = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'wallHeight', current: 100, step: 5, min: 40, max: 300 });
+    expect(wallHeight.min).toBe(100);
+  });
+
+  it('släpper gränserna när designen redan har fel, så att man kan ändra sig ur felet', () => {
+    const design = designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 80 }));
+    expect(findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S2', param: 'wallHeight', current: 80, step: 5, min: 40, max: 300 })).toEqual({ min: 40, max: 300 });
   });
 });
