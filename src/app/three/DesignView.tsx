@@ -17,16 +17,22 @@ interface DesignViewProps {
   captureRef: RefObject<CaptureOverview | null>;
   /** Fylls med en funktion som centrerar huset och anpassar zoomen. */
   fitRef: RefObject<FitView | null>;
+  /** Delen vars kopplingspunkt är vald; den visas i en annan färg. */
+  selectedPartId?: string;
+  /** Anropas när man trycker på en del, eller på tomma ytan (utan id). */
+  onSelectPart: (partId: string | undefined) => void;
 }
 
 export type FitView = () => void;
 
-/** Fatets radie i 3D-vyn. Fatet är bara bakgrund och ingår inte i underlaget. */
-const PLATE_RADIUS_MM = 220;
+/** Fatets minsta radie i 3D-vyn. Fatet är bara bakgrund och ingår inte i underlaget. */
+const MIN_PLATE_RADIUS_MM = 220;
+/** Fatets kant utanför huset, så att tillbyggnader också står på fatet. */
+const PLATE_MARGIN_MM = 40;
 const CAMERA_POSITION_MM: [number, number, number] = [260, 230, 340];
 const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 
-export function DesignView({ parts, color, captureRef, fitRef }: DesignViewProps) {
+export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, onSelectPart }: DesignViewProps) {
   const partsRef = useRef<Group>(null);
   return (
     <Canvas
@@ -36,19 +42,20 @@ export function DesignView({ parts, color, captureRef, fitRef }: DesignViewProps
       camera={{ position: CAMERA_POSITION_MM, fov: 40, near: 1, far: 5000 }}
       // Behövs för att kunna kopiera översiktsbilden till ritningens första sida.
       gl={{ preserveDrawingBuffer: true }}
+      onPointerMissed={() => onSelectPart(undefined)}
     >
       <color attach="background" args={['#f3e9dc']} />
       <hemisphereLight args={['#fff8ee', '#8a7560', 1.2]} />
       <ViewerLight />
       <mesh rotation-x={-Math.PI / 2} position-y={-0.5} receiveShadow>
-        <circleGeometry args={[PLATE_RADIUS_MM, 64]} />
+        <circleGeometry args={[plateRadius(parts), 64]} />
         <meshStandardMaterial color="#fbfbf8" roughness={0.4} />
       </mesh>
       <Bounds margin={1.6}>
         <CameraFitting parts={parts} fitRef={fitRef} />
         <group ref={partsRef}>
           {parts.map((part) => (
-            <PartMesh key={part.id} part={part} color={color} />
+            <PartMesh key={part.id} part={part} color={color} isSelected={part.id === selectedPartId} onSelect={onSelectPart} />
           ))}
         </group>
       </Bounds>
@@ -121,4 +128,13 @@ function ViewerLight() {
       <orthographicCamera attach="shadow-camera" args={[-300, 300, 300, -300, 1, 1500]} />
     </directionalLight>
   );
+}
+
+/** Fatet växer med huset när man bygger till. */
+function plateRadius(parts: Part[]): number {
+  const reach = parts.flatMap((part) => {
+    const m = part.transform;
+    return part.outline.map((point) => Math.hypot((m[0] ?? 0) * point.x + (m[4] ?? 0) * point.y + (m[12] ?? 0), (m[2] ?? 0) * point.x + (m[6] ?? 0) * point.y + (m[14] ?? 0)));
+  });
+  return Math.max(MIN_PLATE_RADIUS_MM, ...reach.map((distance) => distance + PLATE_MARGIN_MM));
 }

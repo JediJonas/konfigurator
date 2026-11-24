@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { ObjectType, Socket } from '../../../core/model/objectType';
 import { vec2, vec3 } from '../../../core/geometry/vector';
+import { GROUND } from '../socketKinds';
 
 export const PLATE_TYPE_ID = 'gb.plate';
 export const GROUND_SOCKET_ID = 'ground';
@@ -18,6 +19,7 @@ export const plateType: ObjectType<z.infer<typeof plateParams>> = {
   id: PLATE_TYPE_ID,
   labelKey: 'object.plate',
   params: plateParams,
+  instanceIdPrefix: 'F',
   attachesTo: [],
   sockets: () => [groundSocket()],
   parts: () => [],
@@ -26,7 +28,8 @@ export const plateType: ObjectType<z.infer<typeof plateParams>> = {
 function groundSocket(): Socket {
   return {
     id: GROUND_SOCKET_ID,
-    kind: 'ground',
+    kind: GROUND,
+    labelKey: 'object.plate',
     frame: { origin: vec3(0, 0, 0), u: vec3(1, 0, 0), normal: vec3(0, 1, 0) },
     bounds: [
       vec2(-PLATE_RADIUS_MM, -PLATE_RADIUS_MM),

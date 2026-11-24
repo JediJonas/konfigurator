@@ -4,7 +4,7 @@ import type { PartGroup } from '../layout/partGroups';
 import type { PaperFormat } from '../layout/paper';
 import { PAGE_MARGIN_MM } from '../layout/paper';
 import { coreStrings } from '../text/strings.sv';
-import type { PageNumbering, ResolveLabel } from './drawingSvg';
+import type { NameGroup, PageNumbering } from './drawingSvg';
 import { renderFooter } from './pageFurniture';
 import { escapeXml, SMALL_TEXT_SIZE_MM, svgDocument, text } from './svgElements';
 
@@ -27,7 +27,7 @@ const IMAGE_MAX_HEIGHT_MM = 90;
 const TABLE_COLUMNS_MM = [0, 12, 70, 90] as const;
 
 /** Första sidan: översiktsbild, dellista och byggordning. */
-export function renderOverviewSvg(content: OverviewContent, paper: PaperFormat, numbering: PageNumbering, resolveLabel: ResolveLabel): string {
+export function renderOverviewSvg(content: OverviewContent, paper: PaperFormat, numbering: PageNumbering, nameGroup: NameGroup): string {
   const left = PAGE_MARGIN_MM;
   const contentWidth = paper.width - 2 * PAGE_MARGIN_MM;
   const parts: string[] = [text({ x: left, y: PAGE_MARGIN_MM + 6 }, content.title, { size: 7, isBold: true })];
@@ -49,7 +49,7 @@ export function renderOverviewSvg(content: OverviewContent, paper: PaperFormat, 
   for (const group of content.groups) {
     y += LINE_HEIGHT_MM;
     const bounds = boundsOf(group.outline);
-    const name = resolveLabel(group.labelKey) + (group.isMirrored ? ` (${coreStrings.mirrored})` : '');
+    const name = nameGroup(group) + (group.isMirrored ? ` (${coreStrings.mirrored})` : '');
     const row = [String(group.number), name, String(group.count), coreStrings.dimensions(boundsWidth(bounds), boundsHeight(bounds))];
     parts.push(renderTableRow(left, y, row, false));
   }

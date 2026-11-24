@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ThreeEvent } from '@react-three/fiber';
 import { Edges } from '@react-three/drei';
 import { ExtrudeGeometry, Matrix4, Path, Shape } from 'three';
 import type { Polygon } from '../../core/geometry/polygon';
@@ -7,15 +8,28 @@ import type { Part } from '../../core/model/part';
 interface PartMeshProps {
   part: Part;
   color: string;
+  isSelected: boolean;
+  onSelect: (partId: string) => void;
 }
 
+/** Färgen på en vald vägg, så att man ser var en tillbyggnad hamnar. */
+const SELECTED_COLOR = '#d9a441';
+/** Rör sig pekaren mer än så här i pixlar är det en vridning av vyn, inte ett tryck. */
+const TAP_MAX_MOVEMENT_PX = 6;
+
 /** Extruderar delens kontur till materialtjockleken. Alla mått kommer från delen. */
-export function PartMesh({ part, color }: PartMeshProps) {
+export function PartMesh({ part, color, isSelected, onSelect }: PartMeshProps) {
   const geometry = useMemo(() => buildGeometry(part), [part]);
   const matrix = useMemo(() => new Matrix4().fromArray([...part.transform]), [part.transform]);
+  function handleClick(event: ThreeEvent<MouseEvent>) {
+    if (event.delta > TAP_MAX_MOVEMENT_PX) return;
+    // Bara den närmaste delen under fingret ska väljas, inte de bakom.
+    event.stopPropagation();
+    onSelect(part.id);
+  }
   return (
-    <mesh geometry={geometry} matrix={matrix} matrixAutoUpdate={false} castShadow receiveShadow>
-      <meshStandardMaterial color={color} roughness={0.85} />
+    <mesh geometry={geometry} matrix={matrix} matrixAutoUpdate={false} castShadow receiveShadow onClick={handleClick}>
+      <meshStandardMaterial color={isSelected ? SELECTED_COLOR : color} roughness={0.85} />
       <Edges color="#5a3313" threshold={20} />
     </mesh>
   );

@@ -1,0 +1,108 @@
+import { overlapArea } from '../geometry/clipping';
+import { convexHull, isPointInPolygon } from '../geometry/hull';
+import type { Polygon } from '../geometry/polygon';
+import { transformPoint } from '../geometry/matrix';
+import type { Vec2 } from '../geometry/vector';
+import { vec3 } from '../geometry/vector';
+import type { Socket } from '../model/objectType';
+import { projectOntoFrame } from '../pipeline/frame';
+import type { PlacedInstance } from '../pipeline/placeInstances';
+import { coreStrings } from '../text/strings.sv';
+import type { AllowedRotationsRule, ParamLimitRule, Rule, RuleViolation } from './rule';
+
+/** Hur långt utanför kopplingspunktens yta en punkt får ligga, för avrundning. */
+const BOUNDS_TOLERANCE_MM = 0.05;
+/** Överlapp under detta räknas som att objekten bara nuddar varandra. */
+const OVERLAP_TOLERANCE_MM2 = 1;
+const FULL_TURN_DEGREES = 360;
+
+type ResolveLabel = (key: string) => string;
+
+/**
+ * Prövar designen mot domänens regler. Samma kontroll används för att visa
+ * fel i panelen, gråa ut val och stoppa ritningen när huset inte går att bygga.
+ */
+export function validateDesign(placed: readonly PlacedInstance[], rules: readonly Rule[], resolveLabel: ResolveLabel): RuleViolation[] {
+  const violations = placed.flatMap((entry) => checkAttachesTo(entry));
+  for (const rule of rules) {
+    const matching = placed.filter((entry) => entry.instance.type === rule.objectType);
+    const failing = findFailingInstances(rule, matching);
+    violations.push(...failing.map((instanceId) => ({ level: rule.level, instanceId, message: resolveLabel(rule.messageKey) })));
+  }
+  return violations;
+}
+
+export function hasErrors(violations: readonly RuleViolation[]): boolean {
+  return violations.some((violation) => violation.level === 'error');
+}
+
+function checkAttachesTo(entry: PlacedInstance): RuleViolation[] {
+  const socket = entry.socket;
+  if (!socket || entry.objectType.attachesTo.includes(socket.kind)) return [];
+  return [{ level: 'error', instanceId: entry.instance.id, message: coreStrings.cannotAttachHere }];
+}
+
+function findFailingInstances(rule: Rule, entries: PlacedInstance[]): string[] {
+  switch (rule.kind) {
+    case 'allowedRotations':
+      return entries.filter((entry) => !hasAllowedRotation(rule, entry)).map((entry) => entry.instance.id);
+    case 'withinSocketBounds':
+      return entries.filter((entry) => entry.socket && !isWithinSocket(entry, entry.socket)).map((entry) => entry.instance.id);
+    case 'noOverlap':
+      return findOverlapping(entries);
+    case 'paramLimit':
+      return entries.filter((entry) => exceedsLimit(rule, entry)).map((entry) => entry.instance.id);
+  }
+}
+
+function hasAllowedRotation(rule: AllowedRotationsRule, entry: PlacedInstance): boolean {
+  const attachment = entry.instance.attachment;
+  if (!attachment || entry.socket?.kind !== rule.socketKind) return true;
+  const rotation = ((attachment.rotationDegrees % FULL_TURN_DEGREES) + FULL_TURN_DEGREES) % FULL_TURN_DEGREES;
+  return rule.degrees.includes(rotation);
+}
+
+function exceedsLimit(rule: ParamLimitRule, entry: PlacedInstance): boolean {
+  const value = entry.params[rule.param];
+  return typeof value === 'number' && value > rule.max;
+}
+
+/** Ytan objektets delar tar i kopplingspunktens plan, som konvext hölje. */
+export function silhouetteInSocket(entry: PlacedInstance, socket: Socket): Vec2[] {
+  const points = entry.parts.flatMap((part) =>
+    [0, part.thickness].flatMap((z) => part.outline.map((point) => projectOntoFrame(socket.frame, transformPoint(part.transform, vec3(point.x, point.y, z))))),
+  );
+  return convexHull(points);
+}
+
+function isWithinSocket(entry: PlacedInstance, socket: Socket): boolean {
+  // Ytan i kopplingspunkterna är konvex, så det räcker att höljets hörn ligger i den.
+  return silhouetteInSocket(entry, socket).every((point) => isPointInPolygon(point, socket.bounds, BOUNDS_TOLERANCE_MM));
+}
+
+/** Objektets yta på marken i världen, med x och z som planets koordinater. */
+export function footprintInWorld(entry: PlacedInstance): Polygon | undefined {
+  const footprint = entry.objectType.footprint?.(entry.params, entry.context);
+  return footprint?.map((point) => {
+    const world = transformPoint(entry.matrix, vec3(point.x, 0, point.y));
+    return { x: world.x, y: world.z };
+  });
+}
+
+/** Det senare av två överlappande objekt får felet, eftersom det är det som lades till sist. */
+function findOverlapping(entries: PlacedInstance[]): string[] {
+  const footprints = entries.map(footprintInWorld);
+  return entries
+    .filter((_, index) => {
+      const own = footprints[index];
+      return (
+        own !== undefined &&
+        footprints.slice(0, index).some((other, otherIndex) => {
+          // En tillbyggnad möter sin värd med flit; där gäller kopplingspunktens yta i stället.
+          const isJoinedToOther = entries[otherIndex]?.instance.id === entries[index]?.parentId;
+          return other !== undefined && !isJoinedToOther && overlapArea(own, other) > OVERLAP_TOLERANCE_MM2;
+        })
+      );
+    })
+    .map((entry) => entry.instance.id);
+}

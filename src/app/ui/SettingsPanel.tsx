@@ -3,37 +3,42 @@ import type { RefObject } from 'react';
 import { buildDrawingPages } from '../../core/export/drawingDocument';
 import { PAPER_FORMATS } from '../../core/layout/paper';
 import type { PaperFormat } from '../../core/layout/paper';
-import type { Part } from '../../core/model/part';
-import { describeParams } from '../../core/model/paramForm';
-import { findObjectType } from '../../core/pipeline/buildParts';
-import { activeDomain, translate } from '../activeDomain';
+import type { DesignEvaluation } from '../../core/rules/evaluateDesign';
+import { hasErrors } from '../../core/rules/validateDesign';
 import { downloadDrawingPdf } from '../export/downloadPdf';
 import type { CaptureOverview } from '../three/OverviewCapture';
 import { createDrawingRequest } from '../export/drawingRequest';
-import { listInstances, useDesignStore } from '../state/designStore';
-import { NumberInput, ParamForm } from './ParamForm';
+import { useDesignStore } from '../state/designStore';
+import { AddObjectSection } from './AddObjectSection';
+import { InstanceSettings } from './InstanceSettings';
+import { NumberInput } from './ParamForm';
 import { uiStrings } from './strings.sv';
 
 interface SettingsPanelProps {
-  parts: Part[];
+  evaluation: DesignEvaluation;
   error?: string;
   captureOverview: RefObject<CaptureOverview | null>;
 }
 
 const THICKNESS_FIELD = { kind: 'number', key: 'thickness', meta: { labelKey: 'thickness', unit: 'mm', step: 0.5 }, min: 2, max: 10, defaultValue: 4 } as const;
 
-export function SettingsPanel({ parts, error, captureOverview }: SettingsPanelProps) {
-  const { design, paper, setParam, setThickness, setPaper } = useDesignStore();
+export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPanelProps) {
+  const { design, paper, setThickness, setPaper, selectSocket } = useDesignStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [pdfState, setPdfState] = useState<'idle' | 'working' | 'failed'>('idle');
   const contentId = useId();
   const thicknessId = useId();
   const paperId = useId();
+  const rootId = design.root.id;
+  const canDownload = !error && !hasErrors(evaluation.violations);
 
   async function handleDownload() {
     setPdfState('working');
     try {
-      const request = createDrawingRequest({ design, parts, paper: PAPER_FORMATS[paper], overviewImage: captureOverview.current?.() });
+      // Den valda väggen visas i en annan färg och ska inte synas i ritningens översiktsbild.
+      selectSocket(undefined);
+      await waitForRedraw();
+      const request = createDrawingRequest({ design, parts: evaluation.parts, paper: PAPER_FORMATS[paper], overviewImage: captureOverview.current?.() });
       await downloadDrawingPdf(buildDrawingPages(request), PAPER_FORMATS[paper], uiStrings.pdfFileName);
       setPdfState('idle');
     } catch (pdfError) {
@@ -48,17 +53,18 @@ export function SettingsPanel({ parts, error, captureOverview }: SettingsPanelPr
         {isExpanded ? uiStrings.hideSettings : uiStrings.showSettings}
       </button>
       <div className="panel-content" id={contentId}>
-        {listInstances(design.root).map((instance) => {
-          const objectType = findObjectType(activeDomain, instance.type);
-          return (
-            <section key={instance.id} className="panel-section">
-              <h2>
-                {translate(objectType.labelKey)} <span className="instance-id">{instance.id}</span>
-              </h2>
-              <ParamForm fields={describeParams(objectType.params)} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} />
-            </section>
-          );
-        })}
+        {/* Överst, så att knappen syns direkt när man har tryckt på en vägg. */}
+        <AddObjectSection placed={evaluation.placed} />
+        {evaluation.placed
+          .filter((entry) => entry.parentId !== undefined)
+          .map((entry) => (
+            <InstanceSettings
+              key={entry.instance.id}
+              entry={entry}
+              isRemovable={entry.parentId !== rootId}
+              violations={evaluation.violations.filter((violation) => violation.instanceId === entry.instance.id)}
+            />
+          ))}
         <section className="panel-section">
           <h2>{uiStrings.material}</h2>
           <NumberInput id={thicknessId} label={uiStrings.thickness} field={THICKNESS_FIELD} value={design.material.thickness} onChange={setThickness} />
@@ -80,9 +86,10 @@ export function SettingsPanel({ parts, error, captureOverview }: SettingsPanelPr
             ))}
           </select>
         </div>
-        <button type="button" className="primary-button" onClick={handleDownload} disabled={pdfState === 'working' || Boolean(error)}>
+        <button type="button" className="primary-button" onClick={handleDownload} disabled={pdfState === 'working' || !canDownload}>
           {pdfState === 'working' ? uiStrings.creatingPdf : uiStrings.downloadPdf}
         </button>
+        {canDownload ? null : <p className="field-hint">{uiStrings.fixErrorsFirst}</p>}
         {pdfState === 'failed' ? (
           <p className="field-error" role="alert">
             {uiStrings.pdfFailed}
@@ -91,4 +98,9 @@ export function SettingsPanel({ parts, error, captureOverview }: SettingsPanelPr
       </div>
     </aside>
   );
+}
+
+/** Väntar tills React och 3D-vyn har ritat om efter en ändring i tillståndet. */
+function waitForRedraw(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 }
