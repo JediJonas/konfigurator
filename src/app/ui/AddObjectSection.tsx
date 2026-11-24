@@ -72,7 +72,7 @@ export function AddObjectSection({ placed }: AddObjectSectionProps) {
             </button>
             {canAdd ? null : (
               <p className="field-hint" id={reasonId}>
-                {uiStrings.cannotAdd} {proposal.violations.map((violation) => violation.message).join(' ')}
+                {uiStrings.cannotAdd}
               </p>
             )}
           </div>

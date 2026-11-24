@@ -12,7 +12,7 @@ export const uiStrings = {
   addTitle: 'Bygg till',
   addHint: 'Tryck på en vägg i 3D-vyn eller välj den här.',
   addObject: (label: string) => `Lägg till ${label.toLowerCase()}`,
-  cannotAdd: 'Går inte här:',
+  cannotAdd: 'Det finns ingen plats här, inte ens för den minsta storleken. Välj en annan vägg eller gör väggen större.',
   attachedTo: (place: string) => `Sitter på ${place}`,
   socketName: (instanceId: string, socket: string) => `${instanceId} · ${socket.toLowerCase()}`,
   offsetAlongSocket: 'Läge längs väggen (0 = mitten)',

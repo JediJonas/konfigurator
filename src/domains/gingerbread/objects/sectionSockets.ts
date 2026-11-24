@@ -149,7 +149,8 @@ const EXTENSION_MAX_WALL_SHARE = 0.6;
 export function listExtensionCandidates(socket: Socket): Record<string, unknown>[] {
   const wallLength = Math.max(...socket.bounds.map((point) => point.x)) - Math.min(...socket.bounds.map((point) => point.x));
   const roomyWidths = EXTENSION_WIDTHS_MM.filter((width) => width <= wallLength * EXTENSION_MAX_WALL_SHARE);
-  const widths = roomyWidths.length > 0 ? roomyWidths : EXTENSION_WIDTHS_MM;
+  // På en kort vägg prövas bara den minsta, så att den ändå går att flytta lite.
+  const widths = roomyWidths.length > 0 ? roomyWidths : EXTENSION_WIDTHS_MM.slice(-1);
   return widths.flatMap((width) =>
     EXTENSION_WALL_HEIGHTS_MM.map((wallHeight) => ({
       width,
