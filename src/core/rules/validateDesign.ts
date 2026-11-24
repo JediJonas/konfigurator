@@ -67,12 +67,13 @@ function exceedsLimit(rule: ParamLimitRule, entry: PlacedInstance): boolean {
   return typeof value === 'number' && value > rule.max;
 }
 
-/** Ytan objektets delar tar i kopplingspunktens plan, som konvext hölje. */
+/** Ytan objektet tar i kopplingspunktens plan, som konvext hölje. */
 export function silhouetteInSocket(entry: PlacedInstance, socket: Socket): Vec2[] {
-  const points = entry.parts.flatMap((part) =>
-    [0, part.thickness].flatMap((z) => part.outline.map((point) => projectOntoFrame(socket.frame, transformPoint(part.transform, vec3(point.x, point.y, z))))),
-  );
-  return convexHull(points);
+  const outline = entry.objectType.socketOutline?.(entry.params, entry.context);
+  const worldPoints = outline
+    ? outline.map((point) => transformPoint(entry.matrix, point))
+    : entry.parts.flatMap((part) => [0, part.thickness].flatMap((z) => part.outline.map((point) => transformPoint(part.transform, vec3(point.x, point.y, z)))));
+  return convexHull(worldPoints.map((point) => projectOntoFrame(socket.frame, point)));
 }
 
 function isWithinSocket(entry: PlacedInstance, socket: Socket): boolean {

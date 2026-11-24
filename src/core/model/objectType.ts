@@ -58,6 +58,11 @@ export interface ObjectType<P = Record<string, unknown>> {
    * y → normal, z → u × normal). Saknas den sitter objektets origo i punkten utan vridning.
    */
   mountMatrix?(params: P, context: BuildContext): Matrix4;
+  /**
+   * Det av objektet som måste rymmas inom kopplingspunktens yta, som punkter i
+   * eget koordinatsystem. Saknas den används hela objektets delar.
+   */
+  socketOutline?(params: P, context: BuildContext): Vec3[];
   /** Ytan objektet tar på marken, i eget x och z. Används för att objekt inte ska gå in i varandra. */
   footprint?(params: P, context: BuildContext): Polygon;
   /**

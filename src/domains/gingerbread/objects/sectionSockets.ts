@@ -11,11 +11,6 @@ import { crossSectionOutline, eaveEdge, isExtension, roofEnds, roofUndersideHeig
 import type { SectionParams } from './sectionParams';
 
 /**
- * Minst så mycket vägg ska finnas kvar vid sidan av en öppning, SPEC.md
- * avsnitt 5 (minClearance). Annars blir remsan för skör att baka och bära.
- */
-export const MIN_WALL_STRIP_MM = 15;
-/**
  * Öppningen går en bit under golvet, så att den skär rent genom väggens
  * nederkant i stället för att lämna en kant som bara nuddar.
  */
@@ -71,16 +66,20 @@ export function buildSectionSockets(instance: Instance, params: SectionParams, c
   }));
 }
 
-/** Under takfotens nederkant, och en remsa från gavlarna i båda ändar. */
+/**
+ * Ända ut till husets hörn (ägarens önskan) och under takfotens nederkant.
+ * Väggen kvar vid öppningen är minst `OPENING_INSET_MM`, eftersom öppningen
+ * är så mycket mindre än tillbyggnadens insida.
+ */
 function sideWallBounds(params: SectionParams): Vec2[] {
-  const halfLength = params.depth / 2 - MIN_WALL_STRIP_MM;
+  const halfLength = params.depth / 2;
   const top = eaveEdge(params).y;
   return [vec2(-halfLength, 0), vec2(halfLength, 0), vec2(halfLength, top), vec2(-halfLength, top)];
 }
 
-/** Under takets undersida, och en remsa från långväggarna på båda sidor. */
+/** Ända ut till husets hörn och under takets undersida. */
 function gableWallBounds(params: SectionParams): Vec2[] {
-  const halfWidth = params.width / 2 - MIN_WALL_STRIP_MM;
+  const halfWidth = params.width / 2;
   const sideTop = roofUndersideHeight(params, halfWidth);
   return [vec2(-halfWidth, 0), vec2(halfWidth, 0), vec2(halfWidth, sideTop), vec2(0, roofUndersideHeight(params, 0)), vec2(-halfWidth, sideTop)];
 }
@@ -109,6 +108,30 @@ export function buildOpening(params: SectionParams, context: BuildContext): Modi
   return [{ kind: 'removeRegion', targetPartId, region }];
 }
 
+/**
+ * Det som ska rymmas i värdens kopplingspunkt. Som tillbyggnad: väggarna och
+ * takets ovansida sett mot väggen, utan takutsprången, som får gå förbi hörnet
+ * så länge de ligger under värdens tak. På fatet: golvytan med takutsprången.
+ */
+export function sectionSocketOutline(params: SectionParams, context: BuildContext): Vec3[] {
+  if (!isExtension(context)) return sectionFootprint(params, context).map((point) => vec3(point.x, 0, point.y));
+  const pitch = degreesToRadians(params.roofPitch);
+  const halfWidth = params.width / 2;
+  const backZ = -params.depth / 2;
+  // Takets ovansida: rak linje över väggarna, och nocken där takhalvornas övre hörn slutar (skåran fylls med glasyr).
+  const eaveTop = params.wallHeight + context.thickness / Math.cos(pitch);
+  const ridgeTop = roofUndersideHeight(params, 0) + context.thickness * Math.cos(pitch);
+  const ridgeHalf = context.thickness * Math.sin(pitch);
+  return [
+    vec3(-halfWidth, 0, backZ),
+    vec3(halfWidth, 0, backZ),
+    vec3(halfWidth, eaveTop, backZ),
+    vec3(ridgeHalf, ridgeTop, backZ),
+    vec3(-ridgeHalf, ridgeTop, backZ),
+    vec3(-halfWidth, eaveTop, backZ),
+  ];
+}
+
 /** Golvytan med takutsprången, så att två sektioners tak inte går in i varandra. */
 export function sectionFootprint(params: SectionParams, context: BuildContext): Polygon {
   const pitch = degreesToRadians(params.roofPitch);
@@ -117,8 +140,17 @@ export function sectionFootprint(params: SectionParams, context: BuildContext): 
   return [vec2(-halfWidth, ends.back), vec2(halfWidth, ends.back), vec2(halfWidth, ends.front), vec2(-halfWidth, ends.front)];
 }
 
-export function listExtensionCandidates(): Record<string, unknown>[] {
-  return EXTENSION_WIDTHS_MM.flatMap((width) =>
+/**
+ * Förslagen till en ny tillbyggnad tar högst så stor del av väggen, så att
+ * det finns plats att flytta den längs väggen efteråt.
+ */
+const EXTENSION_MAX_WALL_SHARE = 0.6;
+
+export function listExtensionCandidates(socket: Socket): Record<string, unknown>[] {
+  const wallLength = Math.max(...socket.bounds.map((point) => point.x)) - Math.min(...socket.bounds.map((point) => point.x));
+  const roomyWidths = EXTENSION_WIDTHS_MM.filter((width) => width <= wallLength * EXTENSION_MAX_WALL_SHARE);
+  const widths = roomyWidths.length > 0 ? roomyWidths : EXTENSION_WIDTHS_MM;
+  return widths.flatMap((width) =>
     EXTENSION_WALL_HEIGHTS_MM.map((wallHeight) => ({
       width,
       depth: EXTENSION_DEPTH_MM,
