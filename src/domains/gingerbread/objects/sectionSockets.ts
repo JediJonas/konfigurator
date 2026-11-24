@@ -9,7 +9,6 @@ import type { BuildContext, Socket } from '../../../core/model/objectType';
 import { WALL_SURFACE } from '../socketKinds';
 import { crossSectionOutline, eaveEdge, isExtension, roofEnds, roofUndersideHeight } from './sectionGeometry';
 import type { SectionParams } from './sectionParams';
-import { sectionParams } from './sectionParams';
 
 /**
  * Öppningen går en bit under golvet, så att den skär rent genom väggens
@@ -28,10 +27,6 @@ export const OPENING_INSET_MM = 10;
  */
 export const WALL_EDGE_MARGIN_MM = 10;
 
-/** Djup och tak för en ny tillbyggnad. Bredd och vägghöjd räknas från väggen den sitter på. */
-const EXTENSION_DEPTH_MM = 80;
-const EXTENSION_OVERHANG_MM = 8;
-const EXTENSION_PITCH_DEGREES = 45;
 
 interface WallSocketSpec {
   id: string;
@@ -143,76 +138,4 @@ export function sectionFootprint(params: SectionParams, context: BuildContext): 
   const halfWidth: Mm = eaveEdge(params).x + context.thickness * Math.sin(pitch);
   const ends = roofEnds(params, context);
   return [vec2(-halfWidth, ends.back), vec2(halfWidth, ends.back), vec2(halfWidth, ends.front), vec2(-halfWidth, ends.front)];
-}
-
-/**
- * Förslagen till en ny tillbyggnad tar högst så stor del av väggen, så att
- * det finns plats att flytta den längs väggen efteråt.
- */
-const EXTENSION_MAX_WALL_SHARE = 0.6;
-/** Steget mellan storlekarna som prövas. */
-const EXTENSION_SIZE_STEP_MM = 20;
-/** Vägghöjden prövas i samma steg som fältet för vägghöjd. */
-const WALL_HEIGHT_SEARCH_STEP_MM = sectionParams.shape.wallHeight.meta()?.step as number;
-const WIDTH_FIELD_STEP_MM = sectionParams.shape.width.meta()?.step as number;
-/** Förslagen avrundas nedåt till jämna centimeter. */
-const EXTENSION_ROUNDING_MM = 10;
-/** Schemats minsta bredd och vägghöjd för en sektion. */
-const SECTION_MIN_WIDTH_MM = sectionParams.shape.width.unwrap().minValue ?? 0;
-const SECTION_MIN_WALL_HEIGHT_MM = sectionParams.shape.wallHeight.unwrap().minValue ?? 0;
-
-/**
- * Storlekar att pröva, största först. Kopplingspunkten ligger redan
- * `WALL_EDGE_MARGIN_MM` innanför väggens kanter, så förslaget blir smalare
- * och lägre än väggen och en rad tillbyggnader på varandras gavlar trappas
- * ner. Ryms inte den minsta storleken finns inga förslag.
- */
-export function listExtensionCandidates(socket: Socket): Record<string, unknown>[] {
-  const xs = socket.bounds.map((point) => point.x);
-  const usableLength = Math.max(...xs) - Math.min(...xs);
-  const wallLength = usableLength + 2 * WALL_EDGE_MARGIN_MM;
-  const widths = listSizesDown(Math.min(wallLength * EXTENSION_MAX_WALL_SHARE, usableLength), SECTION_MIN_WIDTH_MM);
-  // På en kort vägg blir den så bred som marginalen till hörnen tillåter, om det är minst den minsta bredden.
-  const widestFitting = Math.floor(usableLength / WIDTH_FIELD_STEP_MM) * WIDTH_FIELD_STEP_MM;
-  const fittingWidths = widths.length > 0 || widestFitting < SECTION_MIN_WIDTH_MM ? widths : [widestFitting];
-  // Väggarna föreslås lika stor del av väggens höjd i hörnet som bredden tar av längden (ägarens val), så att
-  // raden på gavlarna trappas ner. Är det lägre än minsta höjden börjar förslaget med marginalen under väggens höjd.
-  // Ryms inte taket prövas höjderna i fältets steg, så att taket hamnar så nära marginalen som går.
-  const cornerHeight = measureCornerHeight(socket);
-  const shareHeight = cornerHeight * EXTENSION_MAX_WALL_SHARE;
-  const highestWall = shareHeight >= SECTION_MIN_WALL_HEIGHT_MM ? shareHeight : cornerHeight - WALL_EDGE_MARGIN_MM;
-  const wallHeights = listSizesDown(highestWall, SECTION_MIN_WALL_HEIGHT_MM, WALL_HEIGHT_SEARCH_STEP_MM);
-  return fittingWidths.flatMap((width) =>
-    wallHeights.map((wallHeight) => ({
-      width,
-      depth: EXTENSION_DEPTH_MM,
-      wallHeight,
-      roofPitch: EXTENSION_PITCH_DEGREES,
-      eaveOverhang: EXTENSION_OVERHANG_MM,
-      gableOverhang: EXTENSION_OVERHANG_MM,
-    })),
-  );
-}
-
-/**
- * Väggens höjd i hörnet, utan marginalen: gavelns långväggshöjd eller
- * långväggens takfot. Kopplingspunktens överkant förlängs ut till hörnet,
- * eftersom den på en gavel stiger mot nocken.
- */
-function measureCornerHeight(socket: Socket): Mm {
-  const halfLength = Math.max(...socket.bounds.map((point) => point.x));
-  const corner = socket.bounds.find((point) => point.x === halfLength && point.y > 0);
-  const top = socket.bounds.reduce((highest, point) => (point.y > highest.y ? point : highest));
-  if (!corner) return 0;
-  const slope = halfLength === top.x ? 0 : (top.y - corner.y) / (top.x - halfLength);
-  return corner.y + slope * WALL_EDGE_MARGIN_MM + WALL_EDGE_MARGIN_MM;
-}
-
-/** Från `largest` avrundat nedåt till ett helt `step`, i steg om `step`, och sist `smallest`, som ofta är den som ryms. */
-function listSizesDown(largest: Mm, smallest: Mm, step: Mm = EXTENSION_SIZE_STEP_MM): Mm[] {
-  const sizes: Mm[] = [];
-  const rounding = Math.min(step, EXTENSION_ROUNDING_MM);
-  for (let size = Math.floor(largest / rounding) * rounding; size > smallest; size -= step) sizes.push(size);
-  if (largest >= smallest) sizes.push(smallest);
-  return sizes;
 }
