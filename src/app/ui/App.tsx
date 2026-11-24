@@ -41,9 +41,8 @@ export function App() {
   return (
     <div className="app">
       <header className="toolbar">
-        <h1>
-          {uiStrings.appName} <span className="toolbar-domain">· {translate('domain.name')}</span>
-        </h1>
+        <h1>{uiStrings.appName}</h1>
+        <span className="toolbar-domain">· {translate('domain.name')}</span>
       </header>
       <main className="workspace">
         <section className="viewport" aria-label={uiStrings.viewLabel}>

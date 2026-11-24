@@ -81,6 +81,8 @@ body {
 }
 
 .toolbar-domain {
+  margin-left: 0.375rem;
+  font-size: 1.125rem;
   font-weight: normal;
   color: var(--color-muted);
 }

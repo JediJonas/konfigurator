@@ -1,6 +1,6 @@
 /** Gränssnittets egna texter. Objekt, parametrar och delar får sina texter från domänpaketet. */
 export const uiStrings = {
-  appName: 'Konfiguratorn',
+  appName: 'Konfigurator',
   viewLabel: '3D-vy av huset',
   viewHint: 'Dra för att vrida, nyp eller scrolla för att zooma.',
   fitView: 'Centrera',
