@@ -118,7 +118,9 @@ describe('tornspira', () => {
     const parts = partsFor({ roof: 'spire4', spirePitch: 70 });
     const roof = parts.filter(isRoofPart);
     expect(roof).toHaveLength(4);
-    const apex = BASE.wallHeight + (BASE.width / 2) * Math.tan(degreesToRadians(70));
+    // Spirfallen står in så mycket som deras ovansida sticker ut förbi undersidan.
+    const lip = THICKNESS * Math.sin(degreesToRadians(70));
+    const apex = BASE.wallHeight + (BASE.width / 2 - lip) * Math.tan(degreesToRadians(70));
     for (const part of roof) {
       expect(part.outline).toHaveLength(3);
       expect(Math.max(...worldCorners(part).map((corner) => corner.y))).toBeCloseTo(apex);
@@ -135,6 +137,17 @@ describe('tornspira', () => {
     const areas = faces.map((face) => signedArea(face.outline));
     for (const area of areas) expect(area).toBeCloseTo(areas[0] ?? 0, 3);
     for (const face of faces) expect(Math.min(...worldCorners(face).map((corner) => corner.y))).toBeCloseTo(BASE.wallHeight + THICKNESS);
+  });
+
+  it.each(['spire4', 'spire8'])('%s sticker inte ut förbi väggarna när takutsprånget är 0 mm', (roof) => {
+    const parts = partsFor({ roof, eaveOverhang: 0, spirePitch: 70 });
+    const corners = parts.filter(isRoofPart).flatMap(allCorners);
+    expect(Math.max(...corners.map((corner) => Math.abs(corner.x)))).toBeCloseTo(BASE.width / 2, 1);
+    expect(Math.max(...corners.map((corner) => Math.abs(corner.z)))).toBeCloseTo(BASE.depth / 2, 0);
+    expect(Math.max(...corners.map((corner) => Math.abs(corner.z)))).toBeLessThanOrEqual(BASE.depth / 2 + 0.1);
+    // Väggarna har full höjd och spiran vilar på dem utan glipa.
+    expect(topOf(parts, 'S1/side-right')).toBeCloseTo(BASE.wallHeight);
+    expect(Math.min(...parts.filter(isRoofPart).flatMap((part) => worldCorners(part)).map((corner) => corner.y))).toBeCloseTo(BASE.wallHeight);
   });
 
   it('låter gavlarna gå ut på ett kvadratiskt torn, så att bara ett par väggar går ut', () => {
