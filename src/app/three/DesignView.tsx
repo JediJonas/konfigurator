@@ -11,6 +11,8 @@ import { cameraPositionOutsideParts, prepareClearanceParts } from './cameraClear
 import type { ClearancePart } from './cameraClearance';
 import type { CaptureOverview } from './OverviewCapture';
 import { OverviewCapture, VIEWER_LIGHT_NAME } from './OverviewCapture';
+import { measurePartsExtent, plateRadius, SHADOW_FLOOR_RADIUS_MM, shadowCameraBox } from './viewerFloor';
+import type { ShadowCameraBox } from './viewerFloor';
 
 interface DesignViewProps {
   parts: Part[];
@@ -27,10 +29,10 @@ interface DesignViewProps {
 
 export type FitView = () => void;
 
-/** Fatets minsta radie i 3D-vyn. Fatet är bara bakgrund och ingår inte i underlaget. */
-const MIN_PLATE_RADIUS_MM = 220;
-/** Fatets kant utanför huset, så att tillbyggnader också står på fatet. */
-const PLATE_MARGIN_MM = 40;
+/** Skuggans upplösning; rutan växer med skuggan så den behöver fler punkter än förr. */
+const SHADOW_MAP_SIZE_PX = 2048;
+/** Hur mörk skuggan är på bordet utanför fatet. */
+const FLOOR_SHADOW_OPACITY = 0.28;
 const CAMERA_POSITION_MM: [number, number, number] = [260, 230, 340];
 const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 /** Närmaste avstånd till vyns mittpunkt. Husets egna väggar och tak stoppar zoomen långt innan dess. */
@@ -38,6 +40,8 @@ const MIN_ORBIT_DISTANCE_MM = 20;
 
 export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, onSelectPart }: DesignViewProps) {
   const partsRef = useRef<Group>(null);
+  const extent = useMemo(() => measurePartsExtent(parts), [parts]);
+  const shadowBox = useMemo(() => shadowCameraBox(extent), [extent]);
   return (
     <Canvas
       // Ritar bara om när något ändras, vilket sparar batteri i mobilen.
@@ -50,10 +54,15 @@ export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, o
     >
       <color attach="background" args={['#f3e9dc']} />
       <hemisphereLight args={['#fff8ee', '#8a7560', 1.2]} />
-      <ViewerLight />
+      <ViewerLight shadowBox={shadowBox} />
       <mesh rotation-x={-Math.PI / 2} position-y={-0.5} receiveShadow>
-        <circleGeometry args={[plateRadius(parts), 64]} />
+        <circleGeometry args={[plateRadius(extent), 64]} />
         <meshStandardMaterial color="#fbfbf8" roughness={0.4} />
+      </mesh>
+      {/* Osynligt bord under fatet som bara visar skuggan, så att den kan falla utanför fatet. */}
+      <mesh rotation-x={-Math.PI / 2} position-y={-1} receiveShadow>
+        <circleGeometry args={[SHADOW_FLOOR_RADIUS_MM, 64]} />
+        <shadowMaterial opacity={FLOOR_SHADOW_OPACITY} />
       </mesh>
       <Bounds margin={1.6}>
         <CameraFitting parts={parts} fitRef={fitRef} />
@@ -139,7 +148,7 @@ function moveCameraOutside(camera: Camera, target: Vector3, parts: ClearancePart
 }
 
 /** Riktat ljus med skugga som följer betraktaren, så att skuggan flyttar sig när man vrider fatet. */
-function ViewerLight() {
+function ViewerLight({ shadowBox }: { shadowBox: ShadowCameraBox }) {
   const lightRef = useRef<DirectionalLight>(null);
   const controls = useThree((state) => state.controls) as unknown as { target: Vector3 } | null;
   const scene = useThree((state) => state.scene);
@@ -165,17 +174,13 @@ function ViewerLight() {
   });
 
   return (
-    <directionalLight ref={lightRef} name={VIEWER_LIGHT_NAME} intensity={1.8} castShadow shadow-mapSize={[1024, 1024]}>
-      <orthographicCamera attach="shadow-camera" args={[-300, 300, 300, -300, 1, 1500]} />
+    <directionalLight ref={lightRef} name={VIEWER_LIGHT_NAME} intensity={1.8} castShadow shadow-mapSize={[SHADOW_MAP_SIZE_PX, SHADOW_MAP_SIZE_PX]}>
+      <orthographicCamera
+        // Ny kamera när rutan ändras, så att skuggan räknas om med de nya gränserna.
+        key={`${shadowBox.halfSizeMm}-${shadowBox.farMm}`}
+        attach="shadow-camera"
+        args={[-shadowBox.halfSizeMm, shadowBox.halfSizeMm, shadowBox.halfSizeMm, -shadowBox.halfSizeMm, 1, shadowBox.farMm]}
+      />
     </directionalLight>
   );
-}
-
-/** Fatet växer med huset när man bygger till. */
-function plateRadius(parts: Part[]): number {
-  const reach = parts.flatMap((part) => {
-    const m = part.transform;
-    return part.outline.map((point) => Math.hypot((m[0] ?? 0) * point.x + (m[4] ?? 0) * point.y + (m[12] ?? 0), (m[2] ?? 0) * point.x + (m[6] ?? 0) * point.y + (m[14] ?? 0)));
-  });
-  return Math.max(MIN_PLATE_RADIUS_MM, ...reach.map((distance) => distance + PLATE_MARGIN_MM));
 }
