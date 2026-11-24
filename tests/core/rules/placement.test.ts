@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findInstance } from '../../../src/core/model/instanceTree';
-import { proposeChild, snapAttachmentOffset } from '../../../src/core/rules/placement';
+import { findAllowedOffsetRange, proposeChild, snapAttachmentOffset } from '../../../src/core/rules/placement';
 import { gingerbreadDomain } from '../../../src/domains/gingerbread';
 import { SECTION_TYPE_ID } from '../../../src/domains/gingerbread/objects/section';
 import { designWithExtensions, extension, HOST_PARAMS } from '../../domains/extensionFixtures';
@@ -32,8 +32,13 @@ describe('nya objekt i en kopplingspunkt', () => {
   it('snäpper läget längs väggen till 5 mm och stannar där tillbyggnaden ryms', () => {
     const design = designWithExtensions(extension('side-right'));
     expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', 23).root, 'S2')?.attachment?.u).toBe(25);
-    // Väggen är 180 mm, tillbyggnaden med takfot cirka 100 mm och 15 mm ska vara kvar i varje ände.
-    expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', 200).root, 'S2')?.attachment?.u).toBe(25);
-    expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', -200).root, 'S2')?.attachment?.u).toBe(-25);
+    // Väggen är 180 mm och tillbyggnaden 80 mm, så väggarna når husets hörn vid ±50 mm.
+    expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', 200).root, 'S2')?.attachment?.u).toBe(50);
+    expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', -200).root, 'S2')?.attachment?.u).toBe(-50);
+  });
+
+  it('räknar ut hur långt tillbyggnaden kan flyttas', () => {
+    const design = designWithExtensions(extension('side-right'));
+    expect(findAllowedOffsetRange(design, gingerbreadDomain, { instanceId: 'S2', currentU: 0, maxReachMm: 90 })).toEqual({ min: -50, max: 50 });
   });
 });

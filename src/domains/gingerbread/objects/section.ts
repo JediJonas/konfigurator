@@ -6,7 +6,7 @@ import type { Part } from '../../../core/model/part';
 import { BUILD_STEP } from '../buildOrder';
 import { GROUND, WALL_SURFACE } from '../socketKinds';
 import { crossSectionOutline, eaveEdge, isExtension, planeMatrix, rectangle, roofEnds, roofHalfSize, sectionCornerRoles } from './sectionGeometry';
-import { buildOpening, buildSectionSockets, extensionMountMatrix, listExtensionCandidates, sectionFootprint } from './sectionSockets';
+import { buildOpening, buildSectionSockets, extensionMountMatrix, listExtensionCandidates, sectionFootprint, sectionSocketOutline } from './sectionSockets';
 import type { SectionParams } from './sectionParams';
 import { sectionParams } from './sectionParams';
 
@@ -40,7 +40,8 @@ export const sectionType: ObjectType<SectionParams> = {
   modifiers: (_instance, params, context) => buildOpening(params, context),
   mountMatrix: (params, context) => extensionMountMatrix(params, context),
   footprint: (params, context) => sectionFootprint(params, context),
-  paramCandidates: () => listExtensionCandidates(),
+  socketOutline: (params, context) => sectionSocketOutline(params, context),
+  paramCandidates: (socket) => listExtensionCandidates(socket),
 };
 
 /** Gemensamma fält för alla delar i en sektion. */

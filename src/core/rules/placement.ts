@@ -82,3 +82,24 @@ function findErrorsFor(design: Design, domain: Domain, instanceId: string, resol
     return [{ level: 'error', instanceId, message: error instanceof Error ? error.message : String(error) }];
   }
 }
+
+export interface OffsetRange {
+  min: number;
+  max: number;
+}
+
+/**
+ * Hur långt ett objekt kan flyttas längs sin kopplingspunkt och fortfarande
+ * klara reglerna, i snäppsteg från där det sitter nu. Visas i panelen, så att
+ * man ser varför ett läge inte går.
+ */
+export function findAllowedOffsetRange(design: Design, domain: Domain, request: { instanceId: string; currentU: number; maxReachMm: number }): OffsetRange {
+  const { instanceId, currentU, maxReachMm } = request;
+  const fits = (u: number) => findErrorsFor(withOffset(design, instanceId, u), domain, instanceId, ignoreLabel).length === 0;
+  const reach = (direction: 1 | -1) => {
+    let last = currentU;
+    for (let u = currentU + direction * SNAP_STEP_MM; Math.abs(u) <= maxReachMm && fits(u); u += direction * SNAP_STEP_MM) last = u;
+    return last;
+  };
+  return { min: reach(-1), max: reach(1) };
+}

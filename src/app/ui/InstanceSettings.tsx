@@ -1,8 +1,10 @@
-import { useId } from 'react';
+import { useId, useMemo } from 'react';
 import { describeParams } from '../../core/model/paramForm';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { RuleViolation } from '../../core/rules/rule';
-import { translate } from '../activeDomain';
+import type { OffsetRange } from '../../core/rules/placement';
+import { findAllowedOffsetRange, SNAP_STEP_MM } from '../../core/rules/placement';
+import { activeDomain, translate } from '../activeDomain';
 import { useDesignStore } from '../state/designStore';
 import { NumberInput, ParamForm } from './ParamForm';
 import { uiStrings } from './strings.sv';
@@ -18,6 +20,7 @@ interface InstanceSettingsProps {
 export function InstanceSettings({ entry, violations, isRemovable }: InstanceSettingsProps) {
   const { setParam, removeChild, moveAlongSocket } = useDesignStore();
   const offsetId = useId();
+  const offsetRange = useOffsetRange(entry, isRemovable);
   const { instance, objectType, socket, parentId } = entry;
   return (
     <section className="panel-section">
@@ -37,10 +40,11 @@ export function InstanceSettings({ entry, violations, isRemovable }: InstanceSet
           <NumberInput
             id={offsetId}
             label={uiStrings.offsetAlongSocket}
-            field={offsetField(socket.bounds)}
+            field={offsetField(offsetRange)}
             value={instance.attachment?.u ?? 0}
             onChange={(u) => moveAlongSocket(instance.id, u)}
           />
+          <p className="field-hint">{offsetRange.min === offsetRange.max ? uiStrings.noRoomToMove : uiStrings.offsetRange(offsetRange.min, offsetRange.max)}</p>
         </>
       ) : null}
       <ParamForm fields={describeParams(objectType.params)} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} />
@@ -49,9 +53,19 @@ export function InstanceSettings({ entry, violations, isRemovable }: InstanceSet
   );
 }
 
-function offsetField(bounds: { x: number }[]) {
-  const xs = bounds.map((point) => point.x);
-  return { kind: 'number', key: 'u', meta: { labelKey: 'u', unit: 'mm', step: 5 }, min: Math.floor(Math.min(...xs)), max: Math.ceil(Math.max(...xs)), defaultValue: 0 } as const;
+function offsetField(range: OffsetRange) {
+  return { kind: 'number', key: 'u', meta: { labelKey: 'u', unit: 'mm', step: SNAP_STEP_MM }, min: range.min, max: range.max, defaultValue: 0 } as const;
+}
+
+/** Bara objekt som sitter på ett annat objekt flyttas längs väggen; de andra behöver inget intervall. */
+function useOffsetRange(entry: PlacedInstance, isMovable: boolean): OffsetRange {
+  const design = useDesignStore((state) => state.design);
+  const u = entry.instance.attachment?.u ?? 0;
+  return useMemo(() => {
+    if (!isMovable || !entry.socket) return { min: u, max: u };
+    const reach = Math.max(...entry.socket.bounds.map((point) => Math.abs(point.x)));
+    return findAllowedOffsetRange(design, activeDomain, { instanceId: entry.instance.id, currentU: u, maxReachMm: reach });
+  }, [design, entry.instance.id, entry.socket, isMovable, u]);
 }
 
 export function ViolationList({ violations }: { violations: RuleViolation[] }) {
