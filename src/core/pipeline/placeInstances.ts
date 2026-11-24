@@ -51,7 +51,7 @@ function placeInstance(step: PlaceStep): void {
   const objectType = findObjectType(domain, instance.type);
   const params = parseParams(objectType, instance);
   const localSocket = findParentSocket(instance, step.parentSockets);
-  const context: BuildContext = { thickness: instance.thickness ?? step.context.thickness, socket: localSocket };
+  const context: BuildContext = { thickness: instance.thickness ?? step.context.thickness, socket: localSocket, attachment: localSocket ? instance.attachment : undefined };
   const matrix = multiplyMatrices(step.parentMatrix, placementMatrix(instance, localSocket, objectType.mountMatrix?.(params, context)));
   const localSockets = objectType.sockets(instance, params, context);
   step.placed.push({

@@ -38,8 +38,16 @@ export interface ParamLimitRule extends RuleBase {
   max: number;
 }
 
+/** En parameter får bara vissa värden när objektet sitter i en viss sorts kopplingspunkt. */
+export interface AllowedParamValuesRule extends RuleBase {
+  kind: 'allowedParamValues';
+  socketKind: SocketKind;
+  param: string;
+  values: readonly string[];
+}
+
 /** Kopplingsregler som data i domänpaketet, SPEC.md avsnitt 5. */
-export type Rule = AllowedRotationsRule | WithinSocketBoundsRule | NoOverlapRule | ParamLimitRule;
+export type Rule = AllowedRotationsRule | WithinSocketBoundsRule | NoOverlapRule | ParamLimitRule | AllowedParamValuesRule;
 
 export interface RuleViolation {
   level: RuleLevel;

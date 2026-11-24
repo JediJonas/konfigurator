@@ -63,6 +63,19 @@ test('visar takets mått först när man fäller ut Tak', async ({ page }) => {
   await expect(page.getByLabel('Taktyp')).toBeVisible();
 });
 
+test('visar bara takets fält för vald taktyp', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Tak', exact: true }).click();
+  await expect(page.getByLabel('Kantens höjd')).toHaveCount(0);
+  await page.getByLabel('Taktyp').selectOption({ label: 'Platt tak med kant' });
+  await expect(page.getByLabel('Kantens höjd')).toBeVisible();
+  await expect(page.getByLabel(/^Taklutning/)).toHaveCount(0);
+  await expect(page.getByLabel('Takutsprång vid gavel')).toHaveCount(0);
+  await page.getByLabel('Taktyp').selectOption({ label: 'Mansardtak' });
+  await expect(page.getByLabel('Nedre taklutning')).toBeVisible();
+  await expect(page.getByLabel(/^Taklutning/)).toBeVisible();
+});
+
 test('låter inte måtten gå förbi det som ryms', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
@@ -76,9 +89,10 @@ test('stoppar ritningen när en tillbyggnad inte ryms', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Lägg till tillbyggnad' }).click();
-  // Tjockare tak gör att tillbyggnadens tak når över huvudhusets takfot.
-  await page.getByLabel('Tjocklek').fill('10');
-  await expect(page.getByText(/Tillbyggnaden ryms inte på väggen/)).toBeVisible();
+  // En tornspira kan bara stå på fatet.
+  await page.getByRole('button', { name: 'Tak', exact: true }).click();
+  await page.getByLabel('Taktyp').selectOption({ label: 'Tornspira, 4 sidor' });
+  await expect(page.getByText(/En tornspira kan bara stå på fatet/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ladda ner ritning (PDF)' })).toBeDisabled();
 });
 

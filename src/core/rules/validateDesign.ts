@@ -2,13 +2,13 @@ import { overlapArea } from '../geometry/clipping';
 import { convexHull, isPointInPolygon } from '../geometry/hull';
 import type { Polygon } from '../geometry/polygon';
 import { transformPoint } from '../geometry/matrix';
-import type { Vec2 } from '../geometry/vector';
+import type { Vec2, Vec3 } from '../geometry/vector';
 import { vec3 } from '../geometry/vector';
 import type { Socket } from '../model/objectType';
 import { projectOntoFrame } from '../pipeline/frame';
 import type { PlacedInstance } from '../pipeline/placeInstances';
 import { coreStrings } from '../text/strings.sv';
-import type { AllowedRotationsRule, ParamLimitRule, Rule, RuleViolation } from './rule';
+import type { AllowedParamValuesRule, AllowedRotationsRule, ParamLimitRule, Rule, RuleViolation } from './rule';
 
 /** Hur långt utanför kopplingspunktens yta en punkt får ligga, för avrundning. */
 const BOUNDS_TOLERANCE_MM = 0.05;
@@ -52,6 +52,8 @@ function findFailingInstances(rule: Rule, entries: PlacedInstance[]): string[] {
       return findOverlapping(entries);
     case 'paramLimit':
       return entries.filter((entry) => exceedsLimit(rule, entry)).map((entry) => entry.instance.id);
+    case 'allowedParamValues':
+      return entries.filter((entry) => !hasAllowedValue(rule, entry)).map((entry) => entry.instance.id);
   }
 }
 
@@ -67,18 +69,34 @@ function exceedsLimit(rule: ParamLimitRule, entry: PlacedInstance): boolean {
   return typeof value === 'number' && value > rule.max;
 }
 
+function hasAllowedValue(rule: AllowedParamValuesRule, entry: PlacedInstance): boolean {
+  if (entry.socket?.kind !== rule.socketKind) return true;
+  return rule.values.includes(String(entry.params[rule.param]));
+}
+
 /** Ytan objektet tar i kopplingspunktens plan, som konvext hölje. */
 export function silhouetteInSocket(entry: PlacedInstance, socket: Socket): Vec2[] {
   const outline = entry.objectType.socketOutline?.(entry.params, entry.context);
   const worldPoints = outline
     ? outline.map((point) => transformPoint(entry.matrix, point))
     : entry.parts.flatMap((part) => [0, part.thickness].flatMap((z) => part.outline.map((point) => transformPoint(part.transform, vec3(point.x, point.y, z)))));
+  return projectHull(worldPoints, socket);
+}
+
+/** Objektets topp i kopplingspunktens plan, som konvext hölje. Tom när objekttypen inte anger någon topp. */
+export function topSilhouetteInSocket(entry: PlacedInstance, socket: Socket): Vec2[] {
+  const outline = entry.objectType.socketTopOutline?.(entry.params, entry.context) ?? [];
+  return projectHull(outline.map((point) => transformPoint(entry.matrix, point)), socket);
+}
+
+function projectHull(worldPoints: readonly Vec3[], socket: Socket): Vec2[] {
   return convexHull(worldPoints.map((point) => projectOntoFrame(socket.frame, point)));
 }
 
 function isWithinSocket(entry: PlacedInstance, socket: Socket): boolean {
-  // Ytan i kopplingspunkterna är konvex, så det räcker att höljets hörn ligger i den.
-  return silhouetteInSocket(entry, socket).every((point) => isPointInPolygon(point, socket.bounds, BOUNDS_TOLERANCE_MM));
+  // Ytorna i kopplingspunkterna är konvexa, så det räcker att höljenas hörn ligger i dem.
+  const isInside = (polygon: Vec2[], bounds: Vec2[]) => polygon.every((point) => isPointInPolygon(point, bounds, BOUNDS_TOLERANCE_MM));
+  return isInside(silhouetteInSocket(entry, socket), socket.bounds) && isInside(topSilhouetteInSocket(entry, socket), socket.topBounds ?? socket.bounds);
 }
 
 /** Objektets yta på marken i världen, med x och z som planets koordinater. */

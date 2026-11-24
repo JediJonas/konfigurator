@@ -49,7 +49,7 @@ export function renderOverviewSvg(content: OverviewContent, paper: PaperFormat, 
   for (const group of content.groups) {
     y += LINE_HEIGHT_MM;
     const bounds = boundsOf(group.outline);
-    const name = nameGroup(group) + (group.isMirrored ? ` (${coreStrings.mirrored})` : '');
+    const name = nameGroup(group) + coreStrings.mirroredNote(group.mirroredCount);
     const row = [String(group.number), name, String(group.count), coreStrings.dimensions(boundsWidth(bounds), boundsHeight(bounds))];
     parts.push(renderTableRow(left, y, row, false));
   }

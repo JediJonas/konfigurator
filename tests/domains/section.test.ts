@@ -89,11 +89,12 @@ describe('sektion med sadeltak', () => {
   });
 
   it('lägger takets undersida på långväggens yttre överkant', () => {
-    const roof = partById(parts, 'roof-right');
-    const [eaveA, , , ridgeA] = worldCorners(roof);
-    if (!eaveA || !ridgeA) throw new Error('Taket saknar hörn');
-    const t = (70 - eaveA.x) / (ridgeA.x - eaveA.x);
-    expect(eaveA.y + t * (ridgeA.y - eaveA.y)).toBeCloseTo(100);
+    const corners = worldCorners(partById(parts, 'roof-right'));
+    const eave = corners.find((corner) => corner.x > 70);
+    const ridge = corners.find((corner) => Math.abs(corner.x) < 0.01);
+    if (!eave || !ridge) throw new Error('Taket saknar hörn');
+    const t = (70 - eave.x) / (ridge.x - eave.x);
+    expect(eave.y + t * (ridge.y - eave.y)).toBeCloseTo(100);
   });
 
   it('använder objektets egen tjocklek när den finns', () => {

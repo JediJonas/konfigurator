@@ -36,6 +36,33 @@ describe('dellista', () => {
   });
 });
 
+describe('delar med samma form', () => {
+  const triangle = (id: string, points: [number, number][]): Part => ({ ...rectanglePart(id, 1, 1), outline: points.map(([x, y]) => vec2(x, y)) });
+
+  it('räknas som samma oavsett var konturen börjar', () => {
+    const groups = groupIdenticalParts([triangle('a', [[0, 0], [40, 0], [10, 30]]), triangle('b', [[40, 0], [10, 30], [0, 0]])]);
+    expect(groups.map((group) => [group.count, group.mirroredCount])).toEqual([[2, 0]]);
+  });
+
+  it('slås ihop med sin spegelbild och räknas som spegelvänd', () => {
+    const groups = groupIdenticalParts([triangle('a', [[0, 0], [40, 0], [10, 30]]), triangle('b', [[0, 0], [40, 0], [30, 30]])]);
+    expect(groups.map((group) => [group.count, group.mirroredCount])).toEqual([[2, 1]]);
+  });
+
+  it('skriver hur många som skärs spegelvända', () => {
+    const groups = groupIdenticalParts([triangle('a', [[0, 0], [40, 0], [10, 30]]), triangle('b', [[0, 0], [40, 0], [30, 30]])]);
+    const [page] = layoutPartPages(groups, PAPER_FORMATS.A4);
+    const pages = buildDrawingPages({
+      parts: [triangle('a', [[0, 0], [40, 0], [10, 30]]), triangle('b', [[0, 0], [40, 0], [30, 30]])],
+      paper: PAPER_FORMATS.A4,
+      resolveLabel: (key) => key,
+      overview: { title: 'Hus', materialLabel: 'Deg', thickness: 4, buildSteps: [], notes: [] },
+    });
+    expect(page?.shapes).toHaveLength(1);
+    expect(pages.join('')).toContain('skär 2 st, varav 1 spegelvänd');
+  });
+});
+
 describe('ritning med tillbyggnad', () => {
   const parts = buildParts(designWithExtensions(extension('side-right')), gingerbreadDomain);
   const groups = groupIdenticalParts(parts);

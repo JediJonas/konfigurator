@@ -41,13 +41,16 @@ describe('tillbyggnader på varandras gavlar', () => {
     expect(fitsOnGable({ ...EXTENSION_PARAMS, width: 140 })).toBe(false);
   });
 
-  it('lämnar 10 mm vägg under takfoten och vid hörnen på långväggen', () => {
+  it('lämnar 10 mm vägg vid hörnen på långväggen och låter väggarna nå väggens överkant och taket husets nock', () => {
     const host = placeInstances(designWithExtensions(), gingerbreadDomain).find((entry) => entry.instance.id === 'S1');
     const socket = host?.sockets.find((candidate) => candidate.id === 'side-right');
-    const { depth, wallHeight, eaveOverhang, roofPitch } = HOST_PARAMS;
-    const eaveHeight = wallHeight - eaveOverhang * Math.sin((roofPitch * Math.PI) / 180);
+    const { depth, wallHeight, width, roofPitch } = HOST_PARAMS;
+    const pitch = (roofPitch * Math.PI) / 180;
+    // Takhalvornas övre hörn på ovansidan: nockens undersida plus tjockleken utåt.
+    const ridgeTop = wallHeight + (width / 2) * Math.tan(pitch) + 4 * Math.cos(pitch);
     expect(Math.max(...(socket?.bounds ?? []).map((point) => point.x))).toBeCloseTo(depth / 2 - 10);
-    expect(Math.max(...(socket?.bounds ?? []).map((point) => point.y))).toBeCloseTo(eaveHeight - 10);
+    expect(Math.max(...(socket?.bounds ?? []).map((point) => point.y))).toBeCloseTo(wallHeight);
+    expect(Math.max(...(socket?.topBounds ?? []).map((point) => point.y))).toBeCloseTo(ridgeTop);
   });
 
   it('blir så bred som marginalen tillåter när 60 % av väggen är för smalt', () => {
@@ -59,16 +62,23 @@ describe('tillbyggnader på varandras gavlar', () => {
     expect(proposal.instance.params).toMatchObject({ width: 70 });
   });
 
-  it('får så höga väggar som ryms under takfoten, i fältets steg', () => {
-    const design = designWithExtensions();
-    const host = design.root.children[0];
-    if (!host) throw new Error('Mallen saknar sektion');
-    host.params = { ...HOST_PARAMS, wallHeight: 120 };
-    const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: SECTION_TYPE_ID });
-    const higher = { ...proposal.instance, params: { ...proposal.instance.params, wallHeight: Number(proposal.instance.params.wallHeight) + 5 } };
-    const higherDesign = { ...design, root: addChildInstance(design.root, 'S1', higher) };
-    expect(proposal.violations).toEqual([]);
-    expect(evaluateDesign(higherDesign, gingerbreadDomain, (key) => key).violations.map((violation) => violation.message)).toContain('rule.extensionFitsWall');
+  it('får lika höga väggar som huset men inte högre, nu när taket läggs i en vinkelränna', () => {
+    const errorsWith = (wallHeight: number) =>
+      evaluateDesign(designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, wallHeight })), gingerbreadDomain, (key) => key)
+        .violations.filter((violation) => violation.level === 'error')
+        .map((violation) => violation.message);
+    expect(errorsWith(HOST_PARAMS.wallHeight)).toEqual([]);
+    expect(errorsWith(HOST_PARAMS.wallHeight + 5)).toContain('rule.extensionFitsWall');
+  });
+
+  it('får inte gå med nocken över husets nock', () => {
+    const fitsWith = (width: number) =>
+      evaluateDesign(designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, width, wallHeight: HOST_PARAMS.wallHeight })), gingerbreadDomain, (key) => key).violations.every(
+        (violation) => violation.level !== 'error',
+      );
+    // Samma lutning och bredd som huset ger nockar på samma höjd (korstak).
+    expect(fitsWith(HOST_PARAMS.width)).toBe(true);
+    expect(fitsWith(HOST_PARAMS.width + 10)).toBe(false);
   });
 
   it('ärver förälderns tak', () => {

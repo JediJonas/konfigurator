@@ -30,7 +30,8 @@ export function PartMesh({ part, color, isSelected, onSelect }: PartMeshProps) {
   return (
     <mesh geometry={geometry} matrix={matrix} matrixAutoUpdate={false} castShadow receiveShadow onClick={handleClick}>
       <meshStandardMaterial color={isSelected ? SELECTED_COLOR : color} roughness={0.85} />
-      <Edges color="#5a3313" threshold={20} />
+      {/* Ny nyckel när formen ändras: kantlinjerna byggs annars om med gamla linjer kvar när de blir färre, t.ex. från rektangel till trekant. */}
+      <Edges key={geometry.uuid} color="#5a3313" threshold={20} />
     </mesh>
   );
 }

@@ -22,8 +22,8 @@ describe('kopplingsreglerna för pepparkakshus', () => {
     { name: 'tillbyggnad på framgaveln', design: designWithExtensions(extension('gable-front')), expected: [] },
     {
       name: 'tillbyggnad som är för hög för långväggen',
-      design: designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 80 })),
-      expected: ['error S2 rule.extensionFitsWall', 'error S2 Öppningen skulle dela väggen i flera bitar.'],
+      design: designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 105 })),
+      expected: ['error S2 rule.extensionFitsWall'],
     },
     {
       name: 'tillbyggnad som går utanför långväggens ände',

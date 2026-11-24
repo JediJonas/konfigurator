@@ -1,14 +1,19 @@
+import type { HalfPlane } from '../../../core/geometry/halfPlane';
+import { clipByHalfPlanes, halfPlaneLeftOf, shrinkHalfPlane, squareAround } from '../../../core/geometry/halfPlane';
+import { convexHull } from '../../../core/geometry/hull';
 import type { Matrix4 } from '../../../core/geometry/matrix';
 import { basisMatrix, identityMatrix } from '../../../core/geometry/matrix';
 import type { Polygon } from '../../../core/geometry/polygon';
+import { signedArea } from '../../../core/geometry/polygon';
 import type { Mm, Vec2, Vec3 } from '../../../core/geometry/vector';
-import { degreesToRadians, vec2, vec3 } from '../../../core/geometry/vector';
+import { dot3, subtract3, vec2, vec3 } from '../../../core/geometry/vector';
 import type { Instance } from '../../../core/model/design';
 import type { Modifier } from '../../../core/model/modifier';
 import type { BuildContext, Socket } from '../../../core/model/objectType';
 import { WALL_SURFACE } from '../socketKinds';
-import { crossSectionOutline, eaveEdge, isExtension, roofEnds, roofUndersideHeight } from './sectionGeometry';
+import { isExtension, listRoofCorners, roofContext } from './sectionGeometry';
 import type { SectionParams } from './sectionParams';
+import { listWallSides, profileAlong, wallSupport, wallTopProfile } from './sectionWalls';
 
 /**
  * Öppningen går en bit under golvet, så att den skär rent genom väggens
@@ -22,66 +27,75 @@ const OPENING_OVERCUT_MM = 1;
  */
 export const OPENING_INSET_MM = 10;
 /**
- * Så långt från väggens hörn och överkant som en tillbyggnad minst ska stå
- * (ägarens val), så att den aldrig blir lika bred eller hög som väggen.
+ * Så långt från väggens hörn som en tillbyggnad minst ska stå (ägarens val),
+ * så att den aldrig blir lika bred som väggen.
  */
 export const WALL_EDGE_MARGIN_MM = 10;
+/** Stort nog att rymma vilken öppning som helst innan den klipps till. */
+const OPENING_WORK_AREA_MM = 2000;
 
-
-interface WallSocketSpec {
-  id: string;
-  labelKey: string;
-  origin: Vec3;
-  /** Längs väggen så att u × normal pekar uppåt. */
-  u: Vec3;
-  normal: Vec3;
-  bounds: Vec2[];
-}
+const SOCKET_LABEL_KEYS: Record<string, string> = {
+  'side-right': 'socket.sideRight',
+  'side-left': 'socket.sideLeft',
+  'gable-front': 'socket.gableFront',
+  'gable-back': 'socket.gableBack',
+};
 
 /**
  * Väggytorna som tillbyggnader kan fästa i. Origo ligger mitt på väggens
  * utsida i golvhöjd, så att (u, v) är läge längs väggen och höjd.
+ *
+ * Tillbyggnadens väggar ska rymmas inom väggen, `WALL_EDGE_MARGIN_MM`
+ * innanför hörnen och under väggens överkant. Taket får gå högre, upp till
+ * husets tak sett rakt mot väggen, eftersom vinkelrännan lägger det ovanpå.
  */
 export function buildSectionSockets(instance: Instance, params: SectionParams, context: BuildContext): Socket[] {
-  const halfWidth = params.width / 2;
-  const halfDepth = params.depth / 2;
-  const sideBounds = sideWallBounds(params);
-  const gableBounds = gableWallBounds(params);
-  const specs: WallSocketSpec[] = [
-    { id: 'side-right', labelKey: 'socket.sideRight', origin: vec3(halfWidth, 0, 0), u: vec3(0, 0, 1), normal: vec3(1, 0, 0), bounds: sideBounds },
-    { id: 'side-left', labelKey: 'socket.sideLeft', origin: vec3(-halfWidth, 0, 0), u: vec3(0, 0, -1), normal: vec3(-1, 0, 0), bounds: sideBounds },
-    { id: 'gable-front', labelKey: 'socket.gableFront', origin: vec3(0, 0, halfDepth), u: vec3(-1, 0, 0), normal: vec3(0, 0, 1), bounds: gableBounds },
-  ];
-  if (!isExtension(context)) {
-    specs.push({ id: 'gable-back', labelKey: 'socket.gableBack', origin: vec3(0, 0, -halfDepth), u: vec3(1, 0, 0), normal: vec3(0, 0, -1), bounds: gableBounds });
-  }
-  return specs.map((spec) => ({
-    id: spec.id,
-    kind: WALL_SURFACE,
-    labelKey: spec.labelKey,
-    frame: { origin: spec.origin, u: spec.u, normal: spec.normal },
-    bounds: spec.bounds,
-    ownerPartId: `${instance.id}/${spec.id}`,
-  }));
+  const roofCorners = listRoofCorners(params, context);
+  return listWallSides(params, isExtension(context)).map((side) => {
+    const start = vec3(side.outerStart.x, 0, side.outerStart.y);
+    const end = vec3(side.outerEnd.x, 0, side.outerEnd.y);
+    const origin = vec3((start.x + end.x) / 2, 0, (start.z + end.z) / 2);
+    const length = Math.hypot(end.x - start.x, end.z - start.z);
+    // Kopplingspunktens u går åt andra hållet än väggens, så att u × normal pekar uppåt.
+    const u = vec3((start.x - end.x) / length, 0, (start.z - end.z) / length);
+    const normal = vec3(u.z, 0, -u.x);
+    const bounds = wallBounds(wallTopProfile(params, roofContext(context, false), side), length);
+    const roofInSocket = roofCorners.map((corner) => vec2(dot3(subtract3(corner, origin), u), corner.y));
+    return {
+      id: side.id,
+      kind: WALL_SURFACE,
+      labelKey: SOCKET_LABEL_KEYS[side.id] ?? side.id,
+      frame: { origin, u, normal },
+      bounds,
+      topBounds: convexHull([...bounds, ...roofInSocket]),
+      ownerPartId: `${instance.id}/${side.id}`,
+    };
+  });
 }
 
 /**
- * `WALL_EDGE_MARGIN_MM` innanför husets hörn och under takfotens nederkant.
- * Väggen kvar vid öppningen är minst `OPENING_INSET_MM`, eftersom öppningen
- * är så mycket mindre än tillbyggnadens insida.
+ * Väggens yta i kopplingspunktens (u, v), `WALL_EDGE_MARGIN_MM` innanför
+ * hörnen och upp till överkanten. Överkanten är given från väggens början, där u = length / 2.
  */
-function sideWallBounds(params: SectionParams): Vec2[] {
-  const halfLength = params.depth / 2 - WALL_EDGE_MARGIN_MM;
-  const top = eaveEdge(params).y - WALL_EDGE_MARGIN_MM;
-  return [vec2(-halfLength, 0), vec2(halfLength, 0), vec2(halfLength, top), vec2(-halfLength, top)];
+function wallBounds(topProfile: readonly Vec2[], length: Mm): Vec2[] {
+  const halfLength = length / 2 - WALL_EDGE_MARGIN_MM;
+  const toSocket = (point: Vec2) => vec2(length / 2 - point.x, point.y);
+  const top = topProfile.map(toSocket).filter((point) => Math.abs(point.x) < halfLength);
+  const ends = [halfLength, -halfLength].map((u) => vec2(u, interpolateTop(topProfile.map(toSocket), u)));
+  // Från höger nere moturs: nederkanten, höger ände, överkanten åt vänster, vänster ände.
+  const upper = [ends[0], ...top.sort((a, b) => b.x - a.x), ends[1]].filter((point): point is Vec2 => point !== undefined);
+  return [vec2(-halfLength, 0), vec2(halfLength, 0), ...upper];
 }
 
-/** `WALL_EDGE_MARGIN_MM` innanför husets hörn och under takets undersida, mätt lodrätt. */
-function gableWallBounds(params: SectionParams): Vec2[] {
-  const halfWidth = params.width / 2 - WALL_EDGE_MARGIN_MM;
-  const sideTop = roofUndersideHeight(params, halfWidth) - WALL_EDGE_MARGIN_MM;
-  const ridgeTop = roofUndersideHeight(params, 0) - WALL_EDGE_MARGIN_MM;
-  return [vec2(-halfWidth, 0), vec2(halfWidth, 0), vec2(halfWidth, sideTop), vec2(0, ridgeTop), vec2(-halfWidth, sideTop)];
+/** Överkantens höjd vid `u`, rakt mellan brytpunkterna. */
+function interpolateTop(points: readonly Vec2[], u: Mm): Mm {
+  const sorted = [...points].sort((a, b) => a.x - b.x);
+  for (let index = 0; index < sorted.length - 1; index++) {
+    const left = sorted[index];
+    const right = sorted[index + 1];
+    if (left && right && u >= left.x && u <= right.x) return right.x === left.x ? Math.max(left.y, right.y) : left.y + ((u - left.x) / (right.x - left.x)) * (right.y - left.y);
+  }
+  return Math.min(...points.map((point) => point.y));
 }
 
 /**
@@ -95,47 +109,87 @@ export function extensionMountMatrix(params: SectionParams, context: BuildContex
 
 /**
  * Öppningen i värdens vägg följer tillbyggnadens insida, men är mindre med
- * `OPENING_INSET_MM` mot långväggarna och takets undersida. Nertill går den ända till golvet.
+ * `OPENING_INSET_MM` mot långväggarna och takets undersida, och lämnar minst
+ * lika mycket av värdens vägg under dess överkant. Nertill går den ända till golvet.
  */
 export function buildOpening(params: SectionParams, context: BuildContext): Modifier[] {
   const targetPartId = context.socket?.ownerPartId;
-  if (!isExtension(context) || !targetPartId) return [];
+  if (!isExtension(context) || !targetPartId || !context.socket) return [];
   const backZ = -params.depth / 2;
-  // Sänks lodrätt så mycket att kanten blir OPENING_INSET_MM mätt vinkelrätt mot taket.
-  const topDrop = OPENING_INSET_MM / Math.cos(degreesToRadians(params.roofPitch));
-  const halfWidth = params.width / 2 - context.thickness - OPENING_INSET_MM;
-  const region = crossSectionOutline(params, halfWidth).map((point) => vec3(point.x, point.y > 0 ? point.y - topDrop : -OPENING_OVERCUT_MM, backZ));
-  return [{ kind: 'removeRegion', targetPartId, region }];
+  const innerHalf = params.width / 2 - context.thickness - OPENING_INSET_MM;
+  const halfPlanes: HalfPlane[] = [
+    { normal: vec2(1, 0), offset: innerHalf },
+    { normal: vec2(-1, 0), offset: innerHalf },
+    { normal: vec2(0, -1), offset: OPENING_OVERCUT_MM },
+    ...undersideHalfPlanes(params, context),
+    ...hostTopHalfPlanes(context.socket, context.attachment?.u ?? 0),
+  ];
+  const region = clipByHalfPlanes(squareAround(vec2(0, 0), OPENING_WORK_AREA_MM), halfPlanes);
+  return [{ kind: 'removeRegion', targetPartId, region: region.map((point) => vec3(point.x, point.y, backZ)) }];
+}
+
+/** Under takets undersida längs tillbyggnadens bakkant, `OPENING_INSET_MM` mätt vinkelrätt mot taket. */
+function undersideHalfPlanes(params: SectionParams, context: BuildContext): HalfPlane[] {
+  const halfWidth = params.width / 2;
+  const line = { outerStart: vec2(-halfWidth, -params.depth / 2), outerEnd: vec2(halfWidth, -params.depth / 2) };
+  const profile = profileAlong(wallSupport(params, roofContext(context, false)), line).map((point) => vec2(point.x - halfWidth, point.y));
+  return profile.slice(1).map((end, index) => shrinkHalfPlane(halfPlaneLeftOf(end, profile[index] ?? end), OPENING_INSET_MM));
 }
 
 /**
- * Det som ska rymmas i värdens kopplingspunkt. Som tillbyggnad: väggarna och
- * takets ovansida sett mot väggen, utan takutsprången, som får gå förbi hörnet
- * så länge de ligger under värdens tak. På fatet: golvytan med takutsprången.
+ * Under värdens väggöverkant, `OPENING_INSET_MM` mätt vinkelrätt mot den, så
+ * att en hög tillbyggnad inte delar väggen. Kopplingspunktens u blir
+ * tillbyggnadens x = läget − u.
+ */
+function hostTopHalfPlanes(socket: Socket, offset: Mm): HalfPlane[] {
+  const inOwnCoordinates = socket.bounds.map((point) => vec2(offset - point.x, point.y));
+  const counterClockwise = signedArea(inOwnCoordinates) > 0 ? inOwnCoordinates : [...inOwnCoordinates].reverse();
+  return counterClockwise.flatMap((start, index) => {
+    const end = counterClockwise[(index + 1) % counterClockwise.length] ?? start;
+    // Överkantens kanter går åt vänster i en polygon moturs.
+    return end.x < start.x - 1e-9 ? [shrinkHalfPlane(halfPlaneLeftOf(start, end), OPENING_INSET_MM)] : [];
+  });
+}
+
+/**
+ * Tillbyggnadens väggar sett mot värdens vägg: långväggarnas bakre ände, där
+ * de möter värden. Taket prövas för sig, se `sectionSocketTopOutline`. På
+ * fatet: golvytan med takutsprången.
  */
 export function sectionSocketOutline(params: SectionParams, context: BuildContext): Vec3[] {
   if (!isExtension(context)) return sectionFootprint(params, context).map((point) => vec3(point.x, 0, point.y));
-  const pitch = degreesToRadians(params.roofPitch);
-  const halfWidth = params.width / 2;
   const backZ = -params.depth / 2;
-  // Takets ovansida: rak linje över väggarna, och nocken där takhalvornas övre hörn slutar (skåran fylls med glasyr).
-  const eaveTop = params.wallHeight + context.thickness / Math.cos(pitch);
-  const ridgeTop = roofUndersideHeight(params, 0) + context.thickness * Math.cos(pitch);
-  const ridgeHalf = context.thickness * Math.sin(pitch);
-  return [
-    vec3(-halfWidth, 0, backZ),
-    vec3(halfWidth, 0, backZ),
-    vec3(halfWidth, eaveTop, backZ),
-    vec3(ridgeHalf, ridgeTop, backZ),
-    vec3(-ridgeHalf, ridgeTop, backZ),
-    vec3(-halfWidth, eaveTop, backZ),
-  ];
+  const [right, left] = listWallSides(params, true);
+  const heightAtBack = (side: typeof right) => {
+    if (!side) return params.wallHeight;
+    const profile = wallTopProfile(params, roofContext(context, false), side);
+    const atBack = side.outerStart.y < side.outerEnd.y ? profile[0] : profile.at(-1);
+    return atBack?.y ?? params.wallHeight;
+  };
+  const halfWidth = params.width / 2;
+  return [vec3(-halfWidth, 0, backZ), vec3(halfWidth, 0, backZ), vec3(halfWidth, heightAtBack(right), backZ), vec3(-halfWidth, heightAtBack(left), backZ)];
+}
+
+/**
+ * Tillbyggnadens tak sett mot värdens vägg, inom väggarnas bredd. Takutsprången
+ * får gå förbi hörnet, så länge de ligger under värdens tak, och räknas inte.
+ */
+export function sectionSocketTopOutline(params: SectionParams, context: BuildContext): Vec3[] {
+  if (!isExtension(context)) return [];
+  const halfWidth = params.width / 2;
+  const seen = convexHull(listRoofCorners(params, context).map((corner) => vec2(corner.x, corner.y)));
+  const withinWalls = clipByHalfPlanes(seen, [
+    { normal: vec2(1, 0), offset: halfWidth },
+    { normal: vec2(-1, 0), offset: halfWidth },
+  ]);
+  return withinWalls.map((point) => vec3(point.x, point.y, -params.depth / 2));
 }
 
 /** Golvytan med takutsprången, så att två sektioners tak inte går in i varandra. */
 export function sectionFootprint(params: SectionParams, context: BuildContext): Polygon {
-  const pitch = degreesToRadians(params.roofPitch);
-  const halfWidth: Mm = eaveEdge(params).x + context.thickness * Math.sin(pitch);
-  const ends = roofEnds(params, context);
-  return [vec2(-halfWidth, ends.back), vec2(halfWidth, ends.back), vec2(halfWidth, ends.front), vec2(-halfWidth, ends.front)];
+  const halfWidth = params.width / 2;
+  const halfDepth = params.depth / 2;
+  const walls = [vec2(-halfWidth, -halfDepth), vec2(halfWidth, -halfDepth), vec2(halfWidth, halfDepth), vec2(-halfWidth, halfDepth)];
+  const roof = listRoofCorners(params, context).map((corner) => vec2(corner.x, corner.z));
+  return convexHull([...walls, ...roof]);
 }
