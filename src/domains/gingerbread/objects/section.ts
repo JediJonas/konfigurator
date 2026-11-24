@@ -16,9 +16,11 @@ export const SECTION_TYPE_ID = 'gb.section';
  * Sektion med sadeltak. Koordinater: origo mitt på golvytan, x tvärs över
  * (gavelbredd), y uppåt och z längs huset. Gavlarna står vid z = ±djup/2.
  *
- * Stumfog: långväggarna går hela vägen ut, gavlarna kortas med 2 × tjockleken
- * och står mellan dem. Takets undersida vilar på långväggarnas yttre överkant,
- * och takhalvornas undersidor möts i nocken. Skåran ovanpå nocken fylls med glasyr.
+ * Stumfog: gavlarna går hela vägen ut och långväggarna kortas med 2 × tjockleken
+ * och står mellan dem. Då följer gavelns snedkant takets undersida ända ut till
+ * takfoten, så att inget hål syns i hörnen under taket. Takets undersida vilar på
+ * långväggarnas yttre överkant, och takhalvornas undersidor möts i nocken.
+ * Skåran ovanpå nocken fylls med glasyr.
  */
 export const sectionType: ObjectType<SectionParams> = {
   id: SECTION_TYPE_ID,
@@ -53,26 +55,25 @@ function planeMatrix(u: Vec3, v: Vec3, origin: Vec3): Matrix4 {
 function buildSideWalls(instance: Instance, params: SectionParams, context: BuildContext): Part[] {
   const { width, depth, wallHeight } = params;
   const innerX = width / 2 - context.thickness;
-  const outline = rectangle(depth, wallHeight);
+  const innerZ = depth / 2 - context.thickness;
+  const outline = rectangle(depth - 2 * context.thickness, wallHeight);
   const common = { labelKey: 'part.sideWall', outline, buildStep: BUILD_STEP.walls };
   return [
-    sectionPart(instance, context, { ...common, id: 'side-right', transform: planeMatrix(vec3(0, 0, -1), UP, vec3(innerX, 0, depth / 2)) }),
-    sectionPart(instance, context, { ...common, id: 'side-left', transform: planeMatrix(vec3(0, 0, 1), UP, vec3(-innerX, 0, -depth / 2)) }),
+    sectionPart(instance, context, { ...common, id: 'side-right', transform: planeMatrix(vec3(0, 0, -1), UP, vec3(innerX, 0, innerZ)) }),
+    sectionPart(instance, context, { ...common, id: 'side-left', transform: planeMatrix(vec3(0, 0, 1), UP, vec3(-innerX, 0, -innerZ)) }),
   ];
 }
 
-/** Femhörning: rektangel mellan långväggarna och en topp som följer takets undersida. */
-export function gableOutline(params: SectionParams, thickness: Mm): Polygon {
-  const halfWidth = params.width / 2 - thickness;
-  const slope = Math.tan(degreesToRadians(params.roofPitch));
-  const eaveHeight = params.wallHeight + thickness * slope;
-  const ridgeHeight = params.wallHeight + (params.width / 2) * slope;
-  return [vec2(-halfWidth, 0), vec2(halfWidth, 0), vec2(halfWidth, eaveHeight), vec2(0, ridgeHeight), vec2(-halfWidth, eaveHeight)];
+/** Femhörning över hela husets bredd, med en topp som följer takets undersida. */
+export function gableOutline(params: SectionParams): Polygon {
+  const halfWidth = params.width / 2;
+  const ridgeHeight = params.wallHeight + halfWidth * Math.tan(degreesToRadians(params.roofPitch));
+  return [vec2(-halfWidth, 0), vec2(halfWidth, 0), vec2(halfWidth, params.wallHeight), vec2(0, ridgeHeight), vec2(-halfWidth, params.wallHeight)];
 }
 
 function buildGables(instance: Instance, params: SectionParams, context: BuildContext): Part[] {
   const innerZ = params.depth / 2 - context.thickness;
-  const common = { labelKey: 'part.gable', outline: gableOutline(params, context.thickness), buildStep: BUILD_STEP.walls };
+  const common = { labelKey: 'part.gable', outline: gableOutline(params), buildStep: BUILD_STEP.walls };
   return [
     sectionPart(instance, context, { ...common, id: 'gable-front', transform: planeMatrix(vec3(1, 0, 0), UP, vec3(0, 0, innerZ)) }),
     sectionPart(instance, context, { ...common, id: 'gable-back', transform: planeMatrix(vec3(-1, 0, 0), UP, vec3(0, 0, -innerZ)) }),

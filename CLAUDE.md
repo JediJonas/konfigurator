@@ -34,6 +34,12 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 
 ## Ritningen
 
+- **Hörnregeln för stumfog** (ägarens val): en vägg med sned överkant går hela vägen ut, och väggar med rak överkant kortas med 2 × tjockleken och står mellan. Då följer den sneda väggen takets undersida ut till hörnet och inget hål syns under taket.
+  - Sadeltak: gavlarna går ut. Pulpettak: sidorna går ut.
+  - Valmat och platt tak: alla överkanter är raka, och de längsta väggarna går ut.
+  - Tillbyggnad: väggarna går stumt mot värdens vägg. Regeln gäller i de yttre hörnen.
+  - Regeln hör till domänens fog (`JointStyle`), inte till varje objekttyp, när fler taktyper byggs.
+
 - `core/export` gör en SVG per sida i millimeter (översikt först, sedan delarna). Appen gör PDF av dem med jsPDF och svg2pdf, som laddas först när någon laddar ner.
 - Delar med samma form ritas en gång med "skär N st". Delar större än en sida delas i bitar med 10 mm överlappning, streckade skarvlinjer och kryss.
 - Varje sida har en 10 cm kontrollinjal. Kontrollera skalan genom att mäta den efter ändringar i exporten.

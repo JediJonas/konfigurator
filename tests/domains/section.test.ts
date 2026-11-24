@@ -39,10 +39,19 @@ describe('sektion med sadeltak', () => {
     );
   });
 
-  it('kortar gavlarna med 2 × tjockleken så att de står mellan långväggarna', () => {
+  it('låter gavlarna gå över hela husets bredd', () => {
     const gable = partById(parts, 'gable-front');
     const xs = worldCorners(gable).map((p) => p.x);
-    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(140 - 2 * 4);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(140);
+  });
+
+  it('ställer gavlarna ytterst så att huset blir lika långt som längden', () => {
+    const corners = ['gable-front', 'gable-back'].flatMap((suffix) => {
+      const gable = partById(parts, suffix);
+      return [...worldCorners(gable), ...worldCorners(gable, true)];
+    });
+    const zs = corners.map((p) => p.z);
+    expect(Math.max(...zs) - Math.min(...zs)).toBeCloseTo(180);
   });
 
   it('gör långväggen lika hög som vägghöjden', () => {
@@ -51,16 +60,17 @@ describe('sektion med sadeltak', () => {
     expect(sideHeight).toBeCloseTo(100);
   });
 
-  it('låter långväggarna gå hela längden och stå utanför gavlarna', () => {
+  it('kortar långväggarna med 2 × tjockleken så att de står mellan gavlarna', () => {
     const side = partById(parts, 'side-right');
     const corners = [...worldCorners(side), ...worldCorners(side, true)];
     const zs = corners.map((p) => p.z);
-    expect(Math.max(...zs) - Math.min(...zs)).toBeCloseTo(180);
+    expect(Math.max(...zs) - Math.min(...zs)).toBeCloseTo(180 - 2 * 4);
+    expect(Math.max(...zs)).toBeCloseTo(90 - 4);
     expect(Math.max(...corners.map((p) => p.x))).toBeCloseTo(70);
     expect(Math.min(...corners.map((p) => p.x))).toBeCloseTo(66);
   });
 
-  it('lägger gavelns snedkanter i takets undersida', () => {
+  it('låter gavelns snedkant följa takets undersida ända ut till takfoten, utan hål i hörnen', () => {
     const slope = Math.tan(degreesToRadians(45));
     for (const corner of worldCorners(partById(parts, 'gable-front'))) {
       if (corner.y <= 1) continue;
