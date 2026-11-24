@@ -1,6 +1,7 @@
 import type { Mm } from '../geometry/vector';
 import type { Design } from './design';
 import type { ObjectType } from './objectType';
+import type { Rule } from '../rules/rule';
 
 export interface Material {
   id: string;
@@ -23,6 +24,8 @@ export interface Domain {
   // Objekttyperna har olika parametertyper; flödet validerar params mot schemat innan anrop.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- se raden ovan
   objectTypes: ObjectType<any>[];
+  /** Kopplingsregler som gäller hela designen. */
+  rules: Rule[];
   materials: Material[];
   presets: Preset[];
   strings: Record<string, string>;

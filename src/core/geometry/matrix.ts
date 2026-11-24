@@ -49,3 +49,19 @@ export function transformPoint(matrix: Matrix4, point: Vec3): Vec3 {
 function at(matrix: Matrix4, index: number): number {
   return matrix[index] ?? 0;
 }
+
+/**
+ * Inversen av en matris som bara vrider och flyttar. Alla placeringar i
+ * flödet är sådana, så transponatet av vridningen räcker.
+ */
+export function invertRigidMatrix(matrix: Matrix4): Matrix4 {
+  const m = (index: number) => at(matrix, index);
+  const translation = { x: m(12), y: m(13), z: m(14) };
+  const rows = [
+    { x: m(0), y: m(1), z: m(2) },
+    { x: m(4), y: m(5), z: m(6) },
+    { x: m(8), y: m(9), z: m(10) },
+  ] as const;
+  const back = rows.map((row) => -(row.x * translation.x + row.y * translation.y + row.z * translation.z));
+  return [m(0), m(4), m(8), 0, m(1), m(5), m(9), 0, m(2), m(6), m(10), 0, back[0] ?? 0, back[1] ?? 0, back[2] ?? 0, 1];
+}

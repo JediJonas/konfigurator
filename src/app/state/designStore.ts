@@ -1,14 +1,31 @@
 import { create } from 'zustand';
-import type { Design, Instance } from '../../core/model/design';
+import type { Design } from '../../core/model/design';
 import type { PaperFormat } from '../../core/layout/paper';
+import { addChildInstance, removeInstance, updateInstance } from '../../core/model/instanceTree';
+import type { ChildRequest } from '../../core/rules/placement';
+import { proposeChild, snapAttachmentOffset } from '../../core/rules/placement';
 import { activeDomain } from '../activeDomain';
+
+/** En kopplingspunkt på ett visst objekt, t.ex. högra långväggen på S1. */
+export interface SocketRef {
+  instanceId: string;
+  socketId: string;
+}
 
 interface DesignState {
   design: Design;
   paper: PaperFormat['id'];
+  /** Kopplingspunkten som är vald i 3D-vyn eller i panelen. */
+  selectedSocket?: SocketRef;
   setParam: (instanceId: string, key: string, value: unknown) => void;
   setThickness: (thickness: number) => void;
   setPaper: (paper: PaperFormat['id']) => void;
+  selectSocket: (socket: SocketRef | undefined) => void;
+  /** Lägger till ett objekt som snäpper mitt i kopplingspunkten. Gör inget om reglerna inte tillåter det. */
+  addChild: (request: ChildRequest) => void;
+  removeChild: (instanceId: string) => void;
+  /** Flyttar ett objekt längs sin kopplingspunkt till närmaste tillåtna snäppläge. */
+  moveAlongSocket: (instanceId: string, u: number) => void;
 }
 
 function createStartDesign(): Design {
@@ -26,15 +43,17 @@ export const useDesignStore = create<DesignState>((set) => ({
     })),
   setThickness: (thickness) => set((state) => ({ design: { ...state.design, material: { ...state.design.material, thickness } } })),
   setPaper: (paper) => set({ paper }),
+  selectSocket: (selectedSocket) => set({ selectedSocket }),
+  addChild: (request) =>
+    set((state) => {
+      const proposal = proposeChild(state.design, activeDomain, request);
+      if (proposal.violations.length > 0) return {};
+      return { design: { ...state.design, root: addChildInstance(state.design.root, request.parentId, proposal.instance) } };
+    }),
+  removeChild: (instanceId) =>
+    set((state) => ({
+      design: { ...state.design, root: removeInstance(state.design.root, instanceId) },
+      selectedSocket: state.selectedSocket?.instanceId === instanceId ? undefined : state.selectedSocket,
+    })),
+  moveAlongSocket: (instanceId, u) => set((state) => ({ design: snapAttachmentOffset(state.design, activeDomain, instanceId, u) })),
 }));
-
-/** Byter ut ett objekt i monteringsträdet utan att ändra resten, så att React ser vad som ändrats. */
-export function updateInstance(instance: Instance, instanceId: string, update: (instance: Instance) => Instance): Instance {
-  if (instance.id === instanceId) return update(instance);
-  return { ...instance, children: instance.children.map((child) => updateInstance(child, instanceId, update)) };
-}
-
-/** Alla objekt utom roten, i trädordning, för listor i panelen. */
-export function listInstances(root: Instance): Instance[] {
-  return root.children.flatMap((child) => [child, ...listInstances(child)]);
-}

@@ -22,6 +22,35 @@ test('ändrar huset när ett mått ändras', async ({ page }) => {
   await expect(width).toHaveAttribute('aria-invalid', 'false');
 });
 
+test('bygger till huset och laddar ner ritningen', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'S1 · framgavel' });
+  await page.getByRole('button', { name: 'Lägg till tillbyggnad' }).click();
+  await expect(page.getByRole('heading', { name: 'Sektion S2' })).toBeVisible();
+  await expect(page.getByText('Sitter på S1 · framgavel')).toBeVisible();
+
+  const offset = page.getByLabel('Läge längs väggen (0 = mitten)');
+  await offset.fill('200');
+  await offset.blur();
+  await expect(offset).not.toHaveValue('200');
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ladda ner ritning (PDF)' }).click()]);
+  expect(download.suggestedFilename()).toBe('ritning.pdf');
+
+  await page.getByRole('button', { name: 'Ta bort S2' }).click();
+  await expect(page.getByRole('heading', { name: 'Sektion S2' })).toHaveCount(0);
+});
+
+test('stoppar ritningen när en tillbyggnad inte ryms', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Lägg till tillbyggnad' }).click();
+  await page.getByLabel('Vägghöjd').nth(1).fill('150');
+  await expect(page.getByText(/Tillbyggnaden ryms inte på väggen/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ladda ner ritning (PDF)' })).toBeDisabled();
+});
+
 test.describe('pekskärm', () => {
   test.use({ viewport: { width: 390, height: 664 }, hasTouch: true, isMobile: true });
 

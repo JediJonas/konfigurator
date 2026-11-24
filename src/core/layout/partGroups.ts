@@ -15,6 +15,8 @@ export interface PartGroup {
   count: number;
   isMirrored: boolean;
   partIds: string[];
+  /** Objekten som delarna kommer från, t.ex. ["S1", "S2"]. */
+  sourceInstanceIds: string[];
   buildStep: number;
 }
 
@@ -30,6 +32,7 @@ export function groupIdenticalParts(parts: readonly Part[]): PartGroup[] {
     if (existing) {
       existing.count += 1;
       existing.partIds.push(part.id);
+      if (!existing.sourceInstanceIds.includes(part.sourceInstanceId)) existing.sourceInstanceIds.push(part.sourceInstanceId);
       continue;
     }
     groups.set(key, {
@@ -41,6 +44,7 @@ export function groupIdenticalParts(parts: readonly Part[]): PartGroup[] {
       count: 1,
       isMirrored: part.mirroredPairOf !== undefined,
       partIds: [part.id],
+      sourceInstanceIds: [part.sourceInstanceId],
       buildStep: part.buildStep,
     });
   }
@@ -57,4 +61,13 @@ function shapeKey(part: Part, outline: Polygon, holes: Polygon[]): string {
   const round = (value: number) => Math.round(value / SHAPE_KEY_PRECISION_MM);
   const encode = (polygon: Polygon) => polygon.map((p) => `${round(p.x)},${round(p.y)}`).join(';');
   return [part.labelKey, round(part.thickness), part.mirroredPairOf ? 'm' : '', encode(outline), ...holes.map(encode)].join('|');
+}
+
+/**
+ * Delens namn på ritningen. När huset har flera objekt, t.ex. en tillbyggnad,
+ * står objektens id med så att man vet vilken långvägg som hör till vilken del av huset.
+ */
+export function describeGroup(group: PartGroup, groups: readonly PartGroup[], label: string): string {
+  const hasManySources = new Set(groups.flatMap((candidate) => candidate.sourceInstanceIds)).size > 1;
+  return hasManySources ? `${label} (${group.sourceInstanceIds.join(', ')})` : label;
 }

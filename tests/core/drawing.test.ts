@@ -6,7 +6,8 @@ import { buildDrawingPages } from '../../src/core/export/drawingDocument';
 import { RULER_LENGTH_MM } from '../../src/core/export/pageFurniture';
 import { layoutPartPages, TILE_OVERLAP_MM } from '../../src/core/layout/pageLayout';
 import { drawableArea, PAPER_FORMATS } from '../../src/core/layout/paper';
-import { groupIdenticalParts } from '../../src/core/layout/partGroups';
+import { describeGroup, groupIdenticalParts } from '../../src/core/layout/partGroups';
+import { designWithExtensions, extension } from '../domains/extensionFixtures';
 import { buildParts } from '../../src/core/pipeline/buildParts';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { simpleHousePreset } from '../../src/domains/gingerbread/presets/simpleHouse';
@@ -32,6 +33,34 @@ describe('dellista', () => {
       ['part.gable', 2],
       ['part.roof', 2],
     ]);
+  });
+});
+
+describe('ritning med tillbyggnad', () => {
+  const parts = buildParts(designWithExtensions(extension('side-right')), gingerbreadDomain);
+  const groups = groupIdenticalParts(parts);
+
+  it('ritar väggen med öppning för sig och den hela långväggen för sig', () => {
+    const sideWalls = groups.filter((group) => group.labelKey === 'part.sideWall');
+    expect(sideWalls.map((group) => group.partIds)).toEqual([['S1/side-right'], ['S1/side-left'], ['S2/side-right', 'S2/side-left']]);
+  });
+
+  it('skriver vilket objekt delarna hör till när det finns flera', () => {
+    const [first] = groups;
+    if (!first) throw new Error('Inga delar');
+    expect(describeGroup(first, groups, 'Långvägg')).toBe('Långvägg (S1)');
+    const single = groupIdenticalParts(buildParts(simpleHousePreset.create(), gingerbreadDomain));
+    expect(describeGroup(single[0] ?? first, single, 'Långvägg')).toBe('Långvägg');
+  });
+
+  it('ger en sida per del med namnen', () => {
+    const pages = buildDrawingPages({
+      parts,
+      paper: PAPER_FORMATS.A4,
+      resolveLabel: (key) => key,
+      overview: { title: 'Hus', materialLabel: 'Deg', thickness: 4, buildSteps: [], notes: [] },
+    });
+    expect(pages.join('')).toContain('part.gable (S2)');
   });
 });
 

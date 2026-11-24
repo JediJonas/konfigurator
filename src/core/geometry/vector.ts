@@ -39,3 +39,7 @@ export function distance2(a: Vec2, b: Vec2): Mm {
 export function degreesToRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
+
+export function cross3(a: Vec3, b: Vec3): Vec3 {
+  return { x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x };
+}
