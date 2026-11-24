@@ -16,7 +16,6 @@ export const uiStrings = {
   attachedTo: (place: string) => `Sitter på ${place}`,
   socketName: (instanceId: string, socket: string) => `${instanceId} · ${socket.toLowerCase()}`,
   offsetAlongSocket: 'Läge längs väggen (0 = mitten)',
-  offsetRange: (min: number, max: number) => `Får plats mellan ${min} och ${max} mm.`,
   noRoomToMove: 'Ingen plats att flytta den. Gör den smalare eller lägre så går den att flytta.',
   remove: (instanceId: string) => `Ta bort ${instanceId}`,
   removeLabel: 'Ta bort',

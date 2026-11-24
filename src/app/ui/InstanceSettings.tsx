@@ -44,7 +44,8 @@ export function InstanceSettings({ entry, violations, isRemovable }: InstanceSet
             value={instance.attachment?.u ?? 0}
             onChange={(u) => moveAlongSocket(instance.id, u)}
           />
-          <p className="field-hint">{offsetRange.min === offsetRange.max ? uiStrings.noRoomToMove : uiStrings.offsetRange(offsetRange.min, offsetRange.max)}</p>
+          {/* Fältets min och max visar hur långt den kan flyttas; texten behövs bara när det inte går alls. */}
+          {offsetRange.min === offsetRange.max ? <p className="field-hint">{uiStrings.noRoomToMove}</p> : null}
         </>
       ) : null}
       <ParamForm fields={describeParams(objectType.params)} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} />

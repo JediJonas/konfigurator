@@ -40,7 +40,7 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 - Nya objekt snäpper mitt i kopplingspunkten i den största storleken som klarar reglerna. Läget längs väggen snäpper till 5 mm och stannar där objektet ryms.
 - Öppningen i värdens vägg är 10 mm mindre än tillbyggnadens insida mot långväggarna och taket (ägarens val), så att tillbyggnaden har en kant att fästas mot. Nertill går den till golvet.
 - Tillbyggnadens väggar får gå ända ut till husets hörn (ägarens val); takutsprången får gå förbi hörnet. Tills vinkelrännorna finns (fas 3) måste taket ligga under huvudhusets takfot (långvägg) eller takets undersida (gavel).
-- En ny tillbyggnad tar högst 60 % av väggens längd, så att det finns plats att flytta den. Panelen visar hur långt den kan flyttas.
+- En ny tillbyggnad tar högst 60 % av väggens längd, så att det finns plats att flytta den. Fältet för läget går bara att ändra så långt den kan flyttas.
 
 ## Ritningen
 
