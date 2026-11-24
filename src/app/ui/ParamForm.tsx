@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
 import type { ParamField } from '../../core/model/paramForm';
 import { isFieldVisible } from '../../core/model/paramForm';
 import { translate } from '../activeDomain';
+import { FieldGroup } from './FieldGroup';
 import { uiStrings } from './strings.sv';
 
 interface ParamFormProps {
@@ -23,7 +23,7 @@ export function ParamForm({ fields, values, onChange }: ParamFormProps) {
     <div className="param-form">
       {groupFields(visible).map((group) =>
         group.groupKey ? (
-          <FieldGroup key={group.groupKey} labelKey={group.groupKey}>
+          <FieldGroup key={group.groupKey} label={translate(group.groupKey)}>
             {group.fields.map((field) => renderInput(field, values, onChange))}
           </FieldGroup>
         ) : (
@@ -53,28 +53,6 @@ function groupFields(fields: ParamField[]): FieldGroupEntry[] {
     else groups.push({ groupKey, fields: [field] });
   }
   return groups;
-}
-
-function FieldGroup({ labelKey, children }: { labelKey: string; children: ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const bodyId = useId();
-  return (
-    <div className="field-group">
-      <h3>
-        <button type="button" className="disclosure" aria-expanded={isOpen} aria-controls={bodyId} onClick={() => setIsOpen(!isOpen)}>
-          <svg className="disclosure-icon" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18">
-            <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          {translate(labelKey)}
-        </button>
-      </h3>
-      {isOpen ? (
-        <div id={bodyId} className="param-form">
-          {children}
-        </div>
-      ) : null}
-    </div>
-  );
 }
 
 interface ParamInputProps {

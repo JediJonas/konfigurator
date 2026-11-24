@@ -63,6 +63,14 @@ test('visar takets mått först när man fäller ut Tak', async ({ page }) => {
   await expect(page.getByLabel('Taktyp')).toBeVisible();
 });
 
+test('visar tjocklek och pappersformat först när man fäller ut Inställningar', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByLabel('Pappersformat')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Inställningar', exact: true }).click();
+  await expect(page.getByLabel(/^Tjocklek/)).toBeVisible();
+  await expect(page.getByLabel('Pappersformat')).toBeVisible();
+});
+
 test('visar bara takets fält för vald taktyp', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Tak', exact: true }).click();
