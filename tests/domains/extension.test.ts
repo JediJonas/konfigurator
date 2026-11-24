@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { transformPoint } from '../../src/core/geometry/matrix';
-import { boundsOf, edgeLengths, signedArea } from '../../src/core/geometry/polygon';
+import { boundsOf, signedArea } from '../../src/core/geometry/polygon';
 import type { Vec3 } from '../../src/core/geometry/vector';
 import { vec3 } from '../../src/core/geometry/vector';
 import type { Part } from '../../src/core/model/part';
 import { buildParts } from '../../src/core/pipeline/buildParts';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
+import { OPENING_INSET_MM } from '../../src/domains/gingerbread/objects/sectionSockets';
 import { designWithExtensions, extension, EXTENSION_PARAMS, HOST_PARAMS } from './extensionFixtures';
 
 const THICKNESS = 4;
@@ -49,16 +50,24 @@ describe('tillbyggnad på långväggen', () => {
     expect(Math.max(...xs)).toBeCloseTo(HOST_PARAMS.width / 2 + EXTENSION_PARAMS.depth + EXTENSION_PARAMS.gableOverhang);
   });
 
-  it('tar upp en öppning i husets vägg som är lika bred som tillbyggnadens insida', () => {
+  it('tar upp en öppning som lämnar en kant innanför tillbyggnadens väggar och tak', () => {
     const wall = partById(parts, 'S1/side-right');
     const untouched = partById(parts, 'S1/side-left');
     const openingArea = Math.abs(signedArea(untouched.outline)) - Math.abs(signedArea(wall.outline));
-    const innerWidth = EXTENSION_PARAMS.width - 2 * THICKNESS;
-    const sideTop = EXTENSION_PARAMS.wallHeight + THICKNESS;
-    const ridge = EXTENSION_PARAMS.wallHeight + EXTENSION_PARAMS.width / 2;
-    const expected = innerWidth * sideTop + (innerWidth / 2) * (ridge - sideTop);
+    // Takets lutning är 45°, så kanten under taket är 10 mm vinkelrätt mot det när toppen sänks 10 · √2 mm.
+    const halfWidth = EXTENSION_PARAMS.width / 2 - THICKNESS - OPENING_INSET_MM;
+    const ridge = EXTENSION_PARAMS.wallHeight + EXTENSION_PARAMS.width / 2 - OPENING_INSET_MM * Math.SQRT2;
+    const sideTop = ridge - halfWidth;
+    const expected = 2 * halfWidth * sideTop + halfWidth * (ridge - sideTop);
     expect(openingArea).toBeCloseTo(expected, 1);
     expect(wall.holes).toEqual([]);
+  });
+
+  it('har öppningens kanter 10 mm innanför tillbyggnadens långväggar', () => {
+    const wall = partById(parts, 'S1/side-right');
+    const xs = wall.outline.map((point) => point.x).filter((x) => x > 1 && x < 171);
+    const innerWidth = EXTENSION_PARAMS.width - 2 * THICKNESS;
+    expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(innerWidth - 2 * OPENING_INSET_MM);
   });
 
   it('behåller väggens yttermått, så att den fortfarande möter gavlarna', () => {
@@ -66,11 +75,6 @@ describe('tillbyggnad på långväggen', () => {
     expect(boundsOf(wall.outline)).toEqual(boundsOf(partById(parts, 'S1/side-left').outline));
   });
 
-  it('ger öppningen samma kantlängder som tillbyggnadens tvärsnitt där de möts', () => {
-    const lengths = edgeLengths(partById(parts, 'S1/side-right').outline).map((length) => Math.round(length * 10) / 10);
-    const slope = Math.hypot(EXTENSION_PARAMS.width / 2 - THICKNESS, EXTENSION_PARAMS.width / 2 - THICKNESS);
-    expect(lengths).toContain(Math.round(slope * 10) / 10);
-  });
 });
 
 describe('tillbyggnad på framgaveln', () => {

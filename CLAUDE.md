@@ -38,6 +38,7 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 - Påverkan (`Modifier`) ger områden i objektets egna koordinater; flödet fäller ner dem i måldelens plan. En öppning som skulle dela en del läggs inte på och blir ett fel.
 - Regelmotorn (`core/rules`) läser reglerna som data från domänen och ger fel och varningar. Samma kontroll används i panelen, när nya objekt föreslås och för att stoppa ritningen.
 - Nya objekt snäpper mitt i kopplingspunkten i den största storleken som klarar reglerna. Läget längs väggen snäpper till 5 mm och stannar där objektet ryms.
+- Öppningen i värdens vägg är 10 mm mindre än tillbyggnadens insida mot långväggarna och taket (ägarens val), så att tillbyggnaden har en kant att fästas mot. Nertill går den till golvet.
 - Tillbyggnad tills vinkelrännorna finns (fas 3): taket måste ligga under huvudhusets takfot (långvägg) eller takets undersida (gavel), och minst 15 mm vägg ska vara kvar på sidorna av öppningen.
 
 ## Ritningen

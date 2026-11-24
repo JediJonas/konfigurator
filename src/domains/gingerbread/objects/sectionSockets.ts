@@ -20,6 +20,12 @@ export const MIN_WALL_STRIP_MM = 15;
  * nederkant i stället för att lämna en kant som bara nuddar.
  */
 const OPENING_OVERCUT_MM = 1;
+/**
+ * Så mycket av värdens vägg som står kvar innanför tillbyggnadens väggar och
+ * tak, runt öppningen (ägarens önskan). Tillbyggnaden får då en kant att
+ * fästas mot med glasyr, i stället för att bara möta väggens snittyta.
+ */
+export const OPENING_INSET_MM = 10;
 
 /** Storlekar att pröva för en ny tillbyggnad, största först. Djup och tak är desamma. */
 const EXTENSION_WIDTHS_MM = [120, 100, 80, 60] as const;
@@ -88,12 +94,18 @@ export function extensionMountMatrix(params: SectionParams, context: BuildContex
   return basisMatrix(vec3(-1, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0), vec3(0, params.depth / 2, 0));
 }
 
-/** Öppningen i värdens vägg är tillbyggnadens insida: mellan långväggarna och upp till takets undersida. */
+/**
+ * Öppningen i värdens vägg följer tillbyggnadens insida, men är mindre med
+ * `OPENING_INSET_MM` mot långväggarna och takets undersida. Nertill går den ända till golvet.
+ */
 export function buildOpening(params: SectionParams, context: BuildContext): Modifier[] {
   const targetPartId = context.socket?.ownerPartId;
   if (!isExtension(context) || !targetPartId) return [];
   const backZ = -params.depth / 2;
-  const region = crossSectionOutline(params, params.width / 2 - context.thickness).map((point) => vec3(point.x, point.y > 0 ? point.y : -OPENING_OVERCUT_MM, backZ));
+  // Sänks lodrätt så mycket att kanten blir OPENING_INSET_MM mätt vinkelrätt mot taket.
+  const topDrop = OPENING_INSET_MM / Math.cos(degreesToRadians(params.roofPitch));
+  const halfWidth = params.width / 2 - context.thickness - OPENING_INSET_MM;
+  const region = crossSectionOutline(params, halfWidth).map((point) => vec3(point.x, point.y > 0 ? point.y - topDrop : -OPENING_OVERCUT_MM, backZ));
   return [{ kind: 'removeRegion', targetPartId, region }];
 }
 
