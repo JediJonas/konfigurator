@@ -25,41 +25,43 @@ function buildOnGables(times: number): { width: unknown; wallHeight: unknown; vi
 
 describe('tillbyggnader på varandras gavlar', () => {
   it('blir smalare och lägre för varje steg tills den minsta storleken inte ryms', () => {
-    // Huvudhuset är 140 mm brett med 100 mm vägghöjd. På gaveln som är 60 mm ryms inte 60 mm med 10 mm till hörnen.
-    expect(buildOnGables(4)).toEqual([
+    // Huvudhuset är 140 mm brett med 100 mm vägghöjd. När 60 % av gaveln är smalare än 60 mm blir det den minsta bredden,
+    // och vägghöjden trappas ner 10 mm per steg tills den är lägre än den minsta.
+    expect(buildOnGables(5)).toEqual([
       { width: 80, wallHeight: 60, violations: 0 },
       { width: 60, wallHeight: 50, violations: 0 },
+      { width: 60, wallHeight: 40, violations: 0 },
       { width: undefined, wallHeight: undefined, violations: 1 },
     ]);
   });
 
-  it('står minst 10 mm från väggens hörn och under takets undersida', () => {
+  it('får vara lika bred som gaveln men inte bredare', () => {
     const fitsOnGable = (params: Record<string, unknown>) =>
       evaluateDesign(designWithExtensions(extension('gable-front', params)), gingerbreadDomain, (key) => key).violations.every((violation) => violation.level !== 'error');
     expect(fitsOnGable({ ...EXTENSION_PARAMS, width: 120 })).toBe(true);
-    expect(fitsOnGable({ ...EXTENSION_PARAMS, width: 125 })).toBe(false);
-    expect(fitsOnGable({ ...EXTENSION_PARAMS, width: 140 })).toBe(false);
+    expect(fitsOnGable({ ...EXTENSION_PARAMS, width: 140 })).toBe(true);
+    expect(fitsOnGable({ ...EXTENSION_PARAMS, width: 145 })).toBe(false);
   });
 
-  it('lämnar 10 mm vägg vid hörnen på långväggen och låter väggarna nå väggens överkant och taket husets nock', () => {
+  it('går från hörn till hörn på långväggen och låter väggarna nå väggens överkant och taket husets nock', () => {
     const host = placeInstances(designWithExtensions(), gingerbreadDomain).find((entry) => entry.instance.id === 'S1');
     const socket = host?.sockets.find((candidate) => candidate.id === 'side-right');
     const { depth, wallHeight, width, roofPitch } = HOST_PARAMS;
     const pitch = (roofPitch * Math.PI) / 180;
     // Takhalvornas övre hörn på ovansidan: nockens undersida plus tjockleken utåt.
     const ridgeTop = wallHeight + (width / 2) * Math.tan(pitch) + 4 * Math.cos(pitch);
-    expect(Math.max(...(socket?.bounds ?? []).map((point) => point.x))).toBeCloseTo(depth / 2 - 10);
+    expect(Math.max(...(socket?.bounds ?? []).map((point) => point.x))).toBeCloseTo(depth / 2);
     expect(Math.max(...(socket?.bounds ?? []).map((point) => point.y))).toBeCloseTo(wallHeight);
     expect(Math.max(...(socket?.topBounds ?? []).map((point) => point.y))).toBeCloseTo(ridgeTop);
   });
 
-  it('blir så bred som marginalen tillåter när 60 % av väggen är för smalt', () => {
+  it('får den minsta bredden när 60 % av väggen är för smalt', () => {
     const design = designWithExtensions();
     const host = design.root.children[0];
     if (!host) throw new Error('Mallen saknar sektion');
     host.params = { ...HOST_PARAMS, width: 90 };
     const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: SECTION_TYPE_ID });
-    expect(proposal.instance.params).toMatchObject({ width: 70 });
+    expect(proposal.instance.params).toMatchObject({ width: 60 });
   });
 
   it('får lika höga väggar som huset men inte högre, nu när taket läggs i en vinkelränna', () => {

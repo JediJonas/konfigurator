@@ -26,11 +26,6 @@ const OPENING_OVERCUT_MM = 1;
  * fästas mot med glasyr, i stället för att bara möta väggens snittyta.
  */
 export const OPENING_INSET_MM = 10;
-/**
- * Så långt från väggens hörn som en tillbyggnad minst ska stå (ägarens val),
- * så att den aldrig blir lika bred som väggen.
- */
-export const WALL_EDGE_MARGIN_MM = 10;
 /** Stort nog att rymma vilken öppning som helst innan den klipps till. */
 const OPENING_WORK_AREA_MM = 2000;
 
@@ -45,8 +40,8 @@ const SOCKET_LABEL_KEYS: Record<string, string> = {
  * Väggytorna som tillbyggnader kan fästa i. Origo ligger mitt på väggens
  * utsida i golvhöjd, så att (u, v) är läge längs väggen och höjd.
  *
- * Tillbyggnadens väggar ska rymmas inom väggen, `WALL_EDGE_MARGIN_MM`
- * innanför hörnen och under väggens överkant. Taket får gå högre, upp till
+ * Tillbyggnadens väggar ska rymmas inom väggen, hörn till hörn (ägarens val,
+ * så att den kan vara lika bred som väggen) och under väggens överkant. Taket får gå högre, upp till
  * husets tak sett rakt mot väggen, eftersom vinkelrännan lägger det ovanpå.
  */
 export function buildSectionSockets(instance: Instance, params: SectionParams, context: BuildContext): Socket[] {
@@ -74,11 +69,11 @@ export function buildSectionSockets(instance: Instance, params: SectionParams, c
 }
 
 /**
- * Väggens yta i kopplingspunktens (u, v), `WALL_EDGE_MARGIN_MM` innanför
- * hörnen och upp till överkanten. Överkanten är given från väggens början, där u = length / 2.
+ * Väggens yta i kopplingspunktens (u, v), från hörn till hörn och upp till
+ * överkanten. Överkanten är given från väggens början, där u = length / 2.
  */
 function wallBounds(topProfile: readonly Vec2[], length: Mm): Vec2[] {
-  const halfLength = length / 2 - WALL_EDGE_MARGIN_MM;
+  const halfLength = length / 2;
   const toSocket = (point: Vec2) => vec2(length / 2 - point.x, point.y);
   const top = topProfile.map(toSocket).filter((point) => Math.abs(point.x) < halfLength);
   const ends = [halfLength, -halfLength].map((u) => vec2(u, interpolateTop(topProfile.map(toSocket), u)));
