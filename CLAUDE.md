@@ -71,6 +71,7 @@ Se `docs/SPEC.md` avsnitt 14. Kort:
 - Dator: 3D-vyn i mitten, inställningspanel till höger. Mobil och iPad: 3D-vyn i helskärm, panelen nerifrån. Tryckytor minst 44 × 44 pt.
 - Knappar längst ner följer mönstret med `--bottom-gap` (`max(1rem, env(safe-area-inset-bottom))`, och bara `env(safe-area-inset-bottom)` i Safari på stående iPhone där Safari själv lämnar cirka 17 px). Skriv `env(safe-area-inset-bottom)` bara i `--bottom-gap`. Placera mot `100dvh`, aldrig `100vh`. Ingen `position: fixed` för huvudknappar.
 - Uppmätt på iPhone 14, iOS 26, Safari: innerHeight = dvh = 699, vh = lvh = 739 på 390 × 844. Gissa inte; mät på riktig iPhone innan avstånd ändras.
+- Kontrollerat i appen 2026-11-24 med `?matt` (iPhone, Safari, stående, verktygsfältet nertill): `--bottom-gap` = 0, sista knappen slutar vid 699 = innerHeight, och avståndet till verktygsfältet är cirka 18 px (Safaris eget mellanrum). Det ligger inom målet 16–18 px, så ingen ändring behövdes.
 
 ## Kodstil
 
