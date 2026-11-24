@@ -24,7 +24,6 @@ export const gingerbreadStrings: Record<string, string> = {
   'rule.extensionFitsWall':
     'Tillbyggnaden ryms inte på väggen. Väggarna ska stå inom husets hörn och taket ska ligga under huvudhusets takfot. Gör den smalare eller lägre, eller flytta den.',
   'rule.sectionsOverlap': 'Sektionen går in i en annan sektion. Flytta den eller gör den mindre.',
-  'rule.tallWall': 'Väggar högre än 160 mm kan bågna i ugnen. Baka dem gärna lite tjockare.',
   'preset.simpleHouse': 'Enkelt hus',
   'drawing.note.joints':
     'Gavlarna går hela vägen ut och långväggarna står mellan dem. Tillbyggnadens väggar går stumt mot huset. Fyll glipor och skåran i nocken med glasyr.',

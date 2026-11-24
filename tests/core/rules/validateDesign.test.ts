@@ -61,12 +61,21 @@ describe('kopplingsreglerna för pepparkakshus', () => {
     expect(findViolations(design)).not.toContain('error S1 rule.rightAnglesOnly');
   });
 
-  it('varnar för höga väggar men låter dem byggas', () => {
+  it('varnar inte för höga väggar (ägarens val)', () => {
     const design = designWithExtensions();
     const host = design.root.children[0];
     if (!host) throw new Error('Mallen saknar sektion');
     host.params = { ...host.params, wallHeight: 200 };
-    expect(findViolations(design)).toEqual(['warning S1 rule.tallWall']);
+    expect(findViolations(design)).toEqual([]);
+  });
+
+  it('ger en varning när ett mått går över en gräns i domänens regler', () => {
+    const design = designWithExtensions();
+    const host = design.root.children[0];
+    if (!host) throw new Error('Mallen saknar sektion');
+    host.params = { ...host.params, wallHeight: 200 };
+    const domain = { ...gingerbreadDomain, rules: [{ kind: 'paramLimit' as const, level: 'warning' as const, objectType: host.type, param: 'wallHeight', max: 160, messageKey: 'tall' }] };
+    expect(evaluateDesign(design, domain, (key) => key).violations.map((violation) => `${violation.level} ${violation.message}`)).toEqual(['warning tall']);
   });
 
   it('säger till när ett objekt sitter i en kopplingspunkt det inte kan fästa i', () => {
