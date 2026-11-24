@@ -5,6 +5,7 @@ import { evaluateDesign } from '../../core/rules/evaluateDesign';
 import { activeDomain, translate } from '../activeDomain';
 import { useDesignStore } from '../state/designStore';
 import { DesignView } from '../three/DesignView';
+import type { FitView } from '../three/DesignView';
 import type { CaptureOverview } from '../three/OverviewCapture';
 import { ViewportProbe } from '../device/ViewportProbe';
 import { findSocketOwnedBy } from './socketSelection';
@@ -20,6 +21,7 @@ export function App() {
   const selectedSocket = useDesignStore((state) => state.selectedSocket);
   const selectSocket = useDesignStore((state) => state.selectSocket);
   const captureRef = useRef<CaptureOverview>(null);
+  const fitRef = useRef<FitView>(null);
   const [lastGoodParts, setLastGoodParts] = useState<Part[]>([]);
   const result = useMemo<EvaluationResult>(() => {
     try {
@@ -49,10 +51,18 @@ export function App() {
             parts={result.error ? lastGoodParts : evaluation.parts}
             color={material?.color ?? '#a8652f'}
             captureRef={captureRef}
+            fitRef={fitRef}
             selectedPartId={selectedPartId}
             onSelectPart={(partId) => selectSocket(findSocketOwnedBy(evaluation.placed, partId))}
           />
           <p className="viewport-hint">{uiStrings.viewHint}</p>
+          <button type="button" className="fit-button" onClick={() => fitRef.current?.()}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
+              <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+            </svg>
+            {uiStrings.fitView}
+          </button>
         </section>
         <SettingsPanel evaluation={evaluation} error={result.error} captureOverview={captureRef} />
       </main>
