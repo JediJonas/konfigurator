@@ -11,9 +11,12 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme });
     await page.goto('/');
     await page.addScriptTag({ content: axeSource });
+    // Elementen står med i felet, så att ett fel i CI går att spåra utan att köra om.
     const violations = await page.evaluate(async (tags) => {
-      const axe = (window as unknown as { axe: { run: (context: Document, options: object) => Promise<{ violations: { id: string }[] }> } }).axe;
-      return (await axe.run(document, { runOnly: tags })).violations.map((violation) => violation.id);
+      type AxeResult = { violations: { id: string; nodes: { target: string[] }[] }[] };
+      const axe = (window as unknown as { axe: { run: (context: Document, options: object) => Promise<AxeResult> } }).axe;
+      const { violations: found } = await axe.run(document, { runOnly: tags });
+      return found.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`);
     }, WCAG_TAGS);
     expect(violations).toEqual([]);
   });
