@@ -32,7 +32,7 @@ export type FitView = () => void;
 /** Skuggans upplösning; rutan växer med skuggan så den behöver fler punkter än förr. */
 const SHADOW_MAP_SIZE_PX = 2048;
 /** Hur mörk skuggan är på bordet utanför fatet. */
-const FLOOR_SHADOW_OPACITY = 0.28;
+const FLOOR_SHADOW_OPACITY = 0.2;
 const CAMERA_POSITION_MM: [number, number, number] = [260, 230, 340];
 const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 /** Närmaste avstånd till vyns mittpunkt. Husets egna väggar och tak stoppar zoomen långt innan dess. */
