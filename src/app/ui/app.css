@@ -108,6 +108,29 @@ body {
   pointer-events: none;
 }
 
+/* Ligger i 3D-vyns hörn, inte bland huvudknapparna nertill. */
+.fit-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: var(--tap-size);
+  padding: 0 0.875rem;
+  border: 1px solid #c9b49c;
+  border-radius: 0.625rem;
+  background: rgb(255 250 243 / 0.92);
+  color: #2b1d12;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fit-button:hover {
+  background: #fffaf3;
+}
+
 .panel {
   display: flex;
   flex-direction: column;

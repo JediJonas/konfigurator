@@ -15,14 +15,18 @@ interface DesignViewProps {
   color: string;
   /** Fylls med en funktion som tar översiktsbilden till PDF:en. */
   captureRef: RefObject<CaptureOverview | null>;
+  /** Fylls med en funktion som centrerar huset och anpassar zoomen. */
+  fitRef: RefObject<FitView | null>;
 }
+
+export type FitView = () => void;
 
 /** Fatets radie i 3D-vyn. Fatet är bara bakgrund och ingår inte i underlaget. */
 const PLATE_RADIUS_MM = 220;
 const CAMERA_POSITION_MM: [number, number, number] = [260, 230, 340];
 const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 
-export function DesignView({ parts, color, captureRef }: DesignViewProps) {
+export function DesignView({ parts, color, captureRef, fitRef }: DesignViewProps) {
   const partsRef = useRef<Group>(null);
   return (
     <Canvas
@@ -41,7 +45,7 @@ export function DesignView({ parts, color, captureRef }: DesignViewProps) {
         <meshStandardMaterial color="#fbfbf8" roughness={0.4} />
       </mesh>
       <Bounds margin={1.6}>
-        <FitOnFirstParts parts={parts} />
+        <CameraFitting parts={parts} fitRef={fitRef} />
         <group ref={partsRef}>
           {parts.map((part) => (
             <PartMesh key={part.id} part={part} color={color} />
@@ -62,13 +66,22 @@ export function DesignView({ parts, color, captureRef }: DesignViewProps) {
 }
 
 /**
- * Ställer kameran så att hela huset syns när det visas första gången. Därefter
- * behåller kameran sitt läge när måtten ändras, så att vyn inte hoppar;
- * ägaren vill zooma själv. PDF:ens översiktsbild har en egen kamera.
+ * Ställer kameran så att hela huset syns när det visas första gången och när
+ * man trycker på knappen för att centrera. Annars behåller kameran sitt läge
+ * när måtten ändras, så att vyn inte hoppar; ägaren vill zooma själv.
+ * PDF:ens översiktsbild har en egen kamera.
  */
-function FitOnFirstParts({ parts }: { parts: Part[] }) {
+function CameraFitting({ parts, fitRef }: { parts: Part[]; fitRef: RefObject<FitView | null> }) {
   const bounds = useBounds();
   const hasFittedRef = useRef(false);
+
+  useEffect(() => {
+    fitRef.current = () => bounds.refresh().clip().fit();
+    return () => {
+      fitRef.current = null;
+    };
+  }, [bounds, fitRef]);
+
   useEffect(() => {
     if (hasFittedRef.current || parts.length === 0) return;
     hasFittedRef.current = true;
