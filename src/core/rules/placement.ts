@@ -118,3 +118,45 @@ export function findAllowedOffsetRange(design: Design, domain: Domain, request: 
   };
   return { min: reach(-1), max: reach(1) };
 }
+
+export interface ParamRangeRequest {
+  instanceId: string;
+  param: string;
+  current: number;
+  step: number;
+  /** Schemats gränser, som sökningen aldrig går förbi. */
+  min: number;
+  max: number;
+}
+
+/**
+ * Hur långt ett mått kan ändras från sitt nuvarande värde utan att något i
+ * designen bryter mot reglerna, t.ex. att huset inte blir kortare än
+ * tillbyggnaden på dess vägg. Har designen redan fel används schemats
+ * gränser, så att man kan ändra sig ur felet.
+ */
+export function findAllowedParamRange(design: Design, domain: Domain, request: ParamRangeRequest): OffsetRange {
+  const schemaRange = { min: request.min, max: request.max };
+  if (hasAnyError(design, domain)) return schemaRange;
+  const withValue = (value: number): Design => ({
+    ...design,
+    root: updateInstance(design.root, request.instanceId, (instance) => ({ ...instance, params: { ...instance.params, [request.param]: value } })),
+  });
+  const reach = (direction: 1 | -1, limit: number) => {
+    let last = request.current;
+    for (let value = request.current + direction * request.step; direction * (limit - value) >= 0; value += direction * request.step) {
+      if (hasAnyError(withValue(value), domain)) break;
+      last = value;
+    }
+    return last;
+  };
+  return { min: reach(-1, request.min), max: reach(1, request.max) };
+}
+
+function hasAnyError(design: Design, domain: Domain): boolean {
+  try {
+    return evaluateDesign(design, domain, ignoreLabel).violations.some((violation) => violation.level === 'error');
+  } catch {
+    return true;
+  }
+}

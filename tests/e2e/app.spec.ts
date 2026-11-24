@@ -39,6 +39,8 @@ test('bygger till huset och laddar ner ritningen', async ({ page }) => {
   await expect(mainSection).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByRole('button', { name: 'Sektion S2' })).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByLabel('Gavelbredd')).toHaveCount(1);
+  // Tillbyggnaden på gaveln sätter en gräns för hur smalt huset kan bli.
+  await expect(page.getByLabel('Gavelbredd')).not.toHaveAttribute('min', '60');
   await page.getByRole('button', { name: 'Sektion S2' }).click();
 
   const offset = page.getByLabel('Läge längs väggen (0 = mitten)');
@@ -53,11 +55,21 @@ test('bygger till huset och laddar ner ritningen', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toHaveCount(0);
 });
 
-test('stoppar ritningen när en tillbyggnad inte ryms', async ({ page }) => {
+test('låter inte måtten gå förbi det som ryms', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Lägg till tillbyggnad' }).click();
   await page.getByLabel('Vägghöjd').fill('150');
+  await expect(page.getByText(/Välj ett värde mellan 40 och/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ladda ner ritning (PDF)' })).toBeEnabled();
+});
+
+test('stoppar ritningen när en tillbyggnad inte ryms', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Lägg till tillbyggnad' }).click();
+  // Tjockare tak gör att tillbyggnadens tak når över huvudhusets takfot.
+  await page.getByLabel('Tjocklek').fill('10');
   await expect(page.getByText(/Tillbyggnaden ryms inte på väggen/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ladda ner ritning (PDF)' })).toBeDisabled();
 });

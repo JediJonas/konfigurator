@@ -1,9 +1,10 @@
 import { useId, useMemo } from 'react';
+import type { ParamField } from '../../core/model/paramForm';
 import { describeParams } from '../../core/model/paramForm';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { RuleViolation } from '../../core/rules/rule';
 import type { OffsetRange } from '../../core/rules/placement';
-import { findAllowedOffsetRange, SNAP_STEP_MM } from '../../core/rules/placement';
+import { findAllowedOffsetRange, findAllowedParamRange, SNAP_STEP_MM } from '../../core/rules/placement';
 import { activeDomain, translate } from '../activeDomain';
 import { useDesignStore } from '../state/designStore';
 import { AddToInstance } from './AddToInstance';
@@ -26,6 +27,7 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
   const offsetId = useId();
   const bodyId = useId();
   const offsetRange = useOffsetRange(entry, isRemovable && isOpen);
+  const paramFields = useParamFieldsWithinRules(entry, isOpen);
   const { instance, objectType, socket, parentId } = entry;
   return (
     <section className="panel-section">
@@ -60,7 +62,7 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
               {offsetRange.min === offsetRange.max ? <p className="field-hint">{uiStrings.noRoomToMove}</p> : null}
             </>
           ) : null}
-          <ParamForm fields={describeParams(objectType.params)} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} />
+          <ParamForm fields={paramFields} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} />
           <AddToInstance entry={entry} />
         </div>
       ) : null}
@@ -96,4 +98,31 @@ export function ViolationList({ violations }: { violations: RuleViolation[] }) {
       ))}
     </ul>
   );
+}
+
+/**
+ * Formulärets fält med min och max för talen satta så långt de går utan att
+ * något i huset bryter mot reglerna, t.ex. att väggen inte blir kortare än
+ * tillbyggnaden på den. Pilarna i fältet stannar då vid gränsen.
+ */
+function useParamFieldsWithinRules(entry: PlacedInstance, isOpen: boolean): ParamField[] {
+  const design = useDesignStore((state) => state.design);
+  const { instance, objectType, params } = entry;
+  return useMemo(() => {
+    const fields = describeParams(objectType.params);
+    if (!isOpen) return fields;
+    return fields.map((field) => {
+      const current = params[field.key];
+      if (field.kind !== 'number' || typeof current !== 'number' || field.min === undefined || field.max === undefined) return field;
+      const range = findAllowedParamRange(design, activeDomain, {
+        instanceId: instance.id,
+        param: field.key,
+        current,
+        step: field.meta.step ?? 1,
+        min: field.min,
+        max: field.max,
+      });
+      return { ...field, ...range };
+    });
+  }, [design, instance.id, isOpen, objectType.params, params]);
 }
