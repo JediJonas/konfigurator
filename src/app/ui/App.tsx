@@ -4,6 +4,7 @@ import { buildParts } from '../../core/pipeline/buildParts';
 import { activeDomain, translate } from '../activeDomain';
 import { useDesignStore } from '../state/designStore';
 import { DesignView } from '../three/DesignView';
+import type { CaptureOverview } from '../three/OverviewCapture';
 import { ViewportProbe } from '../device/ViewportProbe';
 import { SettingsPanel } from './SettingsPanel';
 import { uiStrings } from './strings.sv';
@@ -12,7 +13,7 @@ type PartsResult = { parts: Part[]; error?: undefined } | { parts: Part[]; error
 
 export function App() {
   const design = useDesignStore((state) => state.design);
-  const viewRef = useRef<HTMLElement>(null);
+  const captureRef = useRef<CaptureOverview>(null);
   const [lastGoodParts, setLastGoodParts] = useState<Part[]>([]);
   const result = useMemo<PartsResult>(() => {
     try {
@@ -33,11 +34,11 @@ export function App() {
         </h1>
       </header>
       <main className="workspace">
-        <section className="viewport" ref={viewRef} aria-label={uiStrings.viewLabel}>
-          <DesignView parts={result.error ? lastGoodParts : result.parts} color={material?.color ?? '#a8652f'} />
+        <section className="viewport" aria-label={uiStrings.viewLabel}>
+          <DesignView parts={result.error ? lastGoodParts : result.parts} color={material?.color ?? '#a8652f'} captureRef={captureRef} />
           <p className="viewport-hint">{uiStrings.viewHint}</p>
         </section>
-        <SettingsPanel parts={result.parts} error={result.error} viewRef={viewRef} />
+        <SettingsPanel parts={result.parts} error={result.error} captureOverview={captureRef} />
       </main>
       <ViewportProbe />
     </div>
