@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findInstance } from '../../../src/core/model/instanceTree';
 import { findAllowedOffsetRange, findAllowedParamRange, proposeChild, snapAttachmentOffset } from '../../../src/core/rules/placement';
+import { coreStrings } from '../../../src/core/text/strings.sv';
 import { gingerbreadDomain } from '../../../src/domains/gingerbread';
 import { SECTION_TYPE_ID } from '../../../src/domains/gingerbread/objects/section';
 import { designWithExtensions, extension, EXTENSION_PARAMS, HOST_PARAMS } from '../../domains/extensionFixtures';
@@ -20,13 +21,13 @@ describe('nya objekt i en kopplingspunkt', () => {
     expect(proposal.instance.params).toMatchObject({ width: 80, wallHeight: 80 });
   });
 
-  it('förklarar varför det inte går när väggen är för låg', () => {
+  it('föreslår inget när väggen är för låg för den lägsta tillbyggnaden', () => {
     const design = designWithExtensions();
     const host = design.root.children[0];
     if (!host) throw new Error('Mallen saknar sektion');
     host.params = { ...HOST_PARAMS, wallHeight: 40 };
     const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: SECTION_TYPE_ID }, (key) => key);
-    expect(proposal.violations.map((violation) => violation.message)).toContain('rule.extensionFitsWall');
+    expect(proposal.violations.map((violation) => violation.message)).toEqual([coreStrings.noSizeFits]);
   });
 
   it('snäpper läget längs väggen till 5 mm och stannar där tillbyggnaden ryms', () => {
