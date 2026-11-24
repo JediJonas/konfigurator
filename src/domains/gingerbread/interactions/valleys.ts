@@ -8,6 +8,7 @@ import type { InteractionResolver } from '../../../core/pipeline/interaction';
 import type { WorldHalfSpace } from '../../../core/pipeline/partRegions';
 import { regionOnPart, removeRegionsFromPart } from '../../../core/pipeline/partRegions';
 import type { PlacedInstance } from '../../../core/pipeline/placeInstances';
+import type { Socket } from '../../../core/model/objectType';
 import { SECTION_TYPE_ID } from '../objects/section';
 import { WALL_SURFACE } from '../socketKinds';
 
@@ -17,6 +18,8 @@ const UPRIGHT_NORMAL_Y = 0.01;
 const DOWNWARD_SLOPE = 1e-6;
 /** Takytor och takskivor; takkanterna ("rim-") står upprätt och räknas inte. */
 const ROOF_PART_PREFIXES = ['roof', 'spire-'];
+/** Områden som möts längs en linje får gå så här mycket in i varandra, så att ingen tunn remsa blir kvar mellan dem. */
+const REGION_OVERLAP_MM = 0.01;
 
 /** En takyta på värden som en skiva: undersidans plan, normal uppåt och tjocklek. */
 interface HostRoofSlab {
@@ -45,14 +48,17 @@ export const valleyResolver: InteractionResolver = {
   resolve: (placed, parts) =>
     placed.reduce<Part[]>((current, entry) => {
       const host = findHost(placed, entry);
-      if (!host || !entry.socket) return current;
+      const socket = entry.socket;
+      if (!host || !socket) return current;
       const slabs = describeHostRoof(host);
       const walls = hostWallPlan(host);
-      const outward = entry.socket.frame.normal;
+      const outward = socket.frame.normal;
       const reachOutward = (points: Vec3[]) => Math.max(...points.map((point) => dot3(point, outward)));
       return current.flatMap((part) => {
         if (part.sourceInstanceId !== entry.instance.id) return [part];
-        const regions = isUpright(part) ? uprightRegions(part, slabs) : [...roofRegions(part, slabs, walls, outward), beyondHost(part, walls, outward)];
+        const regions = isUpright(part)
+          ? uprightRegions(part, slabs)
+          : [...roofRegions(part, slabs, walls, outward), ...besideHostWalls(part, slabs, walls, socket), beyondHost(part, walls, outward)];
         const clipped = removeRegionsFromPart(part, regions, reachOutward);
         return clipped ? [clipped] : [];
       });
@@ -152,6 +158,31 @@ function roofRegions(part: Part, slabs: readonly HostRoofSlab[], walls: Polygon,
 function beyondHost(part: Part, walls: Polygon, outward: Vec3): Vec2[] {
   const far = Math.min(...walls.map((corner) => corner.x * outward.x + corner.y * outward.z));
   return regionOnPart(part, [{ normal: outward, offset: far, depth: 0 }]);
+}
+
+/**
+ * Bredvid värdens väggar, innanför väggen som tillbyggnaden sitter på. När
+ * tillbyggnaden når ut till värdens hörn går dess takutsprång förbi värdens
+ * vägg, och det förlängda taket ska då inte gå in längs huset, varken under
+ * värdens takutsprång eller bredvid värdens tak. Ovanpå värdens takutsprång
+ * får det ligga kvar, där det är en del av rännan.
+ */
+function besideHostWalls(part: Part, slabs: readonly HostRoofSlab[], walls: Polygon, socket: Socket): Vec2[][] {
+  if (slabs.length === 0) return [];
+  const middle = part.thickness / 2;
+  const outward = socket.frame.normal;
+  const insideWall: WorldHalfSpace = { normal: outward, offset: dot3(outward, socket.frame.origin), depth: middle };
+  const outsideOf = (plan: Polygon, overlap: Mm) =>
+    insidePlan(plan, middle).map((edge) => {
+      const length = Math.hypot(edge.normal.x, edge.normal.z);
+      return { ...edge, normal: vec3(-edge.normal.x, 0, -edge.normal.z), offset: -edge.offset + overlap * length };
+    });
+  const roofPlan = convexHull(slabs.flatMap((slab) => slab.plan));
+  const besideRoof = outsideOf(roofPlan, REGION_OVERLAP_MM).map((edge) => regionOnPart(part, [edge, insideWall]));
+  const underOverhang = outsideOf(walls, 0).flatMap((edge) =>
+    slabs.map((slab) => regionOnPart(part, [edge, insideWall, ...insidePlan(slab.plan, middle), belowTopOf(slab, middle)])),
+  );
+  return [...besideRoof, ...underOverhang];
 }
 
 /** Det som tas bort från en vägg eller takkant: där den når upp i en takyta på värden. */

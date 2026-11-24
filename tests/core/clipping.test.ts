@@ -27,6 +27,16 @@ describe('borttagning av områden', () => {
     expect(subtractRegion(wall, [vec2(40, -1), vec2(60, -1), vec2(60, 51), vec2(40, 51)])).toHaveLength(2);
   });
 
+  it('lämnar ingen udd utan yta där två områden nästan möts', () => {
+    const [piece, ...rest] = subtractRegions(wall, [
+      [vec2(-1, 20), vec2(50, 20), vec2(50, 60), vec2(-1, 60)],
+      [vec2(50 + 1e-9, 20), vec2(101, 20), vec2(101, 60), vec2(50 + 1e-9, 60)],
+    ]);
+    expect(rest).toEqual([]);
+    expect(piece?.outline).toHaveLength(4);
+    expect(signedArea(piece?.outline ?? [])).toBeCloseTo(100 * 20);
+  });
+
   it('mäter överlapp och räknar nuddande former som noll', () => {
     expect(overlapArea(square(0, 0, 10), square(5, 5, 10))).toBeCloseTo(25);
     expect(overlapArea(square(0, 0, 10), square(10, 0, 10))).toBe(0);

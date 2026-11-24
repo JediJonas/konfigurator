@@ -2,7 +2,7 @@ import type { Mm, Vec2 } from '../../../core/geometry/vector';
 import type { BuildContext, Socket } from '../../../core/model/objectType';
 import type { SectionParams } from './sectionParams';
 import { sectionParams } from './sectionParams';
-import { sectionSocketOutline, sectionSocketTopOutline, WALL_EDGE_MARGIN_MM } from './sectionSockets';
+import { sectionSocketOutline, sectionSocketTopOutline } from './sectionSockets';
 import { EXTENSION_ROOF_TYPES } from './roof/extensionRoofs';
 
 /** Djup för en ny tillbyggnad, och tak när föräldern inte har något att ärva. Bredd och vägghöjd räknas från väggen den sitter på. */
@@ -14,12 +14,16 @@ const EXTENSION_PITCH_DEGREES = 45;
  * finns plats att flytta dem och en rad tillbyggnader trappas ner.
  */
 const EXTENSION_WALL_SHARE = 0.6;
+/**
+ * När 60 % av hörnets höjd är lägre än minsta vägghöjden blir väggen så
+ * mycket lägre än hörnet (ägarens val), så att en rad tillbyggnader trappas ner.
+ */
+const EXTENSION_STEP_DOWN_MM = 10;
 /** Steget mellan bredderna som prövas när den första inte ryms. */
 const EXTENSION_WIDTH_STEP_MM = 20;
 /** Bredden avrundas nedåt till jämna centimeter. */
 const EXTENSION_ROUNDING_MM = 10;
 /** Förslagen avrundas nedåt till fältens steg, så att de går att skriva in igen. */
-const WIDTH_FIELD_STEP_MM = sectionParams.shape.width.meta()?.step as number;
 const WALL_HEIGHT_FIELD_STEP_MM = sectionParams.shape.wallHeight.meta()?.step as number;
 /** Schemats minsta bredd och vägghöjd för en sektion. */
 const SECTION_MIN_WIDTH_MM = sectionParams.shape.width.unwrap().minValue ?? 0;
@@ -27,22 +31,20 @@ const SECTION_MIN_WALL_HEIGHT_MM = sectionParams.shape.wallHeight.unwrap().minVa
 
 /**
  * Förslag till en ny tillbyggnad, största först, en vägghöjd per bredd.
- * Bredden är 60 % av väggen, eller så bred som marginalen till hörnen
- * tillåter på en kort vägg. Vägghöjden är 60 % av väggens höjd i hörnet
+ * Bredden är 60 % av väggen, eller den minsta bredden när 60 % är smalare
+ * än den och väggen rymmer den. Vägghöjden är 60 % av väggens höjd i hörnet
  * (10 mm under den om 60 % är lägre än minsta höjden), men aldrig högre än
  * att väggarna ryms under värdens väggöverkant och taket under värdens tak.
  * En tornspira ärvs inte, eftersom den bara kan stå på fatet; då blir det sadeltak.
  */
 export function listExtensionCandidates(socket: Socket, context: BuildContext, inherited: Partial<SectionParams> = {}): Record<string, unknown>[] {
   const xs = socket.bounds.map((point) => point.x);
-  const usableLength = Math.max(...xs) - Math.min(...xs);
-  const wallLength = usableLength + 2 * WALL_EDGE_MARGIN_MM;
-  const widths = listWidthsDown(Math.min(wallLength * EXTENSION_WALL_SHARE, usableLength));
-  const widestFitting = roundDown(usableLength, WIDTH_FIELD_STEP_MM);
-  const fittingWidths = widths.length > 0 || widestFitting < SECTION_MIN_WIDTH_MM ? widths : [widestFitting];
+  const wallLength = Math.max(...xs) - Math.min(...xs);
+  const widths = listWidthsDown(wallLength * EXTENSION_WALL_SHARE);
+  const fittingWidths = widths.length > 0 || wallLength < SECTION_MIN_WIDTH_MM ? widths : [SECTION_MIN_WIDTH_MM];
   const cornerHeight = measureCornerHeight(socket);
   const shareHeight = cornerHeight * EXTENSION_WALL_SHARE;
-  const preferredHeight = shareHeight >= SECTION_MIN_WALL_HEIGHT_MM ? shareHeight : cornerHeight - WALL_EDGE_MARGIN_MM;
+  const preferredHeight = shareHeight >= SECTION_MIN_WALL_HEIGHT_MM ? shareHeight : cornerHeight - EXTENSION_STEP_DOWN_MM;
   const roof = inherited.roof && !EXTENSION_ROOF_TYPES.includes(inherited.roof) ? { roof: 'gable' as const } : {};
   return fittingWidths.flatMap((width) => {
     // Taket ärvs från föräldern, så att den högsta vägghöjden räknas med samma tak som tillbyggnaden får.
@@ -89,15 +91,10 @@ function findTopOfBounds(bounds: Vec2[], x: Mm): Mm {
   return top;
 }
 
-/**
- * Väggens höjd i hörnet: gavelns långväggshöjd eller långväggens överkant. Överkanten förlängs ut till hörnet, eftersom den på en
- * gavel stiger mot nocken.
- */
+/** Väggens höjd i hörnet: gavelns långväggshöjd eller långväggens överkant. */
 function measureCornerHeight(socket: Socket): Mm {
   const halfLength = Math.max(...socket.bounds.map((point) => point.x));
-  const cornerTop = findTopOfBounds(socket.bounds, halfLength);
-  const slope = (cornerTop - findTopOfBounds(socket.bounds, halfLength - WALL_EDGE_MARGIN_MM)) / WALL_EDGE_MARGIN_MM;
-  return cornerTop + slope * WALL_EDGE_MARGIN_MM;
+  return findTopOfBounds(socket.bounds, halfLength);
 }
 
 /** Från `largest` avrundat nedåt, i steg om `EXTENSION_WIDTH_STEP_MM`, och sist den minsta bredden. */

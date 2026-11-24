@@ -68,7 +68,7 @@ function toRing(polygon: Polygon): Ring {
 /** Hörn närmare varandra än så, eller så nära linjen mellan grannarna, tas bort efter klippningen. */
 const SIMPLIFY_TOLERANCE_MM = 1e-6;
 
-/** Biblioteket upprepar första punkten sist; delarna gör det inte. Dubbla hörn och hörn mitt på en rak kant tas bort. */
+/** Biblioteket upprepar första punkten sist; delarna gör det inte. Dubbla hörn, uddar utan yta och hörn mitt på en rak kant tas bort. */
 function fromRing(ring: Ring): Vec2[] {
   const points = ring.map(([x, y]) => ({ x, y }));
   const first = points[0];
@@ -85,7 +85,9 @@ function removeRedundantCorners(points: Vec2[]): Vec2[] {
     const kept = current.filter((point, index) => {
       const before = current[(index - 1 + current.length) % current.length] ?? point;
       const after = current[(index + 1) % current.length] ?? point;
-      const isRedundant = isSamePoint(point, after) || distanceToLine(point, before, after) < SIMPLIFY_TOLERANCE_MM;
+      // En udd som går ut och tillbaka samma väg har ingen yta och tas bort.
+      const isSpikeTip = isSamePoint(before, after);
+      const isRedundant = isSamePoint(point, after) || isSpikeTip || distanceToLine(point, before, after) < SIMPLIFY_TOLERANCE_MM;
       if (isRedundant && !changed) {
         changed = true;
         return false;
