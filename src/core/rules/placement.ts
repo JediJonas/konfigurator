@@ -1,6 +1,7 @@
 import type { Design, Instance } from '../model/design';
 import type { Domain } from '../model/domain';
 import { addChildInstance, nextInstanceId, updateInstance } from '../model/instanceTree';
+import { pickInheritedParams } from '../model/paramForm';
 import { findObjectType, placeInstances } from '../pipeline/placeInstances';
 import type { RuleViolation } from './rule';
 import { evaluateDesign } from './evaluateDesign';
@@ -39,7 +40,9 @@ export function proposeChild(design: Design, domain: Domain, request: ChildReque
   const parent = placeInstances(design, domain).find((entry) => entry.instance.id === request.parentId);
   const socket = parent?.sockets.find((candidate) => candidate.id === request.socketId);
   if (!socket) throw new Error(`Kopplingspunkten "${request.socketId}" finns inte på "${request.parentId}".`);
-  const candidates = objectType.paramCandidates?.(socket, { thickness: design.material.thickness, socket }) ?? [{}];
+  // Fält som ärvs, t.ex. taket, tas från föräldern när den är av samma typ.
+  const inherited = parent?.instance.type === objectType.id ? pickInheritedParams(objectType.params, parent.instance.params) : {};
+  const candidates = (objectType.paramCandidates?.(socket, { thickness: design.material.thickness, socket }, inherited) ?? [{}]).map((params) => ({ ...params, ...inherited }));
   const id = nextInstanceId(design.root, objectType.instanceIdPrefix);
   if (candidates.length === 0) {
     const instance: Instance = { id, type: objectType.id, params: {}, attachment: { socketId: request.socketId, u: 0, v: 0, rotationDegrees: 0 }, children: [] };

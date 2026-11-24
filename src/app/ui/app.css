@@ -413,3 +413,8 @@ body {
   margin: 0 0 0.5rem;
   font-size: 0.9375rem;
 }
+
+.field-group h3 {
+  margin: 0;
+  font-size: 0.9375rem;
+}

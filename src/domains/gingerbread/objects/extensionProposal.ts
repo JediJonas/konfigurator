@@ -4,7 +4,7 @@ import type { SectionParams } from './sectionParams';
 import { sectionParams } from './sectionParams';
 import { sectionSocketOutline, WALL_EDGE_MARGIN_MM } from './sectionSockets';
 
-/** Djup och tak för en ny tillbyggnad. Bredd och vägghöjd räknas från väggen den sitter på. */
+/** Djup för en ny tillbyggnad, och tak när föräldern inte har något att ärva. Bredd och vägghöjd räknas från väggen den sitter på. */
 const EXTENSION_DEPTH_MM = 80;
 const EXTENSION_OVERHANG_MM = 8;
 const EXTENSION_PITCH_DEGREES = 45;
@@ -31,7 +31,7 @@ const SECTION_MIN_WALL_HEIGHT_MM = sectionParams.shape.wallHeight.unwrap().minVa
  * (10 mm under den om 60 % är lägre än minsta höjden), men aldrig högre än
  * att taket ryms i kopplingspunkten, som redan ligger 10 mm under värdens tak.
  */
-export function listExtensionCandidates(socket: Socket, context: BuildContext): Record<string, unknown>[] {
+export function listExtensionCandidates(socket: Socket, context: BuildContext, inherited: Partial<SectionParams> = {}): Record<string, unknown>[] {
   const xs = socket.bounds.map((point) => point.x);
   const usableLength = Math.max(...xs) - Math.min(...xs);
   const wallLength = usableLength + 2 * WALL_EDGE_MARGIN_MM;
@@ -42,9 +42,10 @@ export function listExtensionCandidates(socket: Socket, context: BuildContext): 
   const shareHeight = cornerHeight * EXTENSION_WALL_SHARE;
   const preferredHeight = shareHeight >= SECTION_MIN_WALL_HEIGHT_MM ? shareHeight : cornerHeight - WALL_EDGE_MARGIN_MM;
   return fittingWidths.flatMap((width) => {
-    const params = extensionParams(width, 0);
+    // Taket ärvs från föräldern, så att den högsta vägghöjden räknas med samma tak som tillbyggnaden får.
+    const params = { ...extensionParams(width, 0), ...inherited, wallHeight: 0 };
     const wallHeight = roundDown(Math.min(preferredHeight, findHighestWall(socket, params, context)), WALL_HEIGHT_FIELD_STEP_MM);
-    return wallHeight >= SECTION_MIN_WALL_HEIGHT_MM ? [extensionParams(width, wallHeight)] : [];
+    return wallHeight >= SECTION_MIN_WALL_HEIGHT_MM ? [{ ...params, wallHeight }] : [];
   });
 }
 

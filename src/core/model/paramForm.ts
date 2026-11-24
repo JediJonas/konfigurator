@@ -10,6 +10,10 @@ export interface ParamMeta {
   step?: number;
   /** Texter för valen i en lista, nyckel i domänens texter per värde. */
   optionLabelKeys?: Record<string, string>;
+  /** Fält med samma grupp visas tillsammans under en rubrik som är hopfälld från början. Nyckel i domänens texter. */
+  groupKey?: string;
+  /** Ett nytt objekt av samma typ får förälderns värde, så att t.ex. taket ärvs nedåt. */
+  isInherited?: boolean;
 }
 
 export type ParamField =
@@ -18,6 +22,12 @@ export type ParamField =
   | { kind: 'choice'; key: string; meta: ParamMeta; options: string[]; defaultValue: string };
 
 export type ParamSchema = z.ZodObject;
+
+/** Förälderns värden för de fält som ärvs, när föräldern är av samma objekttyp. */
+export function pickInheritedParams(schema: ParamSchema, parentParams: Record<string, unknown>): Record<string, unknown> {
+  const inheritedKeys = describeParams(schema).filter((field) => field.meta.isInherited && parentParams[field.key] !== undefined);
+  return Object.fromEntries(inheritedKeys.map((field) => [field.key, parentParams[field.key]]));
+}
 
 /** Läser fälten i ett parameterschema så att UI:t kan bygga formuläret utan egen kod per objekttyp. */
 export function describeParams(schema: ParamSchema): ParamField[] {

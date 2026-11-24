@@ -42,7 +42,7 @@ export const sectionType: ObjectType<SectionParams> = {
   mountMatrix: (params, context) => extensionMountMatrix(params, context),
   footprint: (params, context) => sectionFootprint(params, context),
   socketOutline: (params, context) => sectionSocketOutline(params, context),
-  paramCandidates: (socket, context) => listExtensionCandidates(socket, context),
+  paramCandidates: (socket, context, inherited) => listExtensionCandidates(socket, context, inherited),
 };
 
 /** Gemensamma fält för alla delar i en sektion. */

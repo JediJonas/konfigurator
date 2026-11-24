@@ -68,6 +68,7 @@ export interface ObjectType<P = Record<string, unknown>> {
   /**
    * Förslag på parametrar för ett nytt objekt i en kopplingspunkt, från det
    * största till det minsta. Det första som klarar reglerna används.
+   * `inherited` är förälderns värden för fälten som ärvs, och läggs ovanpå varje förslag.
    */
-  paramCandidates?(socket: Socket, context: BuildContext): Record<string, unknown>[];
+  paramCandidates?(socket: Socket, context: BuildContext, inherited: Record<string, unknown>): Record<string, unknown>[];
 }
