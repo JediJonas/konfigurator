@@ -41,7 +41,7 @@ export function DesignView({ parts, color, captureRef }: DesignViewProps) {
         <meshStandardMaterial color="#fbfbf8" roughness={0.4} />
       </mesh>
       <Bounds margin={1.6}>
-        <FitWhenPartsChange parts={parts} />
+        <FitOnFirstParts parts={parts} />
         <group ref={partsRef}>
           {parts.map((part) => (
             <PartMesh key={part.id} part={part} color={color} />
@@ -61,10 +61,17 @@ export function DesignView({ parts, color, captureRef }: DesignViewProps) {
   );
 }
 
-/** Ställer kameran så att hela huset syns när måtten ändras, så att även översiktsbilden i PDF:en visar allt. */
-function FitWhenPartsChange({ parts }: { parts: Part[] }) {
+/**
+ * Ställer kameran så att hela huset syns när det visas första gången. Därefter
+ * behåller kameran sitt läge när måtten ändras, så att vyn inte hoppar;
+ * ägaren vill zooma själv. PDF:ens översiktsbild har en egen kamera.
+ */
+function FitOnFirstParts({ parts }: { parts: Part[] }) {
   const bounds = useBounds();
+  const hasFittedRef = useRef(false);
   useEffect(() => {
+    if (hasFittedRef.current || parts.length === 0) return;
+    hasFittedRef.current = true;
     bounds.refresh().clip().fit();
   }, [bounds, parts]);
   return null;

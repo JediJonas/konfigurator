@@ -15,7 +15,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'part.gable': 'Gavel',
   'part.roof': 'Takhalva',
   'preset.simpleHouse': 'Enkelt hus',
-  'drawing.note.joints': 'Långväggarna går hela vägen ut och gavlarna står mellan dem. Fyll glipor och skåran i nocken med glasyr.',
+  'drawing.note.joints': 'Gavlarna går hela vägen ut och långväggarna står mellan dem. Fyll glipor och skåran i nocken med glasyr.',
   'buildStep.1': 'Väggar',
   'buildStep.2': 'Anslutningar',
   'buildStep.3': 'Tak',
