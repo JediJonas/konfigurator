@@ -2,14 +2,19 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Bounds, OrbitControls, useBounds } from '@react-three/drei';
 import { useEffect, useRef } from 'react';
 import { TOUCH, Vector3 } from 'three';
-import type { DirectionalLight } from 'three';
+import type { DirectionalLight, Group } from 'three';
+import type { RefObject } from 'react';
 import type { Part } from '../../core/model/part';
 import { PartMesh } from './PartMesh';
 import { lightPositionForView } from './viewerLight';
+import type { CaptureOverview } from './OverviewCapture';
+import { OverviewCapture, VIEWER_LIGHT_NAME } from './OverviewCapture';
 
 interface DesignViewProps {
   parts: Part[];
   color: string;
+  /** Fylls med en funktion som tar översiktsbilden till PDF:en. */
+  captureRef: RefObject<CaptureOverview | null>;
 }
 
 /** Fatets radie i 3D-vyn. Fatet är bara bakgrund och ingår inte i underlaget. */
@@ -17,14 +22,15 @@ const PLATE_RADIUS_MM = 220;
 const CAMERA_POSITION_MM: [number, number, number] = [260, 230, 340];
 const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 
-export function DesignView({ parts, color }: DesignViewProps) {
+export function DesignView({ parts, color, captureRef }: DesignViewProps) {
+  const partsRef = useRef<Group>(null);
   return (
     <Canvas
       // Ritar bara om när något ändras, vilket sparar batteri i mobilen.
       frameloop="demand"
       shadows
       camera={{ position: CAMERA_POSITION_MM, fov: 40, near: 1, far: 5000 }}
-      // Behövs för att kunna ta en bild av vyn till ritningens första sida.
+      // Behövs för att kunna kopiera översiktsbilden till ritningens första sida.
       gl={{ preserveDrawingBuffer: true }}
     >
       <color attach="background" args={['#f3e9dc']} />
@@ -36,10 +42,13 @@ export function DesignView({ parts, color }: DesignViewProps) {
       </mesh>
       <Bounds margin={1.6}>
         <FitWhenPartsChange parts={parts} />
-        {parts.map((part) => (
-          <PartMesh key={part.id} part={part} color={color} />
-        ))}
+        <group ref={partsRef}>
+          {parts.map((part) => (
+            <PartMesh key={part.id} part={part} color={color} />
+          ))}
+        </group>
       </Bounds>
+      <OverviewCapture partsRef={partsRef} captureRef={captureRef} />
       <OrbitControls
         makeDefault
         target={CAMERA_TARGET_MM}
@@ -88,7 +97,7 @@ function ViewerLight() {
   });
 
   return (
-    <directionalLight ref={lightRef} intensity={1.8} castShadow shadow-mapSize={[1024, 1024]}>
+    <directionalLight ref={lightRef} name={VIEWER_LIGHT_NAME} intensity={1.8} castShadow shadow-mapSize={[1024, 1024]}>
       <orthographicCamera attach="shadow-camera" args={[-300, 300, 300, -300, 1, 1500]} />
     </directionalLight>
   );

@@ -15,10 +15,3 @@ export async function downloadDrawingPdf(pages: string[], paper: PaperFormat, fi
   }
   pdf.save(fileName);
 }
-
-/** Bild av 3D-vyn till ritningens första sida. */
-export function captureCanvasImage(container: HTMLElement | null): { dataUrl: string; aspectRatio: number } | undefined {
-  const canvas = container?.querySelector('canvas');
-  if (!canvas || canvas.width === 0 || canvas.height === 0) return undefined;
-  return { dataUrl: canvas.toDataURL('image/png'), aspectRatio: canvas.width / canvas.height };
-}

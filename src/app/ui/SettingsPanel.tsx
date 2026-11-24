@@ -7,7 +7,8 @@ import type { Part } from '../../core/model/part';
 import { describeParams } from '../../core/model/paramForm';
 import { findObjectType } from '../../core/pipeline/buildParts';
 import { activeDomain, translate } from '../activeDomain';
-import { captureCanvasImage, downloadDrawingPdf } from '../export/downloadPdf';
+import { downloadDrawingPdf } from '../export/downloadPdf';
+import type { CaptureOverview } from '../three/OverviewCapture';
 import { createDrawingRequest } from '../export/drawingRequest';
 import { listInstances, useDesignStore } from '../state/designStore';
 import { NumberInput, ParamForm } from './ParamForm';
@@ -16,12 +17,12 @@ import { uiStrings } from './strings.sv';
 interface SettingsPanelProps {
   parts: Part[];
   error?: string;
-  viewRef: RefObject<HTMLElement | null>;
+  captureOverview: RefObject<CaptureOverview | null>;
 }
 
 const THICKNESS_FIELD = { kind: 'number', key: 'thickness', meta: { labelKey: 'thickness', unit: 'mm', step: 0.5 }, min: 2, max: 10, defaultValue: 4 } as const;
 
-export function SettingsPanel({ parts, error, viewRef }: SettingsPanelProps) {
+export function SettingsPanel({ parts, error, captureOverview }: SettingsPanelProps) {
   const { design, paper, setParam, setThickness, setPaper } = useDesignStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [pdfState, setPdfState] = useState<'idle' | 'working' | 'failed'>('idle');
@@ -32,7 +33,7 @@ export function SettingsPanel({ parts, error, viewRef }: SettingsPanelProps) {
   async function handleDownload() {
     setPdfState('working');
     try {
-      const request = createDrawingRequest({ design, parts, paper: PAPER_FORMATS[paper], overviewImage: captureCanvasImage(viewRef.current) });
+      const request = createDrawingRequest({ design, parts, paper: PAPER_FORMATS[paper], overviewImage: captureOverview.current?.() });
       await downloadDrawingPdf(buildDrawingPages(request), PAPER_FORMATS[paper], uiStrings.pdfFileName);
       setPdfState('idle');
     } catch (pdfError) {
