@@ -22,7 +22,6 @@ export const uiStrings = {
   warning: 'Varning:',
   fixErrorsFirst: 'Rätta det som inte går att bygga för att kunna ladda ner ritningen.',
   cannotBuild: 'Går inte att bygga:',
-  material: 'Material',
   thickness: 'Tjocklek',
   paper: 'Pappersformat',
   downloadPdf: 'Ladda ner ritning (PDF)',

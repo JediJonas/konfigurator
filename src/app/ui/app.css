@@ -219,12 +219,6 @@ body {
   padding-top: 1.25rem;
 }
 
-.field-inline {
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 0.75rem;
-}
-
 .primary-button,
 .sheet-handle {
   min-height: var(--tap-size);

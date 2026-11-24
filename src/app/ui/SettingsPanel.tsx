@@ -10,6 +10,7 @@ import { downloadDrawingPdf } from '../export/downloadPdf';
 import type { CaptureOverview } from '../three/OverviewCapture';
 import { createDrawingRequest } from '../export/drawingRequest';
 import { useDesignStore } from '../state/designStore';
+import { FieldGroup } from './FieldGroup';
 import { InstanceSettings } from './InstanceSettings';
 import { NumberInput } from './ParamForm';
 import { uiStrings } from './strings.sv';
@@ -65,9 +66,21 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
             violations={evaluation.violations.filter((violation) => violation.instanceId === entry.instance.id)}
           />
         ))}
+        {/* Ändras sällan, så sektionen är hopfälld från början som takets grupp. */}
         <section className="panel-section">
-          <h2>{uiStrings.material}</h2>
-          <NumberInput id={thicknessId} label={uiStrings.thickness} field={THICKNESS_FIELD} value={design.material.thickness} onChange={setThickness} />
+          <FieldGroup label={uiStrings.settings} headingLevel={2}>
+            <NumberInput id={thicknessId} label={uiStrings.thickness} field={THICKNESS_FIELD} value={design.material.thickness} onChange={setThickness} />
+            <div className="field">
+              <label htmlFor={paperId}>{uiStrings.paper}</label>
+              <select id={paperId} value={paper} onChange={(event) => setPaper(event.target.value as PaperFormat['id'])}>
+                {Object.values(PAPER_FORMATS).map((format) => (
+                  <option key={format.id} value={format.id}>
+                    {format.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </FieldGroup>
         </section>
         {error ? (
           <p className="design-error" role="alert">
@@ -76,16 +89,6 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
         ) : null}
       </div>
       <div className="panel-actions">
-        <div className="field field-inline">
-          <label htmlFor={paperId}>{uiStrings.paper}</label>
-          <select id={paperId} value={paper} onChange={(event) => setPaper(event.target.value as PaperFormat['id'])}>
-            {Object.values(PAPER_FORMATS).map((format) => (
-              <option key={format.id} value={format.id}>
-                {format.id}
-              </option>
-            ))}
-          </select>
-        </div>
         <button type="button" className="primary-button" onClick={handleDownload} disabled={pdfState === 'working' || !canDownload}>
           {pdfState === 'working' ? uiStrings.creatingPdf : uiStrings.downloadPdf}
         </button>
