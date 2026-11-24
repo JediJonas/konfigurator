@@ -7,10 +7,10 @@ export const sectionParams = z.object({
   roof: z
     .enum(['gable'])
     .default('gable')
-    .meta({ labelKey: 'param.roof', optionLabelKeys: { gable: 'roof.gable' } }),
-  roofPitch: z.number().min(20).max(60).default(45).meta({ labelKey: 'param.roofPitch', unit: '°', step: 1 }),
-  eaveOverhang: z.number().min(0).max(40).default(10).meta({ labelKey: 'param.eaveOverhang', unit: 'mm', step: 1 }),
-  gableOverhang: z.number().min(0).max(40).default(10).meta({ labelKey: 'param.gableOverhang', unit: 'mm', step: 1 }),
+    .meta({ labelKey: 'param.roof', optionLabelKeys: { gable: 'roof.gable' }, groupKey: 'group.roof', isInherited: true }),
+  roofPitch: z.number().min(20).max(60).default(45).meta({ labelKey: 'param.roofPitch', unit: '°', step: 1, groupKey: 'group.roof', isInherited: true }),
+  eaveOverhang: z.number().min(0).max(40).default(10).meta({ labelKey: 'param.eaveOverhang', unit: 'mm', step: 1, groupKey: 'group.roof', isInherited: true }),
+  gableOverhang: z.number().min(0).max(40).default(10).meta({ labelKey: 'param.gableOverhang', unit: 'mm', step: 1, groupKey: 'group.roof', isInherited: true }),
 });
 
 export type SectionParams = z.infer<typeof sectionParams>;

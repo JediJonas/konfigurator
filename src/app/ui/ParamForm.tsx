@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
 import type { ParamField } from '../../core/model/paramForm';
 import { translate } from '../activeDomain';
@@ -9,13 +10,66 @@ interface ParamFormProps {
   onChange: (key: string, value: unknown) => void;
 }
 
-/** Formulär som byggs från objekttypens parameterschema, så att nya objekttyper inte kräver ny UI-kod. */
+/**
+ * Formulär som byggs från objekttypens parameterschema, så att nya objekttyper
+ * inte kräver ny UI-kod. Fält med samma grupp visas under en egen rubrik som
+ * är hopfälld från början, eftersom de sällan ändras (ägarens val).
+ */
 export function ParamForm({ fields, values, onChange }: ParamFormProps) {
   return (
     <div className="param-form">
-      {fields.map((field) => (
-        <ParamInput key={field.key} field={field} value={values[field.key] ?? field.defaultValue} onChange={(value) => onChange(field.key, value)} />
-      ))}
+      {groupFields(fields).map((group) =>
+        group.groupKey ? (
+          <FieldGroup key={group.groupKey} labelKey={group.groupKey}>
+            {group.fields.map((field) => renderInput(field, values, onChange))}
+          </FieldGroup>
+        ) : (
+          group.fields.map((field) => renderInput(field, values, onChange))
+        ),
+      )}
+    </div>
+  );
+}
+
+function renderInput(field: ParamField, values: Record<string, unknown>, onChange: (key: string, value: unknown) => void) {
+  return <ParamInput key={field.key} field={field} value={values[field.key] ?? field.defaultValue} onChange={(value) => onChange(field.key, value)} />;
+}
+
+interface FieldGroupEntry {
+  groupKey?: string;
+  fields: ParamField[];
+}
+
+/** Fälten i schemats ordning, där fält med samma grupp hamnar tillsammans där gruppens första fält står. */
+function groupFields(fields: ParamField[]): FieldGroupEntry[] {
+  const groups: FieldGroupEntry[] = [];
+  for (const field of fields) {
+    const groupKey = field.meta.groupKey;
+    const existing = groupKey ? groups.find((group) => group.groupKey === groupKey) : undefined;
+    if (existing) existing.fields.push(field);
+    else groups.push({ groupKey, fields: [field] });
+  }
+  return groups;
+}
+
+function FieldGroup({ labelKey, children }: { labelKey: string; children: ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const bodyId = useId();
+  return (
+    <div className="field-group">
+      <h3>
+        <button type="button" className="disclosure" aria-expanded={isOpen} aria-controls={bodyId} onClick={() => setIsOpen(!isOpen)}>
+          <svg className="disclosure-icon" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18">
+            <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {translate(labelKey)}
+        </button>
+      </h3>
+      {isOpen ? (
+        <div id={bodyId} className="param-form">
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }

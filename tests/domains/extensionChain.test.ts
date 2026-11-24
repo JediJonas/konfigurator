@@ -70,4 +70,14 @@ describe('tillbyggnader på varandras gavlar', () => {
     expect(proposal.violations).toEqual([]);
     expect(evaluateDesign(higherDesign, gingerbreadDomain, (key) => key).violations.map((violation) => violation.message)).toContain('rule.extensionFitsWall');
   });
+
+  it('ärver förälderns tak', () => {
+    const design = designWithExtensions();
+    const host = design.root.children[0];
+    if (!host) throw new Error('Mallen saknar sektion');
+    host.params = { ...HOST_PARAMS, roofPitch: 35, eaveOverhang: 12, gableOverhang: 6 };
+    const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: SECTION_TYPE_ID });
+    expect(proposal.violations).toEqual([]);
+    expect(proposal.instance.params).toMatchObject({ roofPitch: 35, eaveOverhang: 12, gableOverhang: 6 });
+  });
 });

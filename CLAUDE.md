@@ -43,6 +43,8 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 - En ny tillbyggnad tar högst 60 % av väggens längd, så att det finns plats att flytta den. Fältet för läget går bara att ändra så långt den kan flyttas.
 - En ny tillbyggnad föreslås 60 % av väggens längd (ägarens val). Ryms inte det blir den så bred som marginalen till hörnen tillåter. Vägghöjden föreslås 60 % av väggens höjd i hörnet, och 10 mm under den när 60 % är lägre än minsta höjden (ägarens val), så att tillbyggnader på varandras gavlar trappas ner. Ryms inte taket räknas högsta vägghöjden ut direkt ur kopplingspunktens överkant och tillbyggnadens kontur (`extensionProposal.ts`).
 
+- Fält i parameterschemat kan ha `groupKey` (visas under en egen rubrik, hopfälld från början) och `isInherited` (ett nytt objekt av samma typ får förälderns värde). Taket (taktyp, taklutning och takutsprången) är en sådan grupp och ärvs nedåt (ägarens val).
+
 ## Ritningen
 
 - **Hörnregeln för stumfog** (ägarens val): en vägg med sned överkant går hela vägen ut, och väggar med rak överkant kortas med 2 × tjockleken och står mellan. Då följer den sneda väggen takets undersida ut till hörnet och inget hål syns under taket.

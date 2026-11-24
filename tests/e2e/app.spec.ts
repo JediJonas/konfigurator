@@ -55,6 +55,14 @@ test('bygger till huset och laddar ner ritningen', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toHaveCount(0);
 });
 
+test('visar takets mått först när man fäller ut Tak', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByLabel('Taklutning')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Tak', exact: true }).click();
+  await expect(page.getByLabel('Taklutning')).toBeVisible();
+  await expect(page.getByLabel('Taktyp')).toBeVisible();
+});
+
 test('låter inte måtten gå förbi det som ryms', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
