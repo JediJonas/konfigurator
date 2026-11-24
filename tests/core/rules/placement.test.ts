@@ -12,7 +12,7 @@ describe('nya objekt i en kopplingspunkt', () => {
     expect(proposal.violations).toEqual([]);
     expect(proposal.instance.id).toBe('S2');
     expect(proposal.instance.attachment).toEqual({ socketId: 'side-right', u: 0, v: 0, rotationDegrees: 0 });
-    expect(proposal.instance.params).toMatchObject({ width: 100, wallHeight: 40 });
+    expect(proposal.instance.params).toMatchObject({ width: 80, wallHeight: 40 });
   });
 
   it('ger en högre tillbyggnad på gaveln, där taket ger mer plats på mitten', () => {
@@ -33,20 +33,21 @@ describe('nya objekt i en kopplingspunkt', () => {
   it('snäpper läget längs väggen till 5 mm och stannar där tillbyggnaden ryms', () => {
     const design = designWithExtensions(extension('side-right'));
     expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', 23).root, 'S2')?.attachment?.u).toBe(25);
-    // Väggen är 180 mm och tillbyggnaden 80 mm, så väggarna når husets hörn vid ±50 mm.
-    expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', 200).root, 'S2')?.attachment?.u).toBe(50);
-    expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', -200).root, 'S2')?.attachment?.u).toBe(-50);
+    // Väggen är 180 mm och tillbyggnaden 80 mm. Med 10 mm till hörnen går det till ±40 mm.
+    expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', 200).root, 'S2')?.attachment?.u).toBe(40);
+    expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', -200).root, 'S2')?.attachment?.u).toBe(-40);
   });
 
   it('räknar ut hur långt tillbyggnaden kan flyttas', () => {
     const design = designWithExtensions(extension('side-right'));
-    expect(findAllowedOffsetRange(design, gingerbreadDomain, { instanceId: 'S2', currentU: 0, maxReachMm: 90 })).toEqual({ min: -50, max: 50 });
+    expect(findAllowedOffsetRange(design, gingerbreadDomain, { instanceId: 'S2', currentU: 0, maxReachMm: 90 })).toEqual({ min: -40, max: 40 });
   });
 
   it('låter inte huset bli kortare eller lägre än tillbyggnaden på dess vägg', () => {
     const design = designWithExtensions(extension('side-right'));
     const depth = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'depth', current: 180, step: 5, min: 60, max: 400 });
-    expect(depth).toEqual({ min: 80, max: 400 });
+    // Tillbyggnaden är 80 mm bred och ska stå 10 mm från båda hörnen.
+    expect(depth).toEqual({ min: 100, max: 400 });
     const wallHeight = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'wallHeight', current: 100, step: 5, min: 40, max: 300 });
     expect(wallHeight.min).toBe(100);
   });

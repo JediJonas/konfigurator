@@ -39,9 +39,9 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 - Regelmotorn (`core/rules`) läser reglerna som data från domänen och ger fel och varningar. Samma kontroll används i panelen, när nya objekt föreslås och för att stoppa ritningen.
 - Nya objekt snäpper mitt i kopplingspunkten i den största storleken som klarar reglerna. Läget längs väggen snäpper till 5 mm och stannar där objektet ryms.
 - Öppningen i värdens vägg är 10 mm mindre än tillbyggnadens insida mot långväggarna och taket (ägarens val), så att tillbyggnaden har en kant att fästas mot. Nertill går den till golvet.
-- Tillbyggnadens väggar får gå ända ut till husets hörn (ägarens val); takutsprången får gå förbi hörnet. Tills vinkelrännorna finns (fas 3) måste taket ligga under huvudhusets takfot (långvägg) eller takets undersida (gavel).
+- Tillbyggnadens väggar står minst 10 mm från väggens hörn och taket minst 10 mm under huvudhusets takfot (långvägg) eller takets undersida (gavel) (ägarens val, `WALL_EDGE_MARGIN_MM`). Det gäller förslag, mått och läge, och huvudhusets mått begränsas på samma sätt av tillbyggnaden. Takutsprången får gå förbi hörnet. Taket under takfoten gäller tills vinkelrännorna finns (fas 3).
 - En ny tillbyggnad tar högst 60 % av väggens längd, så att det finns plats att flytta den. Fältet för läget går bara att ändra så långt den kan flyttas.
-- En ny tillbyggnad föreslås minst 20 mm smalare och lägre än väggen den sitter på (ägarens val), så att tillbyggnader på varandras gavlar trappas ner. Samma bredd som väggen är tillåten och föreslås bara när väggen redan har minsta bredden.
+- En ny tillbyggnads vägghöjd föreslås 20 mm under kopplingspunktens överkant, så att tillbyggnader på varandras gavlar trappas ner.
 
 ## Ritningen
 
