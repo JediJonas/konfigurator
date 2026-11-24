@@ -152,6 +152,9 @@ export function sectionFootprint(params: SectionParams, context: BuildContext): 
 const EXTENSION_MAX_WALL_SHARE = 0.6;
 /** Steget mellan storlekarna som prövas. */
 const EXTENSION_SIZE_STEP_MM = 20;
+/** Vägghöjden prövas i samma steg som fältet för vägghöjd. */
+const WALL_HEIGHT_SEARCH_STEP_MM = sectionParams.shape.wallHeight.meta()?.step as number;
+const WIDTH_FIELD_STEP_MM = sectionParams.shape.width.meta()?.step as number;
 /** Förslagen avrundas nedåt till jämna centimeter. */
 const EXTENSION_ROUNDING_MM = 10;
 /** Schemats minsta bredd och vägghöjd för en sektion. */
@@ -171,10 +174,12 @@ export function listExtensionCandidates(socket: Socket): Record<string, unknown>
   // Höjden vid kopplingspunktens hörn, alltså under gavelns takfot eller långväggens takfot.
   const usableTop = Math.min(...socket.bounds.filter((point) => point.y > 0).map((point) => point.y));
   const widths = listSizesDown(Math.min(wallLength * EXTENSION_MAX_WALL_SHARE, usableLength), SECTION_MIN_WIDTH_MM);
-  // På en kort vägg prövas den minsta bredden, om den ryms.
-  const fittingWidths = widths.length > 0 || usableLength < SECTION_MIN_WIDTH_MM ? widths : [SECTION_MIN_WIDTH_MM];
-  // Väggarna föreslås ett steg lägre än väggen de sitter på, så att taket får plats och raden trappas ner.
-  const wallHeights = listSizesDown(usableTop - EXTENSION_SIZE_STEP_MM, SECTION_MIN_WALL_HEIGHT_MM);
+  // På en kort vägg blir den så bred som marginalen till hörnen tillåter, om det är minst den minsta bredden.
+  const widestFitting = Math.floor(usableLength / WIDTH_FIELD_STEP_MM) * WIDTH_FIELD_STEP_MM;
+  const fittingWidths = widths.length > 0 || widestFitting < SECTION_MIN_WIDTH_MM ? widths : [widestFitting];
+  // Väggarna föreslås ett steg lägre än kopplingspunktens överkant, så att raden på gavlarna trappas ner
+  // (ägarens önskan). Ryms inte taket prövas höjderna i fältets steg, så att taket hamnar så nära marginalen som går.
+  const wallHeights = listSizesDown(usableTop - EXTENSION_SIZE_STEP_MM, SECTION_MIN_WALL_HEIGHT_MM, WALL_HEIGHT_SEARCH_STEP_MM);
   return fittingWidths.flatMap((width) =>
     wallHeights.map((wallHeight) => ({
       width,
@@ -187,10 +192,11 @@ export function listExtensionCandidates(socket: Socket): Record<string, unknown>
   );
 }
 
-/** Från `largest` avrundat nedåt, i steg om `EXTENSION_SIZE_STEP_MM`, och sist `smallest`, som ofta är den som ryms. */
-function listSizesDown(largest: Mm, smallest: Mm): Mm[] {
+/** Från `largest` avrundat nedåt till ett helt `step`, i steg om `step`, och sist `smallest`, som ofta är den som ryms. */
+function listSizesDown(largest: Mm, smallest: Mm, step: Mm = EXTENSION_SIZE_STEP_MM): Mm[] {
   const sizes: Mm[] = [];
-  for (let size = Math.floor(largest / EXTENSION_ROUNDING_MM) * EXTENSION_ROUNDING_MM; size > smallest; size -= EXTENSION_SIZE_STEP_MM) sizes.push(size);
+  const rounding = Math.min(step, EXTENSION_ROUNDING_MM);
+  for (let size = Math.floor(largest / rounding) * rounding; size > smallest; size -= step) sizes.push(size);
   if (largest >= smallest) sizes.push(smallest);
   return sizes;
 }
