@@ -3,7 +3,7 @@ import { simpleHousePreset } from '../../src/domains/gingerbread/presets/simpleH
 import { SECTION_TYPE_ID } from '../../src/domains/gingerbread/objects/section';
 
 export const HOST_PARAMS = { width: 140, depth: 180, wallHeight: 100, roofPitch: 45, eaveOverhang: 10, gableOverhang: 10 };
-export const EXTENSION_PARAMS = { width: 80, depth: 80, wallHeight: 50, roofPitch: 45, eaveOverhang: 8, gableOverhang: 8 };
+export const EXTENSION_PARAMS = { width: 80, depth: 80, wallHeight: 40, roofPitch: 45, eaveOverhang: 8, gableOverhang: 8 };
 
 export function extension(socketId: string, params: Record<string, unknown> = EXTENSION_PARAMS, u = 0, id = 'S2'): Instance {
   return { id, type: SECTION_TYPE_ID, params, attachment: { socketId, u, v: 0, rotationDegrees: 0 }, children: [] };

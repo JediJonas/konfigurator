@@ -14,6 +14,7 @@ export const coreStrings = {
   buildOrderTitle: 'Byggordning',
   totalParts: (count: number) => `Totalt ${count} delar att skära ut.`,
   openingSplitsPart: 'Öppningen skulle dela väggen i flera bitar.',
+  noSizeFits: 'Kopplingspunkten är för liten för objektet.',
   cannotAttachHere: 'Objektet kan inte sitta i den här kopplingspunkten.',
   materialLine: (material: string, thickness: number) => `Material: ${material}, ${formatMm(thickness)} mm tjockt`,
 } as const;

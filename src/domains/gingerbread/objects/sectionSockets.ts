@@ -9,6 +9,7 @@ import type { BuildContext, Socket } from '../../../core/model/objectType';
 import { WALL_SURFACE } from '../socketKinds';
 import { crossSectionOutline, eaveEdge, isExtension, roofEnds, roofUndersideHeight } from './sectionGeometry';
 import type { SectionParams } from './sectionParams';
+import { sectionParams } from './sectionParams';
 
 /**
  * Öppningen går en bit under golvet, så att den skär rent genom väggens
@@ -21,10 +22,13 @@ const OPENING_OVERCUT_MM = 1;
  * fästas mot med glasyr, i stället för att bara möta väggens snittyta.
  */
 export const OPENING_INSET_MM = 10;
+/**
+ * Så långt från väggens hörn och överkant som en tillbyggnad minst ska stå
+ * (ägarens val), så att den aldrig blir lika bred eller hög som väggen.
+ */
+export const WALL_EDGE_MARGIN_MM = 10;
 
-/** Storlekar att pröva för en ny tillbyggnad, största först. Djup och tak är desamma. */
-const EXTENSION_WIDTHS_MM = [120, 100, 80, 60] as const;
-const EXTENSION_WALL_HEIGHTS_MM = [80, 60, 40] as const;
+/** Djup och tak för en ny tillbyggnad. Bredd och vägghöjd räknas från väggen den sitter på. */
 const EXTENSION_DEPTH_MM = 80;
 const EXTENSION_OVERHANG_MM = 8;
 const EXTENSION_PITCH_DEGREES = 45;
@@ -67,21 +71,22 @@ export function buildSectionSockets(instance: Instance, params: SectionParams, c
 }
 
 /**
- * Ända ut till husets hörn (ägarens önskan) och under takfotens nederkant.
+ * `WALL_EDGE_MARGIN_MM` innanför husets hörn och under takfotens nederkant.
  * Väggen kvar vid öppningen är minst `OPENING_INSET_MM`, eftersom öppningen
  * är så mycket mindre än tillbyggnadens insida.
  */
 function sideWallBounds(params: SectionParams): Vec2[] {
-  const halfLength = params.depth / 2;
-  const top = eaveEdge(params).y;
+  const halfLength = params.depth / 2 - WALL_EDGE_MARGIN_MM;
+  const top = eaveEdge(params).y - WALL_EDGE_MARGIN_MM;
   return [vec2(-halfLength, 0), vec2(halfLength, 0), vec2(halfLength, top), vec2(-halfLength, top)];
 }
 
-/** Ända ut till husets hörn och under takets undersida. */
+/** `WALL_EDGE_MARGIN_MM` innanför husets hörn och under takets undersida, mätt lodrätt. */
 function gableWallBounds(params: SectionParams): Vec2[] {
-  const halfWidth = params.width / 2;
-  const sideTop = roofUndersideHeight(params, halfWidth);
-  return [vec2(-halfWidth, 0), vec2(halfWidth, 0), vec2(halfWidth, sideTop), vec2(0, roofUndersideHeight(params, 0)), vec2(-halfWidth, sideTop)];
+  const halfWidth = params.width / 2 - WALL_EDGE_MARGIN_MM;
+  const sideTop = roofUndersideHeight(params, halfWidth) - WALL_EDGE_MARGIN_MM;
+  const ridgeTop = roofUndersideHeight(params, 0) - WALL_EDGE_MARGIN_MM;
+  return [vec2(-halfWidth, 0), vec2(halfWidth, 0), vec2(halfWidth, sideTop), vec2(0, ridgeTop), vec2(-halfWidth, sideTop)];
 }
 
 /**
@@ -145,14 +150,33 @@ export function sectionFootprint(params: SectionParams, context: BuildContext): 
  * det finns plats att flytta den längs väggen efteråt.
  */
 const EXTENSION_MAX_WALL_SHARE = 0.6;
+/** Steget mellan storlekarna som prövas. */
+const EXTENSION_SIZE_STEP_MM = 20;
+/** Förslagen avrundas nedåt till jämna centimeter. */
+const EXTENSION_ROUNDING_MM = 10;
+/** Schemats minsta bredd och vägghöjd för en sektion. */
+const SECTION_MIN_WIDTH_MM = sectionParams.shape.width.unwrap().minValue ?? 0;
+const SECTION_MIN_WALL_HEIGHT_MM = sectionParams.shape.wallHeight.unwrap().minValue ?? 0;
 
+/**
+ * Storlekar att pröva, största först. Kopplingspunkten ligger redan
+ * `WALL_EDGE_MARGIN_MM` innanför väggens kanter, så förslaget blir smalare
+ * och lägre än väggen och en rad tillbyggnader på varandras gavlar trappas
+ * ner. Ryms inte den minsta storleken finns inga förslag.
+ */
 export function listExtensionCandidates(socket: Socket): Record<string, unknown>[] {
-  const wallLength = Math.max(...socket.bounds.map((point) => point.x)) - Math.min(...socket.bounds.map((point) => point.x));
-  const roomyWidths = EXTENSION_WIDTHS_MM.filter((width) => width <= wallLength * EXTENSION_MAX_WALL_SHARE);
-  // På en kort vägg prövas bara den minsta, så att den ändå går att flytta lite.
-  const widths = roomyWidths.length > 0 ? roomyWidths : EXTENSION_WIDTHS_MM.slice(-1);
-  return widths.flatMap((width) =>
-    EXTENSION_WALL_HEIGHTS_MM.map((wallHeight) => ({
+  const xs = socket.bounds.map((point) => point.x);
+  const usableLength = Math.max(...xs) - Math.min(...xs);
+  const wallLength = usableLength + 2 * WALL_EDGE_MARGIN_MM;
+  // Höjden vid kopplingspunktens hörn, alltså under gavelns takfot eller långväggens takfot.
+  const usableTop = Math.min(...socket.bounds.filter((point) => point.y > 0).map((point) => point.y));
+  const widths = listSizesDown(Math.min(wallLength * EXTENSION_MAX_WALL_SHARE, usableLength), SECTION_MIN_WIDTH_MM);
+  // På en kort vägg prövas den minsta bredden, om den ryms.
+  const fittingWidths = widths.length > 0 || usableLength < SECTION_MIN_WIDTH_MM ? widths : [SECTION_MIN_WIDTH_MM];
+  // Väggarna föreslås ett steg lägre än väggen de sitter på, så att taket får plats och raden trappas ner.
+  const wallHeights = listSizesDown(usableTop - EXTENSION_SIZE_STEP_MM, SECTION_MIN_WALL_HEIGHT_MM);
+  return fittingWidths.flatMap((width) =>
+    wallHeights.map((wallHeight) => ({
       width,
       depth: EXTENSION_DEPTH_MM,
       wallHeight,
@@ -161,4 +185,12 @@ export function listExtensionCandidates(socket: Socket): Record<string, unknown>
       gableOverhang: EXTENSION_OVERHANG_MM,
     })),
   );
+}
+
+/** Från `largest` avrundat nedåt, i steg om `EXTENSION_SIZE_STEP_MM`, och sist `smallest`, som ofta är den som ryms. */
+function listSizesDown(largest: Mm, smallest: Mm): Mm[] {
+  const sizes: Mm[] = [];
+  for (let size = Math.floor(largest / EXTENSION_ROUNDING_MM) * EXTENSION_ROUNDING_MM; size > smallest; size -= EXTENSION_SIZE_STEP_MM) sizes.push(size);
+  if (largest >= smallest) sizes.push(smallest);
+  return sizes;
 }

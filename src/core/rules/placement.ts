@@ -4,6 +4,7 @@ import { addChildInstance, nextInstanceId, updateInstance } from '../model/insta
 import { findObjectType, placeInstances } from '../pipeline/placeInstances';
 import type { RuleViolation } from './rule';
 import { evaluateDesign } from './evaluateDesign';
+import { coreStrings } from '../text/strings.sv';
 
 /** Lägen längs en kopplingspunkt snäpper till jämna steg, så att mitten och symmetriska lägen är lätta att träffa. */
 export const SNAP_STEP_MM = 5;
@@ -30,7 +31,8 @@ const SEARCH_STEP_MM = 2 * SNAP_STEP_MM;
  * som klarar reglerna. Ryms ingen storlek i mitten, t.ex. för att en granne
  * eller huvudhusets tak är i vägen, prövas lägen längre ut åt båda hållen.
  * Klarar inget reglerna kommer det minsta förslaget i mitten med sina
- * regelbrott, så att panelen kan förklara varför det inte går.
+ * regelbrott, så att panelen kan förklara varför det inte går. Har
+ * objekttypen inga storlekar för kopplingspunkten går det inte alls.
  */
 export function proposeChild(design: Design, domain: Domain, request: ChildRequest, resolveLabel = ignoreLabel): ChildProposal {
   const objectType = findObjectType(domain, request.objectTypeId);
@@ -39,6 +41,10 @@ export function proposeChild(design: Design, domain: Domain, request: ChildReque
   if (!socket) throw new Error(`Kopplingspunkten "${request.socketId}" finns inte på "${request.parentId}".`);
   const candidates = objectType.paramCandidates?.(socket) ?? [{}];
   const id = nextInstanceId(design.root, objectType.instanceIdPrefix);
+  if (candidates.length === 0) {
+    const instance: Instance = { id, type: objectType.id, params: {}, attachment: { socketId: request.socketId, u: 0, v: 0, rotationDegrees: 0 }, children: [] };
+    return { instance, violations: [{ level: 'error', instanceId: id, message: coreStrings.noSizeFits }] };
+  }
   const propose = (params: Record<string, unknown>, u: number): ChildProposal => {
     const instance: Instance = { id, type: objectType.id, params, attachment: { socketId: request.socketId, u, v: 0, rotationDegrees: 0 }, children: [] };
     const candidateDesign = { ...design, root: addChildInstance(design.root, request.parentId, instance) };
