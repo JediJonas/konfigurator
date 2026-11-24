@@ -26,10 +26,20 @@ test('ändrar huset när ett mått ändras', async ({ page }) => {
 test('bygger till huset och laddar ner ritningen', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
-  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'S1 · framgavel' });
+  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Framgavel' });
   await page.getByRole('button', { name: 'Lägg till tillbyggnad' }).click();
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toBeVisible();
   await expect(page.getByText('Sitter på S1 · framgavel')).toBeVisible();
+  // Bara den nya sektionen är öppen, så att panelen inte blir för lång.
+  const mainSection = page.getByRole('button', { name: 'Sektion S1' });
+  await expect(mainSection).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByLabel('Gavelbredd')).toHaveCount(1);
+  // Rubriken byter till den sektionen och stänger den som var öppen.
+  await mainSection.click();
+  await expect(mainSection).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Sektion S2' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByLabel('Gavelbredd')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Sektion S2' }).click();
 
   const offset = page.getByLabel('Läge längs väggen (0 = mitten)');
   await offset.fill('200');
@@ -47,7 +57,7 @@ test('stoppar ritningen när en tillbyggnad inte ryms', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Lägg till tillbyggnad' }).click();
-  await page.getByLabel('Vägghöjd').nth(1).fill('150');
+  await page.getByLabel('Vägghöjd').fill('150');
   await expect(page.getByText(/Tillbyggnaden ryms inte på väggen/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ladda ner ritning (PDF)' })).toBeDisabled();
 });
