@@ -39,7 +39,7 @@ export function proposeChild(design: Design, domain: Domain, request: ChildReque
   const parent = placeInstances(design, domain).find((entry) => entry.instance.id === request.parentId);
   const socket = parent?.sockets.find((candidate) => candidate.id === request.socketId);
   if (!socket) throw new Error(`Kopplingspunkten "${request.socketId}" finns inte på "${request.parentId}".`);
-  const candidates = objectType.paramCandidates?.(socket) ?? [{}];
+  const candidates = objectType.paramCandidates?.(socket, { thickness: design.material.thickness, socket }) ?? [{}];
   const id = nextInstanceId(design.root, objectType.instanceIdPrefix);
   if (candidates.length === 0) {
     const instance: Instance = { id, type: objectType.id, params: {}, attachment: { socketId: request.socketId, u: 0, v: 0, rotationDegrees: 0 }, children: [] };

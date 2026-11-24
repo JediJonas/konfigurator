@@ -18,7 +18,7 @@ describe('nya objekt i en kopplingspunkt', () => {
   it('ger en högre tillbyggnad på gaveln, där taket ger mer plats på mitten', () => {
     const proposal = proposeChild(designWithExtensions(), gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: SECTION_TYPE_ID });
     expect(proposal.violations).toEqual([]);
-    expect(proposal.instance.params).toMatchObject({ width: 80, wallHeight: 80 });
+    expect(proposal.instance.params).toMatchObject({ width: 80, wallHeight: 60 });
   });
 
   it('föreslår inget när väggen är för låg för den lägsta tillbyggnaden', () => {

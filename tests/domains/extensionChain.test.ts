@@ -27,8 +27,8 @@ describe('tillbyggnader på varandras gavlar', () => {
   it('blir smalare och lägre för varje steg tills den minsta storleken inte ryms', () => {
     // Huvudhuset är 140 mm brett med 100 mm vägghöjd. På gaveln som är 60 mm ryms inte 60 mm med 10 mm till hörnen.
     expect(buildOnGables(4)).toEqual([
-      { width: 80, wallHeight: 80, violations: 0 },
-      { width: 60, wallHeight: 60, violations: 0 },
+      { width: 80, wallHeight: 60, violations: 0 },
+      { width: 60, wallHeight: 50, violations: 0 },
       { width: undefined, wallHeight: undefined, violations: 1 },
     ]);
   });
@@ -48,5 +48,26 @@ describe('tillbyggnader på varandras gavlar', () => {
     const eaveHeight = wallHeight - eaveOverhang * Math.sin((roofPitch * Math.PI) / 180);
     expect(Math.max(...(socket?.bounds ?? []).map((point) => point.x))).toBeCloseTo(depth / 2 - 10);
     expect(Math.max(...(socket?.bounds ?? []).map((point) => point.y))).toBeCloseTo(eaveHeight - 10);
+  });
+
+  it('blir så bred som marginalen tillåter när 60 % av väggen är för smalt', () => {
+    const design = designWithExtensions();
+    const host = design.root.children[0];
+    if (!host) throw new Error('Mallen saknar sektion');
+    host.params = { ...HOST_PARAMS, width: 90 };
+    const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: SECTION_TYPE_ID });
+    expect(proposal.instance.params).toMatchObject({ width: 70 });
+  });
+
+  it('får så höga väggar som ryms under takfoten, i fältets steg', () => {
+    const design = designWithExtensions();
+    const host = design.root.children[0];
+    if (!host) throw new Error('Mallen saknar sektion');
+    host.params = { ...HOST_PARAMS, wallHeight: 120 };
+    const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: SECTION_TYPE_ID });
+    const higher = { ...proposal.instance, params: { ...proposal.instance.params, wallHeight: Number(proposal.instance.params.wallHeight) + 5 } };
+    const higherDesign = { ...design, root: addChildInstance(design.root, 'S1', higher) };
+    expect(proposal.violations).toEqual([]);
+    expect(evaluateDesign(higherDesign, gingerbreadDomain, (key) => key).violations.map((violation) => violation.message)).toContain('rule.extensionFitsWall');
   });
 });

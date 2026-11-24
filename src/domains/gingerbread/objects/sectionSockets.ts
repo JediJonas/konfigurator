@@ -9,7 +9,6 @@ import type { BuildContext, Socket } from '../../../core/model/objectType';
 import { WALL_SURFACE } from '../socketKinds';
 import { crossSectionOutline, eaveEdge, isExtension, roofEnds, roofUndersideHeight } from './sectionGeometry';
 import type { SectionParams } from './sectionParams';
-import { sectionParams } from './sectionParams';
 
 /**
  * Öppningen går en bit under golvet, så att den skär rent genom väggens
@@ -28,10 +27,6 @@ export const OPENING_INSET_MM = 10;
  */
 export const WALL_EDGE_MARGIN_MM = 10;
 
-/** Djup och tak för en ny tillbyggnad. Bredd och vägghöjd räknas från väggen den sitter på. */
-const EXTENSION_DEPTH_MM = 80;
-const EXTENSION_OVERHANG_MM = 8;
-const EXTENSION_PITCH_DEGREES = 45;
 
 interface WallSocketSpec {
   id: string;
@@ -143,54 +138,4 @@ export function sectionFootprint(params: SectionParams, context: BuildContext): 
   const halfWidth: Mm = eaveEdge(params).x + context.thickness * Math.sin(pitch);
   const ends = roofEnds(params, context);
   return [vec2(-halfWidth, ends.back), vec2(halfWidth, ends.back), vec2(halfWidth, ends.front), vec2(-halfWidth, ends.front)];
-}
-
-/**
- * Förslagen till en ny tillbyggnad tar högst så stor del av väggen, så att
- * det finns plats att flytta den längs väggen efteråt.
- */
-const EXTENSION_MAX_WALL_SHARE = 0.6;
-/** Steget mellan storlekarna som prövas. */
-const EXTENSION_SIZE_STEP_MM = 20;
-/** Förslagen avrundas nedåt till jämna centimeter. */
-const EXTENSION_ROUNDING_MM = 10;
-/** Schemats minsta bredd och vägghöjd för en sektion. */
-const SECTION_MIN_WIDTH_MM = sectionParams.shape.width.unwrap().minValue ?? 0;
-const SECTION_MIN_WALL_HEIGHT_MM = sectionParams.shape.wallHeight.unwrap().minValue ?? 0;
-
-/**
- * Storlekar att pröva, största först. Kopplingspunkten ligger redan
- * `WALL_EDGE_MARGIN_MM` innanför väggens kanter, så förslaget blir smalare
- * och lägre än väggen och en rad tillbyggnader på varandras gavlar trappas
- * ner. Ryms inte den minsta storleken finns inga förslag.
- */
-export function listExtensionCandidates(socket: Socket): Record<string, unknown>[] {
-  const xs = socket.bounds.map((point) => point.x);
-  const usableLength = Math.max(...xs) - Math.min(...xs);
-  const wallLength = usableLength + 2 * WALL_EDGE_MARGIN_MM;
-  // Höjden vid kopplingspunktens hörn, alltså under gavelns takfot eller långväggens takfot.
-  const usableTop = Math.min(...socket.bounds.filter((point) => point.y > 0).map((point) => point.y));
-  const widths = listSizesDown(Math.min(wallLength * EXTENSION_MAX_WALL_SHARE, usableLength), SECTION_MIN_WIDTH_MM);
-  // På en kort vägg prövas den minsta bredden, om den ryms.
-  const fittingWidths = widths.length > 0 || usableLength < SECTION_MIN_WIDTH_MM ? widths : [SECTION_MIN_WIDTH_MM];
-  // Väggarna föreslås ett steg lägre än väggen de sitter på, så att taket får plats och raden trappas ner.
-  const wallHeights = listSizesDown(usableTop - EXTENSION_SIZE_STEP_MM, SECTION_MIN_WALL_HEIGHT_MM);
-  return fittingWidths.flatMap((width) =>
-    wallHeights.map((wallHeight) => ({
-      width,
-      depth: EXTENSION_DEPTH_MM,
-      wallHeight,
-      roofPitch: EXTENSION_PITCH_DEGREES,
-      eaveOverhang: EXTENSION_OVERHANG_MM,
-      gableOverhang: EXTENSION_OVERHANG_MM,
-    })),
-  );
-}
-
-/** Från `largest` avrundat nedåt, i steg om `EXTENSION_SIZE_STEP_MM`, och sist `smallest`, som ofta är den som ryms. */
-function listSizesDown(largest: Mm, smallest: Mm): Mm[] {
-  const sizes: Mm[] = [];
-  for (let size = Math.floor(largest / EXTENSION_ROUNDING_MM) * EXTENSION_ROUNDING_MM; size > smallest; size -= EXTENSION_SIZE_STEP_MM) sizes.push(size);
-  if (largest >= smallest) sizes.push(smallest);
-  return sizes;
 }
