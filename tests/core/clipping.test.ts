@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { overlapArea, subtractRegion } from '../../src/core/geometry/clipping';
+import { overlapArea, subtractRegion, subtractRegions } from '../../src/core/geometry/clipping';
 import { convexHull, isPointInPolygon } from '../../src/core/geometry/hull';
 import { signedArea } from '../../src/core/geometry/polygon';
 import { vec2 } from '../../src/core/geometry/vector';
@@ -44,5 +44,15 @@ describe('konvext hölje', () => {
     expect(isPointInPolygon(vec2(10.01, 5), square(0, 0, 10), 0.05)).toBe(true);
     expect(isPointInPolygon(vec2(10.5, 5), square(0, 0, 10), 0.05)).toBe(false);
     expect(isPointInPolygon(vec2(5, 5), square(0, 0, 10), 0.05)).toBe(true);
+  });
+});
+
+describe('borttagning av flera områden', () => {
+  const wall = { outline: [vec2(0, 0), vec2(100, 0), vec2(100, 50), vec2(0, 50)], holes: [] };
+
+  it('tar bort alla områden och hoppar över de som saknar yta', () => {
+    const pieces = subtractRegions(wall, [square(-1, -1, 11), square(90, 40, 20), [vec2(50, 0), vec2(60, 0)]]);
+    expect(pieces).toHaveLength(1);
+    expect(signedArea(pieces[0]?.outline ?? [])).toBeCloseTo(100 * 50 - 10 * 10 - 10 * 10);
   });
 });

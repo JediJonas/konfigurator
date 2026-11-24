@@ -14,6 +14,11 @@ export interface ParamMeta {
   groupKey?: string;
   /** Ett nytt objekt av samma typ får förälderns värde, så att t.ex. taket ärvs nedåt. */
   isInherited?: boolean;
+  /**
+   * Fältet visas bara när andra fält har något av de angivna värdena, t.ex.
+   * `{ roof: ['flat'] }`. Värdet finns kvar i parametrarna även när fältet är dolt.
+   */
+  visibleWhen?: Record<string, readonly string[]>;
 }
 
 export type ParamField =
@@ -27,6 +32,16 @@ export type ParamSchema = z.ZodObject;
 export function pickInheritedParams(schema: ParamSchema, parentParams: Record<string, unknown>): Record<string, unknown> {
   const inheritedKeys = describeParams(schema).filter((field) => field.meta.isInherited && parentParams[field.key] !== undefined);
   return Object.fromEntries(inheritedKeys.map((field) => [field.key, parentParams[field.key]]));
+}
+
+/** Om fältet ska visas med de här värdena på de andra fälten. */
+export function isFieldVisible(field: ParamField, values: Record<string, unknown>, fields: readonly ParamField[]): boolean {
+  const conditions = Object.entries(field.meta.visibleWhen ?? {});
+  return conditions.every(([key, allowed]) => {
+    const other = fields.find((candidate) => candidate.key === key);
+    const value = values[key] ?? (other ? other.defaultValue : undefined);
+    return allowed.includes(String(value));
+  });
 }
 
 /** Läser fälten i ett parameterschema så att UI:t kan bygga formuläret utan egen kod per objekttyp. */

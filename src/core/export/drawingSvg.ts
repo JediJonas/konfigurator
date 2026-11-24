@@ -51,9 +51,7 @@ function partTitle(shape: PlacedShape, nameGroup: NameGroup): string {
 
 function partDetails(shape: PlacedShape): string {
   const bounds = boundsOf(shape.outline);
-  const details = [coreStrings.cutCount(shape.group.count), coreStrings.dimensions(boundsWidth(bounds), boundsHeight(bounds))];
-  if (shape.group.isMirrored) details.push(coreStrings.mirrored);
-  return details.join(', ');
+  return [coreStrings.cutCount(shape.group.count, shape.group.mirroredCount), coreStrings.dimensions(boundsWidth(bounds), boundsHeight(bounds))].join(', ');
 }
 
 function renderLabel(shape: PlacedShape, at: Vec2, nameGroup: NameGroup): string {

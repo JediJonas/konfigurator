@@ -4,7 +4,7 @@ import { addChildInstance, nextInstanceId, updateInstance } from '../model/insta
 import { pickInheritedParams } from '../model/paramForm';
 import { findObjectType, placeInstances } from '../pipeline/placeInstances';
 import type { RuleViolation } from './rule';
-import { evaluateDesign } from './evaluateDesign';
+import { listViolations } from './evaluateDesign';
 import { coreStrings } from '../text/strings.sv';
 
 /** Lägen längs en kopplingspunkt snäpper till jämna steg, så att mitten och symmetriska lägen är lätta att träffa. */
@@ -42,7 +42,8 @@ export function proposeChild(design: Design, domain: Domain, request: ChildReque
   if (!socket) throw new Error(`Kopplingspunkten "${request.socketId}" finns inte på "${request.parentId}".`);
   // Fält som ärvs, t.ex. taket, tas från föräldern när den är av samma typ.
   const inherited = parent?.instance.type === objectType.id ? pickInheritedParams(objectType.params, parent.instance.params) : {};
-  const candidates = (objectType.paramCandidates?.(socket, { thickness: design.material.thickness, socket }, inherited) ?? [{}]).map((params) => ({ ...params, ...inherited }));
+  // Objekttypen lägger själv de ärvda värdena på sina förslag, och får byta ut ett ärvt värde som inte går här.
+  const candidates = objectType.paramCandidates?.(socket, { thickness: design.material.thickness, socket }, inherited) ?? [{ ...inherited }];
   const id = nextInstanceId(design.root, objectType.instanceIdPrefix);
   if (candidates.length === 0) {
     const instance: Instance = { id, type: objectType.id, params: {}, attachment: { socketId: request.socketId, u: 0, v: 0, rotationDegrees: 0 }, children: [] };
@@ -100,8 +101,7 @@ function withOffset(design: Design, instanceId: string, u: number): Design {
 
 function findErrorsFor(design: Design, domain: Domain, instanceId: string, resolveLabel: (key: string) => string): RuleViolation[] {
   try {
-    const { violations } = evaluateDesign(design, domain, resolveLabel);
-    return violations.filter((violation) => violation.instanceId === instanceId && violation.level === 'error');
+    return listViolations(design, domain, resolveLabel).filter((violation) => violation.instanceId === instanceId && violation.level === 'error');
   } catch (error) {
     return [{ level: 'error', instanceId, message: error instanceof Error ? error.message : String(error) }];
   }
@@ -164,7 +164,7 @@ export function findAllowedParamRange(design: Design, domain: Domain, request: P
 
 function hasAnyError(design: Design, domain: Domain): boolean {
   try {
-    return evaluateDesign(design, domain, ignoreLabel).violations.some((violation) => violation.level === 'error');
+    return listViolations(design, domain, ignoreLabel).some((violation) => violation.level === 'error');
   } catch {
     return true;
   }

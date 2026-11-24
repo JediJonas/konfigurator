@@ -2,7 +2,8 @@ import type { Mm, Vec2 } from '../../../core/geometry/vector';
 import type { BuildContext, Socket } from '../../../core/model/objectType';
 import type { SectionParams } from './sectionParams';
 import { sectionParams } from './sectionParams';
-import { sectionSocketOutline, WALL_EDGE_MARGIN_MM } from './sectionSockets';
+import { sectionSocketOutline, sectionSocketTopOutline, WALL_EDGE_MARGIN_MM } from './sectionSockets';
+import { EXTENSION_ROOF_TYPES } from './roof/extensionRoofs';
 
 /** Djup för en ny tillbyggnad, och tak när föräldern inte har något att ärva. Bredd och vägghöjd räknas från väggen den sitter på. */
 const EXTENSION_DEPTH_MM = 80;
@@ -29,7 +30,8 @@ const SECTION_MIN_WALL_HEIGHT_MM = sectionParams.shape.wallHeight.unwrap().minVa
  * Bredden är 60 % av väggen, eller så bred som marginalen till hörnen
  * tillåter på en kort vägg. Vägghöjden är 60 % av väggens höjd i hörnet
  * (10 mm under den om 60 % är lägre än minsta höjden), men aldrig högre än
- * att taket ryms i kopplingspunkten, som redan ligger 10 mm under värdens tak.
+ * att väggarna ryms under värdens väggöverkant och taket under värdens tak.
+ * En tornspira ärvs inte, eftersom den bara kan stå på fatet; då blir det sadeltak.
  */
 export function listExtensionCandidates(socket: Socket, context: BuildContext, inherited: Partial<SectionParams> = {}): Record<string, unknown>[] {
   const xs = socket.bounds.map((point) => point.x);
@@ -41,36 +43,39 @@ export function listExtensionCandidates(socket: Socket, context: BuildContext, i
   const cornerHeight = measureCornerHeight(socket);
   const shareHeight = cornerHeight * EXTENSION_WALL_SHARE;
   const preferredHeight = shareHeight >= SECTION_MIN_WALL_HEIGHT_MM ? shareHeight : cornerHeight - WALL_EDGE_MARGIN_MM;
+  const roof = inherited.roof && !EXTENSION_ROOF_TYPES.includes(inherited.roof) ? { roof: 'gable' as const } : {};
   return fittingWidths.flatMap((width) => {
     // Taket ärvs från föräldern, så att den högsta vägghöjden räknas med samma tak som tillbyggnaden får.
-    const params = { ...extensionParams(width, 0), ...inherited, wallHeight: 0 };
+    const params = { ...extensionParams(width, 0), ...inherited, ...roof, wallHeight: 0 };
     const wallHeight = roundDown(Math.min(preferredHeight, findHighestWall(socket, params, context)), WALL_HEIGHT_FIELD_STEP_MM);
     return wallHeight >= SECTION_MIN_WALL_HEIGHT_MM ? [{ ...params, wallHeight }] : [];
   });
 }
 
 function extensionParams(width: Mm, wallHeight: Mm): SectionParams {
-  return {
+  return sectionParams.parse({
     width,
     depth: EXTENSION_DEPTH_MM,
-    wallHeight,
-    roof: 'gable',
+    wallHeight: Math.max(wallHeight, SECTION_MIN_WALL_HEIGHT_MM),
     roofPitch: EXTENSION_PITCH_DEGREES,
     eaveOverhang: EXTENSION_OVERHANG_MM,
     gableOverhang: EXTENSION_OVERHANG_MM,
-  };
+  });
 }
 
 /**
- * Den högsta vägghöjden där tillbyggnaden mitt i kopplingspunkten ryms under
- * punktens överkant. Konturen mot väggen räknas med vägghöjden 0, och varje
- * punkt får stiga tills den når överkanten rakt ovanför sig.
+ * Den högsta vägghöjden där tillbyggnaden mitt i kopplingspunkten ryms:
+ * väggarna under punktens överkant och taket under punktens tak. Konturerna
+ * räknas med vägghöjden 0, och varje punkt får stiga tills den når kanten rakt ovanför sig.
  */
 function findHighestWall(socket: Socket, params: SectionParams, context: BuildContext): Mm {
-  const outline = sectionSocketOutline(params, { ...context, socket });
-  return Math.min(...outline.map((point) => findTopOfBounds(socket.bounds, point.x) - point.y));
+  const placed = { ...context, socket };
+  const room = (outline: { x: Mm; y: Mm }[], bounds: Vec2[]) => outline.map((point) => findTopOfBounds(bounds, -point.x) - point.y);
+  return Math.min(
+    ...room(sectionSocketOutline(params, placed), socket.bounds),
+    ...room(sectionSocketTopOutline(params, placed), socket.topBounds ?? socket.bounds),
+  );
 }
-
 /** Kopplingspunktens överkant rakt ovanför `x`. Utanför punkten finns ingen plats. */
 function findTopOfBounds(bounds: Vec2[], x: Mm): Mm {
   let top = Number.NEGATIVE_INFINITY;
@@ -85,15 +90,14 @@ function findTopOfBounds(bounds: Vec2[], x: Mm): Mm {
 }
 
 /**
- * Väggens höjd i hörnet, utan marginalen: gavelns långväggshöjd eller
- * långväggens takfot. Överkanten förlängs ut till hörnet, eftersom den på en
+ * Väggens höjd i hörnet: gavelns långväggshöjd eller långväggens överkant. Överkanten förlängs ut till hörnet, eftersom den på en
  * gavel stiger mot nocken.
  */
 function measureCornerHeight(socket: Socket): Mm {
   const halfLength = Math.max(...socket.bounds.map((point) => point.x));
   const cornerTop = findTopOfBounds(socket.bounds, halfLength);
   const slope = (cornerTop - findTopOfBounds(socket.bounds, halfLength - WALL_EDGE_MARGIN_MM)) / WALL_EDGE_MARGIN_MM;
-  return cornerTop + slope * WALL_EDGE_MARGIN_MM + WALL_EDGE_MARGIN_MM;
+  return cornerTop + slope * WALL_EDGE_MARGIN_MM;
 }
 
 /** Från `largest` avrundat nedåt, i steg om `EXTENSION_WIDTH_STEP_MM`, och sist den minsta bredden. */

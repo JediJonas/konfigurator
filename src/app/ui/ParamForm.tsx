@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
 import type { ParamField } from '../../core/model/paramForm';
+import { isFieldVisible } from '../../core/model/paramForm';
 import { translate } from '../activeDomain';
 import { uiStrings } from './strings.sv';
 
@@ -13,12 +14,14 @@ interface ParamFormProps {
 /**
  * Formulär som byggs från objekttypens parameterschema, så att nya objekttyper
  * inte kräver ny UI-kod. Fält med samma grupp visas under en egen rubrik som
- * är hopfälld från början, eftersom de sällan ändras (ägarens val).
+ * är hopfälld från början, eftersom de sällan ändras (ägarens val). Fält som
+ * bara gäller vissa val, t.ex. kantens höjd på ett platt tak, visas bara då.
  */
 export function ParamForm({ fields, values, onChange }: ParamFormProps) {
+  const visible = fields.filter((field) => isFieldVisible(field, values, fields));
   return (
     <div className="param-form">
-      {groupFields(fields).map((group) =>
+      {groupFields(visible).map((group) =>
         group.groupKey ? (
           <FieldGroup key={group.groupKey} labelKey={group.groupKey}>
             {group.fields.map((field) => renderInput(field, values, onChange))}

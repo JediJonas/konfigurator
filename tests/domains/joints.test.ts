@@ -17,4 +17,12 @@ describe('hörnregeln för stumfog', () => {
     ]);
     expect(Object.fromEntries(roles)).toEqual({ short: 'between', long: 'through' });
   });
+
+  it('låter bara det första paret gå ut när väggarna är lika långa, som på ett kvadratiskt torn', () => {
+    const roles = assignCornerRoles([
+      { id: 'gable', hasSlopedTop: false, length: 120 },
+      { id: 'side', hasSlopedTop: false, length: 120 },
+    ]);
+    expect(Object.fromEntries(roles)).toEqual({ gable: 'through', side: 'between' });
+  });
 });

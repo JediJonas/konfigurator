@@ -1,4 +1,5 @@
 import type { Rule } from '../../core/rules/rule';
+import { EXTENSION_ROOF_TYPES } from './objects/roof/extensionRoofs';
 import { SECTION_TYPE_ID } from './objects/section';
 import { GROUND, WALL_SURFACE } from './socketKinds';
 
@@ -8,5 +9,6 @@ export const gingerbreadRules: Rule[] = [
   { kind: 'allowedRotations', level: 'error', objectType: SECTION_TYPE_ID, socketKind: GROUND, degrees: [0, 90, 180, 270], messageKey: 'rule.rightAnglesOnly' },
   { kind: 'allowedRotations', level: 'error', objectType: SECTION_TYPE_ID, socketKind: WALL_SURFACE, degrees: [0], messageKey: 'rule.extensionUpright' },
   { kind: 'withinSocketBounds', level: 'error', objectType: SECTION_TYPE_ID, messageKey: 'rule.extensionFitsWall' },
+  { kind: 'allowedParamValues', level: 'error', objectType: SECTION_TYPE_ID, socketKind: WALL_SURFACE, param: 'roof', values: EXTENSION_ROOF_TYPES, messageKey: 'rule.noSpireOnExtension' },
   { kind: 'noOverlap', level: 'error', objectType: SECTION_TYPE_ID, messageKey: 'rule.sectionsOverlap' },
 ];

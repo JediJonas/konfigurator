@@ -34,27 +34,37 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 
 ## Kopplingar och regler (fas 2)
 
-- Objekt fäster i kopplingspunkter (`Socket`). Punktens `bounds` är ytan det som fästs måste rymmas inom, sett vinkelrätt mot punkten. En objekttyp kan ange `mountMatrix` för hur den sitter i punkten, t.ex. en tillbyggnad som står upprätt med bakre änden mot väggen.
+- Objekt fäster i kopplingspunkter (`Socket`). Punktens `bounds` är ytan det som fästs måste rymmas inom, sett vinkelrätt mot punkten. `topBounds` är ytan som objektets topp (`socketTopOutline`) får nå upp i när den får gå högre, t.ex. ett tak som läggs ovanpå värdens tak. En objekttyp kan ange `mountMatrix` för hur den sitter i punkten, t.ex. en tillbyggnad som står upprätt med bakre änden mot väggen.
 - Påverkan (`Modifier`) ger områden i objektets egna koordinater; flödet fäller ner dem i måldelens plan. En öppning som skulle dela en del läggs inte på och blir ett fel.
 - Regelmotorn (`core/rules`) läser reglerna som data från domänen och ger fel och varningar. Samma kontroll används i panelen, när nya objekt föreslås och för att stoppa ritningen.
 - Nya objekt snäpper mitt i kopplingspunkten i den största storleken som klarar reglerna. Läget längs väggen snäpper till 5 mm och stannar där objektet ryms.
-- Öppningen i värdens vägg är 10 mm mindre än tillbyggnadens insida mot långväggarna och taket (ägarens val), så att tillbyggnaden har en kant att fästas mot. Nertill går den till golvet.
-- Tillbyggnadens väggar står minst 10 mm från väggens hörn och taket minst 10 mm under huvudhusets takfot (långvägg) eller takets undersida (gavel) (ägarens val, `WALL_EDGE_MARGIN_MM`). Det gäller förslag, mått och läge, och huvudhusets mått begränsas på samma sätt av tillbyggnaden. Takutsprången får gå förbi hörnet. Taket under takfoten gäller tills vinkelrännorna finns (fas 3).
+- Öppningen i värdens vägg är 10 mm mindre än tillbyggnadens insida mot långväggarna och taket (ägarens val), så att tillbyggnaden har en kant att fästas mot. Den lämnar också minst 10 mm av värdens vägg under väggens överkant, så att en hög tillbyggnad inte delar väggen. Nertill går den till golvet.
+- Tillbyggnadens väggar står minst 10 mm från väggens hörn (ägarens val, `WALL_EDGE_MARGIN_MM`) och är högst lika höga som värdens vägg. Taket får gå upp till värdens tak sett rakt mot väggen, så att nockarna kan ligga på samma höjd; vinkelrännan lägger det ovanpå. Det gäller förslag, mått och läge, och huvudhusets mått begränsas på samma sätt av tillbyggnaden. Takutsprången får gå förbi hörnet.
 - En ny tillbyggnad tar högst 60 % av väggens längd, så att det finns plats att flytta den. Fältet för läget går bara att ändra så långt den kan flyttas.
-- En ny tillbyggnad föreslås 60 % av väggens längd (ägarens val). Ryms inte det blir den så bred som marginalen till hörnen tillåter. Vägghöjden föreslås 60 % av väggens höjd i hörnet, och 10 mm under den när 60 % är lägre än minsta höjden (ägarens val), så att tillbyggnader på varandras gavlar trappas ner. Ryms inte taket räknas högsta vägghöjden ut direkt ur kopplingspunktens överkant och tillbyggnadens kontur (`extensionProposal.ts`).
+- En ny tillbyggnad föreslås 60 % av väggens längd (ägarens val). Ryms inte det blir den så bred som marginalen till hörnen tillåter. Vägghöjden föreslås 60 % av väggens höjd i hörnet, och 10 mm under den när 60 % är lägre än minsta höjden (ägarens val), så att tillbyggnader på varandras gavlar trappas ner. Ryms det inte räknas högsta vägghöjden ut direkt ur kopplingspunktens överkant och tak (`bounds`, `topBounds`) och tillbyggnadens kontur (`extensionProposal.ts`). En tornspira ärvs inte av en tillbyggnad; den får sadeltak.
 
-- Fält i parameterschemat kan ha `groupKey` (visas under en egen rubrik, hopfälld från början) och `isInherited` (ett nytt objekt av samma typ får förälderns värde). Taket (taktyp, taklutning och takutsprången) är en sådan grupp och ärvs nedåt (ägarens val).
+- Fält i parameterschemat kan ha `groupKey` (visas under en egen rubrik, hopfälld från början), `isInherited` (ett nytt objekt av samma typ får förälderns värde) och `visibleWhen` (visas bara för vissa värden på ett annat fält). Taket (taktyp, lutningar, takutsprången och kantens höjd) är en sådan grupp och ärvs nedåt (ägarens val). Panelen visar bara fälten för vald taktyp.
+
+## Tak och vinkelrännor (fas 3)
+
+- Taktyper: sadeltak, pulpettak, valmat tak, mansardtak, platt tak med kant, tornspira med 4 och 8 sidor (`objects/roof/`).
+- Varje tak är plana takytor (`RoofLayout`): plan som höjd över golvet, och varje plan blir en del där det är lägst (`core/geometry/heightPlanes.ts`). Väggarnas överkant följer det lägsta av planen. Allt räknas med formler, inga sökningar.
+- Pulpettaket lutar längs huset och är högst bak, så att en tillbyggnad blir ett skjul mot värden. Mansardtaket har gavlar (brutet sadeltak). Den 4-sidiga spiran vilar på väggarna; den 8-sidiga står på en takskiva som täcker hörnen. Tornspira kan bara stå på fatet (regel `allowedParamValues`).
+- **Vinkelrännor, snickarmetoden** (`interactions/valleys.ts`, samverkan i flödet efter påverkan): huvudhusets tak förblir helt. Tillbyggnadens tak förlängs in över värden (`VALLEY_REACH_MM`) och klipps där undersidan möter värdens takovansida. Ligger taket helt under värdens takutsprång går det in till väggen. Tillbyggnadens väggar och takkanter kapas där de skulle gå upp i värdens takutsprång. Det fungerar mot alla taktyper.
+- Regelkontrollen i förslag och fält (`listViolations`) räknar inte samverkan, eftersom den bara ändrar delar och aldrig ger fel.
 
 ## Ritningen
 
 - **Hörnregeln för stumfog** (ägarens val): en vägg med sned överkant går hela vägen ut, och väggar med rak överkant kortas med 2 × tjockleken och står mellan. Då följer den sneda väggen takets undersida ut till hörnet och inget hål syns under taket.
   - Sadeltak: gavlarna går ut. Pulpettak: sidorna går ut.
-  - Valmat och platt tak: alla överkanter är raka, och de längsta väggarna går ut.
+  - Mansardtak: gavlarna går ut.
+  - Valmat tak, platt tak och tornspiror: alla överkanter är raka, och de längsta väggarna går ut. Är de lika långa (kvadratiskt torn) går gavlarna ut.
+  - Kanten runt ett platt tak följer samma regel.
   - Tillbyggnad: väggarna går stumt mot värdens vägg. Regeln gäller i de yttre hörnen.
-  - Regeln hör till domänens fog (`JointStyle`), inte till varje objekttyp, när fler taktyper byggs.
+  - Regeln hör till domänens fog (`JointStyle`, `buttJoint` i `joints.ts`), inte till varje taktyp: en vägg räknas som sned när takets undersida lutar längs den.
 
 - `core/export` gör en SVG per sida i millimeter (översikt först, sedan delarna). Appen gör PDF av dem med jsPDF och svg2pdf, som laddas först när någon laddar ner.
-- Delar med samma form ritas en gång med "skär N st". Delar större än en sida delas i bitar med 10 mm överlappning, streckade skarvlinjer och kryss.
+- Delar med samma form ritas en gång med "skär N st", oavsett var konturen börjar. En del som är spegelvänd mot en annan, t.ex. tillbyggnadens takhalvor efter rännan, ritas också en gång med "varav N spegelvänd". Delar större än en sida delas i bitar med 10 mm överlappning, streckade skarvlinjer och kryss.
 - Varje sida har en 10 cm kontrollinjal. Kontrollera skalan genom att mäta den efter ändringar i exporten.
 
 ## Mappar

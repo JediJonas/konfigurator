@@ -1,6 +1,6 @@
 import { useId, useMemo } from 'react';
 import type { ParamField } from '../../core/model/paramForm';
-import { describeParams } from '../../core/model/paramForm';
+import { describeParams, isFieldVisible } from '../../core/model/paramForm';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { RuleViolation } from '../../core/rules/rule';
 import type { OffsetRange } from '../../core/rules/placement';
@@ -114,6 +114,8 @@ function useParamFieldsWithinRules(entry: PlacedInstance, isOpen: boolean): Para
     return fields.map((field) => {
       const current = params[field.key];
       if (field.kind !== 'number' || typeof current !== 'number' || field.min === undefined || field.max === undefined) return field;
+      // Dolda fält, t.ex. kantens höjd när taket inte är platt, behöver inga gränser.
+      if (!isFieldVisible(field, params, fields)) return field;
       const range = findAllowedParamRange(design, activeDomain, {
         instanceId: instance.id,
         param: field.key,

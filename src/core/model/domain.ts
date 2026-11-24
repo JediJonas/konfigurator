@@ -2,6 +2,8 @@ import type { Mm } from '../geometry/vector';
 import type { Design } from './design';
 import type { ObjectType } from './objectType';
 import type { Rule } from '../rules/rule';
+import type { InteractionResolver } from '../pipeline/interaction';
+import type { JointStyle } from './joint';
 
 export interface Material {
   id: string;
@@ -26,7 +28,11 @@ export interface Domain {
   objectTypes: ObjectType<any>[];
   /** Kopplingsregler som gäller hela designen. */
   rules: Rule[];
+  /** Samverkan mellan objekt som möts, t.ex. tak som bildar vinkelrännor. Körs i ordning efter påverkan. */
+  interactions: InteractionResolver[];
   materials: Material[];
+  /** Fogarna i domänen; den första används tills man kan välja. */
+  jointStyles: JointStyle[];
   presets: Preset[];
   strings: Record<string, string>;
 }

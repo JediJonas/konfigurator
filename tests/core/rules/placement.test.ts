@@ -12,7 +12,8 @@ describe('nya objekt i en kopplingspunkt', () => {
     expect(proposal.violations).toEqual([]);
     expect(proposal.instance.id).toBe('S2');
     expect(proposal.instance.attachment).toEqual({ socketId: 'side-right', u: 0, v: 0, rotationDegrees: 0 });
-    expect(proposal.instance.params).toMatchObject({ width: 80, wallHeight: 40 });
+    // 60 % av väggen (108 mm) avrundat nedåt, och 60 % av väggens höjd.
+    expect(proposal.instance.params).toMatchObject({ width: 100, wallHeight: 60 });
   });
 
   it('ger en högre tillbyggnad på gaveln, där taket ger mer plats på mitten', () => {
@@ -44,16 +45,17 @@ describe('nya objekt i en kopplingspunkt', () => {
   });
 
   it('låter inte huset bli kortare eller lägre än tillbyggnaden på dess vägg', () => {
-    const design = designWithExtensions(extension('side-right'));
+    const design = designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 60 }));
     const depth = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'depth', current: 180, step: 5, min: 60, max: 400 });
     // Tillbyggnaden är 80 mm bred och ska stå 10 mm från båda hörnen.
     expect(depth).toEqual({ min: 100, max: 400 });
     const wallHeight = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'wallHeight', current: 100, step: 5, min: 40, max: 300 });
-    expect(wallHeight.min).toBe(100);
+    // Tillbyggnadens väggar får vara lika höga som husets.
+    expect(wallHeight.min).toBe(60);
   });
 
   it('släpper gränserna när designen redan har fel, så att man kan ändra sig ur felet', () => {
-    const design = designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 80 }));
-    expect(findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S2', param: 'wallHeight', current: 80, step: 5, min: 40, max: 300 })).toEqual({ min: 40, max: 300 });
+    const design = designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 120 }));
+    expect(findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S2', param: 'wallHeight', current: 120, step: 5, min: 40, max: 300 })).toEqual({ min: 40, max: 300 });
   });
 });
