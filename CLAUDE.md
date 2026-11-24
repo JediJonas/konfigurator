@@ -41,7 +41,7 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 - Öppningen i värdens vägg är 10 mm mindre än tillbyggnadens insida mot långväggarna och taket (ägarens val), så att tillbyggnaden har en kant att fästas mot. Nertill går den till golvet.
 - Tillbyggnadens väggar står minst 10 mm från väggens hörn och taket minst 10 mm under huvudhusets takfot (långvägg) eller takets undersida (gavel) (ägarens val, `WALL_EDGE_MARGIN_MM`). Det gäller förslag, mått och läge, och huvudhusets mått begränsas på samma sätt av tillbyggnaden. Takutsprången får gå förbi hörnet. Taket under takfoten gäller tills vinkelrännorna finns (fas 3).
 - En ny tillbyggnad tar högst 60 % av väggens längd, så att det finns plats att flytta den. Fältet för läget går bara att ändra så långt den kan flyttas.
-- En ny tillbyggnad föreslås 60 % av väggens längd (ägarens val). Ryms inte det blir den så bred som marginalen till hörnen tillåter. Vägghöjden föreslås 20 mm under kopplingspunktens överkant (på en gavel alltså 20 mm lägre än gavelns väggar), så att tillbyggnader på varandras gavlar trappas ner, och sänks annars i fältets steg (5 mm) tills taket ryms.
+- En ny tillbyggnad föreslås 60 % av väggens längd (ägarens val). Ryms inte det blir den så bred som marginalen till hörnen tillåter. Vägghöjden föreslås 60 % av väggens höjd i hörnet, och 10 mm under den när 60 % är lägre än minsta höjden (ägarens val), så att tillbyggnader på varandras gavlar trappas ner. Ryms inte taket sänks den i fältets steg (5 mm).
 
 ## Ritningen
 

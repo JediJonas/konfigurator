@@ -27,8 +27,8 @@ describe('tillbyggnader på varandras gavlar', () => {
   it('blir smalare och lägre för varje steg tills den minsta storleken inte ryms', () => {
     // Huvudhuset är 140 mm brett med 100 mm vägghöjd. På gaveln som är 60 mm ryms inte 60 mm med 10 mm till hörnen.
     expect(buildOnGables(4)).toEqual([
-      { width: 80, wallHeight: 80, violations: 0 },
-      { width: 60, wallHeight: 60, violations: 0 },
+      { width: 80, wallHeight: 60, violations: 0 },
+      { width: 60, wallHeight: 50, violations: 0 },
       { width: undefined, wallHeight: undefined, violations: 1 },
     ]);
   });
