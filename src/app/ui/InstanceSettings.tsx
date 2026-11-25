@@ -30,7 +30,7 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
   const paramFields = useParamFieldsWithinRules(entry, isOpen);
   const { instance, objectType, socket, parentId } = entry;
   return (
-    <section className="panel-section">
+    <section className="panel-section" data-instance-id={instance.id}>
       <div className="instance-heading">
         <h2>
           <button type="button" className="disclosure" aria-expanded={isOpen} aria-controls={bodyId} onClick={onToggle}>
