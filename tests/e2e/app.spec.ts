@@ -121,6 +121,18 @@ test.describe('pekskärm', () => {
     const bottom = await page.getByRole('button', { name: 'Ladda ner ritning (PDF)' }).evaluate((button) => button.getBoundingClientRect().bottom);
     expect(bottom).toBeCloseTo((await page.evaluate(() => window.innerHeight)) - BOTTOM_GAP_PX, 0);
   });
+
+  test('fäller upp arket med måtten när man trycker på en vägg', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByLabel('Gavelbredd')).toBeHidden();
+    const view = page.locator('.viewport canvas');
+    await page.waitForTimeout(1500);
+    const box = await view.boundingBox();
+    if (!box) throw new Error('3D-vyn saknas');
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height * 0.6);
+    await expect(page.getByRole('button', { name: 'Dölj mått' })).toBeVisible();
+    await expect(page.getByLabel('Gavelbredd')).toBeVisible();
+  });
 });
 
 test('centrerar huset igen efter att man zoomat ut', async ({ page }) => {

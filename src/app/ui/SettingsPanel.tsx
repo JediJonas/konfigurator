@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useOpenInstance } from './useOpenInstance';
 import type { RefObject } from 'react';
 import { buildDrawingPages } from '../../core/export/drawingDocument';
@@ -34,6 +34,20 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   const canDownload = !error && !hasErrors(evaluation.violations);
   const instanceEntries = evaluation.placed.filter((entry) => entry.parentId !== undefined);
   const openInstance = useOpenInstance(instanceEntries.map((entry) => entry.instance.id), selectedSocket);
+  const contentRef = useRef<HTMLDivElement>(null);
+  // Trycker man på en vägg fälls arket upp i mobilen, så att måtten för den delen syns.
+  const focusKey = selectedSocket ? `${selectedSocket.instanceId}/${selectedSocket.socketId}` : undefined;
+  const [knownFocusKey, setKnownFocusKey] = useState(focusKey);
+  if (focusKey !== knownFocusKey) {
+    setKnownFocusKey(focusKey);
+    if (focusKey) setIsExpanded(true);
+  }
+  const focusedInstanceId = selectedSocket?.instanceId;
+  useEffect(() => {
+    if (!focusKey || !focusedInstanceId) return;
+    const section = contentRef.current?.querySelector(`[data-instance-id="${CSS.escape(focusedInstanceId)}"]`);
+    section?.scrollIntoView({ block: 'nearest' });
+  }, [focusKey, focusedInstanceId]);
 
   async function handleDownload() {
     setPdfState('working');
@@ -55,7 +69,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
       <button type="button" className="sheet-handle" aria-expanded={isExpanded} aria-controls={contentId} onClick={() => setIsExpanded(!isExpanded)}>
         {isExpanded ? uiStrings.hideDimensions : uiStrings.showDimensions}
       </button>
-      <div className="panel-content" id={contentId}>
+      <div className="panel-content" id={contentId} ref={contentRef}>
         {instanceEntries.map((entry) => (
           <InstanceSettings
             key={entry.instance.id}
