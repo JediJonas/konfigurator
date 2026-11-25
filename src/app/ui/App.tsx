@@ -4,6 +4,7 @@ import type { DesignEvaluation } from '../../core/rules/evaluateDesign';
 import { evaluateDesign } from '../../core/rules/evaluateDesign';
 import { activeDomain, translate } from '../activeDomain';
 import { useDesignStore } from '../state/designStore';
+import { useSeenHints } from '../state/seenHints';
 import { DesignView } from '../three/DesignView';
 import type { FitView } from '../three/DesignView';
 import type { CaptureOverview } from '../three/OverviewCapture';
@@ -20,6 +21,8 @@ export function App() {
   const design = useDesignStore((state) => state.design);
   const selectedSocket = useDesignStore((state) => state.selectedSocket);
   const selectSocket = useDesignStore((state) => state.selectSocket);
+  const hasMovedView = useSeenHints((state) => state.seen.view);
+  const markHintSeen = useSeenHints((state) => state.markHintSeen);
   const captureRef = useRef<CaptureOverview>(null);
   const fitRef = useRef<FitView>(null);
   const [lastGoodParts, setLastGoodParts] = useState<Part[]>([]);
@@ -52,9 +55,14 @@ export function App() {
             captureRef={captureRef}
             fitRef={fitRef}
             selectedPartId={selectedPartId}
-            onSelectPart={(partId) => selectSocket(findSocketOwnedBy(evaluation.placed, partId))}
+            onSelectPart={(partId) => {
+              const socket = findSocketOwnedBy(evaluation.placed, partId);
+              selectSocket(socket);
+              if (socket) markHintSeen('addFromView');
+            }}
+            onUserMoveView={() => markHintSeen('view')}
           />
-          <p className="viewport-hint">{uiStrings.viewHint}</p>
+          {hasMovedView ? null : <p className="viewport-hint">{uiStrings.viewHint}</p>}
           <button type="button" className="fit-button" onClick={() => fitRef.current?.()}>
             <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
               <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
