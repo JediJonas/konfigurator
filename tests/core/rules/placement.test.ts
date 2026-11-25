@@ -59,3 +59,26 @@ describe('nya objekt i en kopplingspunkt', () => {
     expect(findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S2', param: 'wallHeight', current: 120, step: 5, min: 40, max: 300 })).toEqual({ min: 40, max: 300 });
   });
 });
+
+describe('tak som ärvs till en ny tillbyggnad', () => {
+  const houseWithShedRoof = (roofPitch: number) => {
+    const design = designWithExtensions();
+    const host = design.root.children[0];
+    if (!host) throw new Error('Mallen saknar sektion');
+    host.params = { ...HOST_PARAMS, roof: 'shed', roofPitch };
+    return design;
+  };
+
+  it('gör ett ärvt pulpettak flackare när ingen vägg ryms på gaveln med förälderns lutning', () => {
+    const proposal = proposeChild(houseWithShedRoof(45), gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: SECTION_TYPE_ID });
+    expect(proposal.violations).toEqual([]);
+    expect(proposal.instance.params.roof).toBe('shed');
+    expect(proposal.instance.params.roofPitch).toBeLessThan(45);
+  });
+
+  it('behåller förälderns lutning när någon storlek ryms med den', () => {
+    const proposal = proposeChild(houseWithShedRoof(60), gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: SECTION_TYPE_ID });
+    expect(proposal.violations).toEqual([]);
+    expect(proposal.instance.params).toMatchObject({ roof: 'shed', roofPitch: 60 });
+  });
+});

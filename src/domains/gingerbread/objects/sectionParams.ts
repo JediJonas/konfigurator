@@ -5,7 +5,8 @@ export const ROOF_TYPES = ['gable', 'shed', 'hip', 'mansard', 'flat', 'spire4', 
 export type RoofType = (typeof ROOF_TYPES)[number];
 
 const SPIRES: readonly RoofType[] = ['spire4', 'spire8'];
-const SLOPED_ROOFS: readonly RoofType[] = ['gable', 'shed', 'hip', 'mansard'];
+/** Tak med lutning (`roofPitch`). */
+export const SLOPED_ROOFS: readonly RoofType[] = ['gable', 'shed', 'hip', 'mansard'];
 /** Tak med gavlar eller sidor där takutsprånget vid gaveln gäller. */
 const ROOFS_WITH_GABLE_OVERHANG: readonly RoofType[] = ['gable', 'shed', 'mansard'];
 

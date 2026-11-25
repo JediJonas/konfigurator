@@ -1,7 +1,7 @@
 import type { Mm, Vec2 } from '../../../core/geometry/vector';
 import type { BuildContext, Socket } from '../../../core/model/objectType';
 import type { SectionParams } from './sectionParams';
-import { sectionParams } from './sectionParams';
+import { sectionParams, SLOPED_ROOFS } from './sectionParams';
 import { sectionSocketOutline, sectionSocketTopOutline } from './sectionSockets';
 import { EXTENSION_ROOF_TYPES } from './roof/extensionRoofs';
 
@@ -28,6 +28,9 @@ const WALL_HEIGHT_FIELD_STEP_MM = sectionParams.shape.wallHeight.meta()?.step as
 /** Schemats minsta bredd och vägghöjd för en sektion. */
 const SECTION_MIN_WIDTH_MM = sectionParams.shape.width.unwrap().minValue ?? 0;
 const SECTION_MIN_WALL_HEIGHT_MM = sectionParams.shape.wallHeight.unwrap().minValue ?? 0;
+/** Schemats minsta taklutning och fältets steg, som en ärvd lutning sänks med när taket inte ryms. */
+const SECTION_MIN_ROOF_PITCH_DEGREES = sectionParams.shape.roofPitch.unwrap().minValue ?? 0;
+const ROOF_PITCH_FIELD_STEP_DEGREES = sectionParams.shape.roofPitch.meta()?.step as number;
 
 /**
  * Förslag till en ny tillbyggnad, största först, en vägghöjd per bredd.
@@ -35,6 +38,7 @@ const SECTION_MIN_WALL_HEIGHT_MM = sectionParams.shape.wallHeight.unwrap().minVa
  * än den och väggen rymmer den. Vägghöjden är 60 % av väggens höjd i hörnet
  * (10 mm under den om 60 % är lägre än minsta höjden), men aldrig högre än
  * att väggarna ryms under värdens väggöverkant och taket under värdens tak.
+ * Ryms ingen storlek med förälderns lutning blir lutningen den brantaste som ryms.
  * En tornspira ärvs inte, eftersom den bara kan stå på fatet; då blir det sadeltak.
  */
 export function listExtensionCandidates(socket: Socket, context: BuildContext, inherited: Partial<SectionParams> = {}): Record<string, unknown>[] {
@@ -46,12 +50,30 @@ export function listExtensionCandidates(socket: Socket, context: BuildContext, i
   const shareHeight = cornerHeight * EXTENSION_WALL_SHARE;
   const preferredHeight = shareHeight >= SECTION_MIN_WALL_HEIGHT_MM ? shareHeight : cornerHeight - EXTENSION_STEP_DOWN_MM;
   const roof = inherited.roof && !EXTENSION_ROOF_TYPES.includes(inherited.roof) ? { roof: 'gable' as const } : {};
-  return fittingWidths.flatMap((width) => {
-    // Taket ärvs från föräldern, så att den högsta vägghöjden räknas med samma tak som tillbyggnaden får.
-    const params = { ...extensionParams(width, 0), ...inherited, ...roof, wallHeight: 0 };
-    const wallHeight = roundDown(Math.min(preferredHeight, findHighestWall(socket, params, context)), WALL_HEIGHT_FIELD_STEP_MM);
-    return wallHeight >= SECTION_MIN_WALL_HEIGHT_MM ? [{ ...params, wallHeight }] : [];
-  });
+  const propose = (isPitchFitted: boolean) =>
+    fittingWidths.flatMap((width) => {
+      // Taket ärvs från föräldern, så att den högsta vägghöjden räknas med samma tak som tillbyggnaden får.
+      const inheritedParams = { ...extensionParams(width, 0), ...inherited, ...roof, wallHeight: 0 };
+      const params = isPitchFitted ? fitRoofPitch(socket, inheritedParams, context) : inheritedParams;
+      const wallHeight = roundDown(Math.min(preferredHeight, findHighestWall(socket, params, context)), WALL_HEIGHT_FIELD_STEP_MM);
+      return wallHeight >= SECTION_MIN_WALL_HEIGHT_MM ? [{ ...params, wallHeight }] : [];
+    });
+  // Förälderns lutning behålls när någon storlek ryms med den; först annars blir taket flackare.
+  const withInheritedPitch = propose(false);
+  return withInheritedPitch.length > 0 ? withInheritedPitch : propose(true);
+}
+
+/**
+ * Den brantaste lutningen, från förälderns och nedåt, där den lägsta väggen
+ * ryms, t.ex. för ett pulpettak på 45° mot en gavel. Ryms ingen behålls förälderns.
+ */
+function fitRoofPitch(socket: Socket, params: SectionParams, context: BuildContext): SectionParams {
+  const fits = (roofPitch: number) => findHighestWall(socket, { ...params, roofPitch }, context) >= SECTION_MIN_WALL_HEIGHT_MM;
+  if (!SLOPED_ROOFS.includes(params.roof)) return params;
+  for (let roofPitch = params.roofPitch; roofPitch >= SECTION_MIN_ROOF_PITCH_DEGREES; roofPitch -= ROOF_PITCH_FIELD_STEP_DEGREES) {
+    if (fits(roofPitch)) return { ...params, roofPitch };
+  }
+  return params;
 }
 
 function extensionParams(width: Mm, wallHeight: Mm): SectionParams {
