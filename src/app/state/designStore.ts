@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import type { Design } from '../../core/model/design';
 import type { PaperFormat } from '../../core/layout/paper';
-import { addChildInstance, removeInstance, updateInstance } from '../../core/model/instanceTree';
+import { addChildInstance, removeInstance } from '../../core/model/instanceTree';
 import type { ChildRequest } from '../../core/rules/placement';
+import { setParamWithinRules } from '../../core/rules/paramAdjustment';
 import { proposeChild, snapAttachmentOffset } from '../../core/rules/placement';
 import { activeDomain } from '../activeDomain';
 
@@ -17,6 +18,7 @@ interface DesignState {
   paper: PaperFormat['id'];
   /** Kopplingspunkten som är vald i 3D-vyn eller i panelen. */
   selectedSocket?: SocketRef;
+  /** Sätter ett fält. Gör ett nytt val, t.ex. taktypen, att en ärvd lutning inte går flyttas lutningen till närmaste som går. */
   setParam: (instanceId: string, key: string, value: unknown) => void;
   setThickness: (thickness: number) => void;
   setPaper: (paper: PaperFormat['id']) => void;
@@ -37,10 +39,7 @@ function createStartDesign(): Design {
 export const useDesignStore = create<DesignState>((set) => ({
   design: createStartDesign(),
   paper: 'A4',
-  setParam: (instanceId, key, value) =>
-    set((state) => ({
-      design: { ...state.design, root: updateInstance(state.design.root, instanceId, (instance) => ({ ...instance, params: { ...instance.params, [key]: value } })) },
-    })),
+  setParam: (instanceId, key, value) => set((state) => ({ design: setParamWithinRules(state.design, activeDomain, { instanceId, key, value }) })),
   setThickness: (thickness) => set((state) => ({ design: { ...state.design, material: { ...state.design.material, thickness } } })),
   setPaper: (paper) => set({ paper }),
   selectSocket: (selectedSocket) => set({ selectedSocket }),
