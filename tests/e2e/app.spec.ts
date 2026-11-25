@@ -3,6 +3,8 @@ import type { Page } from '@playwright/test';
 
 /** Luft mellan sista knappen och skärmens nederkant på pekskärm, se CLAUDE.md. */
 const BOTTOM_GAP_PX = 16;
+const VIEW_HINT = 'Dra för att vrida, nyp eller scrolla för att zooma.';
+const WALL_HINT = 'Tryck på en vägg i 3D-vyn eller välj den här.';
 
 test('laddar ner en ritning som PDF', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -133,6 +135,54 @@ test.describe('pekskärm', () => {
     await expect(page.getByRole('button', { name: 'Dölj mått' })).toBeVisible();
     await expect(page.getByLabel('Gavelbredd')).toBeVisible();
   });
+
+  test('döljer hjälptexten om väggar när man har tryckt på en vägg', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Visa mått' }).click();
+    await expect(page.getByText(WALL_HINT)).toBeVisible();
+    await page.getByRole('button', { name: 'Dölj mått' }).click();
+    const view = page.locator('.viewport canvas');
+    await page.waitForTimeout(1500);
+    const box = await view.boundingBox();
+    if (!box) throw new Error('3D-vyn saknas');
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height * 0.6);
+    await expect(page.getByLabel('Gavelbredd')).toBeVisible();
+    await expect(page.getByText(WALL_HINT)).toHaveCount(0);
+    // Ett tryck utan att dra vrider inte vyn, så den hjälptexten står kvar.
+    await expect(page.getByText(VIEW_HINT)).toBeVisible();
+    await page.reload();
+    await page.getByRole('button', { name: 'Visa mått' }).click();
+    await expect(page.getByLabel('Gavelbredd')).toBeVisible();
+    await expect(page.getByText(WALL_HINT)).toHaveCount(0);
+  });
+});
+
+test('döljer hjälptexten om vyn när man har zoomat', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto('/');
+  await expect(page.getByText(VIEW_HINT)).toBeVisible();
+  await page.waitForTimeout(1500);
+  await page.locator('.viewport canvas').hover();
+  await page.mouse.wheel(0, 200);
+  await expect(page.getByText(VIEW_HINT)).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('canvas')).toBeVisible();
+  await expect(page.getByText(VIEW_HINT)).toHaveCount(0);
+});
+
+test('döljer hjälptexten om vyn när man har vridit med musen', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto('/');
+  await page.waitForTimeout(1500);
+  const box = await page.locator('.viewport canvas').boundingBox();
+  if (!box) throw new Error('3D-vyn saknas');
+  // Börjar vid kanten, utanför huset, så att det inte blir ett val av vägg.
+  await page.mouse.move(box.x + 40, box.y + 40);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 140, box.y + 60, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.getByText(VIEW_HINT)).toHaveCount(0);
+  await expect(page.getByText(WALL_HINT)).toBeVisible();
 });
 
 test('centrerar huset igen efter att man zoomat ut', async ({ page }) => {

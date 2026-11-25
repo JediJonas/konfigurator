@@ -4,6 +4,7 @@ import { proposeChild } from '../../core/rules/placement';
 import { activeDomain, translate } from '../activeDomain';
 import type { SocketRef } from '../state/designStore';
 import { useDesignStore } from '../state/designStore';
+import { useSeenHints } from '../state/seenHints';
 import type { Design } from '../../core/model/design';
 import { uiStrings } from './strings.sv';
 
@@ -18,6 +19,7 @@ interface AddToInstanceProps {
 export function AddToInstance({ entry }: AddToInstanceProps) {
   const { design, selectedSocket, selectSocket, addChild } = useDesignStore();
   const selectId = useId();
+  const hasTappedWall = useSeenHints((state) => state.seen.addFromView);
   const instanceId = entry.instance.id;
   // Förslagen prövar många storlekar och lägen, så de räknas bara om när designen eller valet ändras.
   const { sockets, selected, proposals } = useMemo(() => listAddOptions(design, entry, selectedSocket), [design, entry, selectedSocket]);
@@ -35,7 +37,7 @@ export function AddToInstance({ entry }: AddToInstanceProps) {
             </option>
           ))}
         </select>
-        <p className="field-hint">{uiStrings.addHint}</p>
+        {hasTappedWall ? null : <p className="field-hint">{uiStrings.addHint}</p>}
       </div>
       {proposals.map(({ objectType, proposal }) => {
         const reasonId = `${selectId}-${objectType.id}`;

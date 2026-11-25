@@ -25,6 +25,8 @@ interface DesignViewProps {
   selectedPartId?: string;
   /** Anropas när man trycker på en del, eller på tomma ytan (utan id). */
   onSelectPart: (partId: string | undefined) => void;
+  /** Anropas när man själv vrider, zoomar eller flyttar vyn, inte när vyn centreras. */
+  onUserMoveView: () => void;
 }
 
 export type FitView = () => void;
@@ -38,8 +40,10 @@ const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 /** Närmaste avstånd till vyns mittpunkt. Husets egna väggar och tak stoppar zoomen långt innan dess. */
 const MIN_ORBIT_DISTANCE_MM = 20;
 
-export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, onSelectPart }: DesignViewProps) {
+export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, onSelectPart, onUserMoveView }: DesignViewProps) {
   const partsRef = useRef<Group>(null);
+  // Sant mellan att man tar tag i vyn och släpper. Ett tryck utan rörelse ändrar inte kameran och räknas inte.
+  const isUserHoldingViewRef = useRef(false);
   const extent = useMemo(() => measurePartsExtent(parts), [parts]);
   const shadowBox = useMemo(() => shadowCameraBox(extent), [extent]);
   return (
@@ -81,6 +85,15 @@ export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, o
         minDistance={MIN_ORBIT_DISTANCE_MM}
         maxDistance={1500}
         touches={{ ONE: TOUCH.ROTATE, TWO: TOUCH.DOLLY_ROTATE }}
+        onStart={() => {
+          isUserHoldingViewRef.current = true;
+        }}
+        onChange={() => {
+          if (isUserHoldingViewRef.current) onUserMoveView();
+        }}
+        onEnd={() => {
+          isUserHoldingViewRef.current = false;
+        }}
       />
     </Canvas>
   );
