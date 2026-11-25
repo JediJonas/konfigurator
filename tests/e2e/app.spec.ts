@@ -114,9 +114,9 @@ test.describe('pekskärm', () => {
     expect(bottom).toBeCloseTo(innerHeight - BOTTOM_GAP_PX, 0);
   });
 
-  test('visar inställningarna i ett ark och behåller knapparna nertill', async ({ page }) => {
+  test('visar måtten i ett ark och behåller knapparna nertill', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Visa inställningar' }).click();
+    await page.getByRole('button', { name: 'Visa mått' }).click();
     await expect(page.getByLabel('Gavelbredd')).toBeVisible();
     const bottom = await page.getByRole('button', { name: 'Ladda ner ritning (PDF)' }).evaluate((button) => button.getBoundingClientRect().bottom);
     expect(bottom).toBeCloseTo((await page.evaluate(() => window.innerHeight)) - BOTTOM_GAP_PX, 0);

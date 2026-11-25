@@ -53,7 +53,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   return (
     <aside className="panel" data-expanded={isExpanded} aria-label={uiStrings.settings}>
       <button type="button" className="sheet-handle" aria-expanded={isExpanded} aria-controls={contentId} onClick={() => setIsExpanded(!isExpanded)}>
-        {isExpanded ? uiStrings.hideSettings : uiStrings.showSettings}
+        {isExpanded ? uiStrings.hideDimensions : uiStrings.showDimensions}
       </button>
       <div className="panel-content" id={contentId}>
         {instanceEntries.map((entry) => (
