@@ -10,14 +10,17 @@ export const SLOPED_ROOFS: readonly RoofType[] = ['gable', 'shed', 'hip', 'mansa
 /** Tak med gavlar eller sidor där takutsprånget vid gaveln gäller. */
 const ROOFS_WITH_GABLE_OVERHANG: readonly RoofType[] = ['gable', 'shed', 'mansard'];
 
+/** Fältgruppen för måtten; väggarna pekar på den, så att den fälls ut när man trycker på en vägg. */
+export const DIMENSIONS_GROUP_KEY = 'group.dimensions';
+const dimensionField = { groupKey: DIMENSIONS_GROUP_KEY } as const;
 /** Fältgruppen för taket; takets delar pekar på den. */
 export const ROOF_GROUP_KEY = 'group.roof';
 const roofField = { groupKey: ROOF_GROUP_KEY, isInherited: true } as const;
 
 export const sectionParams = z.object({
-  width: z.number().min(60).max(400).default(140).meta({ labelKey: 'param.width', unit: 'mm', step: 5 }),
-  depth: z.number().min(60).max(400).default(180).meta({ labelKey: 'param.depth', unit: 'mm', step: 5 }),
-  wallHeight: z.number().min(40).max(300).default(100).meta({ labelKey: 'param.wallHeight', unit: 'mm', step: 5 }),
+  width: z.number().min(60).max(400).default(140).meta({ labelKey: 'param.width', unit: 'mm', step: 5, ...dimensionField }),
+  depth: z.number().min(60).max(400).default(180).meta({ labelKey: 'param.depth', unit: 'mm', step: 5, ...dimensionField }),
+  wallHeight: z.number().min(40).max(300).default(100).meta({ labelKey: 'param.wallHeight', unit: 'mm', step: 5, ...dimensionField }),
   roof: z
     .enum(ROOF_TYPES)
     .default('gable')

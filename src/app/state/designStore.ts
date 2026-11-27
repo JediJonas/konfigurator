@@ -19,6 +19,10 @@ export interface FocusedInstance {
 export interface SocketRef {
   instanceId: string;
   socketId: string;
+  /** Fältgruppen som fälls ut när väggen väljs i 3D-vyn, t.ex. måtten. */
+  groupKey?: string;
+  /** Ökar vid varje val, så att sektionen öppnas igen när man trycker på samma vägg en gång till. */
+  count?: number;
 }
 
 interface DesignState {
@@ -34,6 +38,8 @@ interface DesignState {
   focusedInstance?: FocusedInstance;
   /** Objektet som är öppet i panelen; det visas markerat i 3D-vyn när det är ett fönster eller en dörr. */
   openInstanceId?: string;
+  /** Falskt efter ett tryck utanför huset: det öppna fönstret visas då inte längre markerat. */
+  isOpenInstanceHighlighted: boolean;
   /** Sätter ett fält. Gör ett nytt val, t.ex. taktypen, att en ärvd lutning inte går flyttas lutningen till närmaste som går. */
   setParam: (instanceId: string, key: string, value: unknown) => void;
   setThickness: (thickness: number) => void;
@@ -49,6 +55,8 @@ interface DesignState {
   moveAlongSocket: (instanceId: string, u: number) => void;
   /** Byter hela designen, t.ex. mot den som sparades senast. */
   replaceDesign: (design: Design) => void;
+  /** Börjar om med domänens mall. Autosparet sparar mallen över det som var sparat. */
+  resetDesign: () => void;
 }
 
 function createStartDesign(): Design {
@@ -63,10 +71,21 @@ export const useDesignStore = create<DesignState>((set) => ({
   setParam: (instanceId, key, value) => set((state) => ({ design: setParamWithinRules(state.design, activeDomain, { instanceId, key, value }) })),
   setThickness: (thickness) => set((state) => ({ design: { ...state.design, material: { ...state.design.material, thickness } } })),
   setPaper: (paper) => set({ paper }),
-  selectSocket: (selectedSocket) => set({ selectedSocket, focusedInstance: undefined }),
+  isOpenInstanceHighlighted: true,
+  selectSocket: (socket) =>
+    set((state) => ({
+      selectedSocket: socket ? { ...socket, count: (state.selectedSocket?.count ?? state.focusedInstance?.count ?? 0) + 1 } : undefined,
+      focusedInstance: undefined,
+      // Inget valt, t.ex. ett tryck utanför huset, släcker också det öppna fönstrets markering.
+      isOpenInstanceHighlighted: socket !== undefined,
+    })),
   focusInstance: (instanceId, groupKey) =>
-    set((state) => ({ selectedSocket: undefined, focusedInstance: { instanceId, groupKey, count: (state.focusedInstance?.count ?? 0) + 1 } })),
-  setOpenInstanceId: (openInstanceId) => set({ openInstanceId }),
+    set((state) => ({
+      selectedSocket: undefined,
+      focusedInstance: { instanceId, groupKey, count: (state.focusedInstance?.count ?? 0) + 1 },
+      isOpenInstanceHighlighted: true,
+    })),
+  setOpenInstanceId: (openInstanceId) => set({ openInstanceId, isOpenInstanceHighlighted: true }),
   addChild: (request) =>
     set((state) => {
       const proposal = proposeChild(state.design, activeDomain, request);
@@ -81,4 +100,5 @@ export const useDesignStore = create<DesignState>((set) => ({
     })),
   moveAlongSocket: (instanceId, u) => set((state) => ({ design: snapAttachmentOffset(state.design, activeDomain, instanceId, u) })),
   replaceDesign: (design) => set({ design, selectedSocket: undefined, focusedInstance: undefined }),
+  resetDesign: () => set({ design: createStartDesign(), selectedSocket: undefined, focusedInstance: undefined }),
 }));

@@ -7,7 +7,7 @@ import { listNeighborCandidates } from './neighborProposal';
 import { buildRoofParts } from './roof/roofParts';
 import { roofContext } from './sectionGeometry';
 import type { SectionParams } from './sectionParams';
-import { ROOF_GROUP_KEY, sectionParams } from './sectionParams';
+import { DIMENSIONS_GROUP_KEY, ROOF_GROUP_KEY, sectionParams } from './sectionParams';
 import {
   buildOpening,
   buildSectionSockets,
@@ -48,7 +48,7 @@ export const sectionType: ObjectType<SectionParams> = {
   sockets: (instance, params, context) => buildSectionSockets(instance, params, context),
   parts: (instance, params, context) =>
     [
-      ...buildWallParts(params, roofContext(context, true)),
+      ...buildWallParts(params, roofContext(context, true)).map((draft) => ({ ...draft, paramGroupKey: DIMENSIONS_GROUP_KEY })),
       ...buildRoofParts(params, roofContext(context, true)).map((draft) => ({ ...draft, paramGroupKey: ROOF_GROUP_KEY })),
     ].map((draft) => sectionPart(instance, context, draft)),
   modifiers: (_instance, params, context) => buildOpening(params, context),

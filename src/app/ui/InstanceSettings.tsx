@@ -28,7 +28,7 @@ interface InstanceSettingsProps {
   headingLevel?: 2 | 3;
   /** Fältgruppen som ska fällas ut, t.ex. taket man tryckte på i 3D-vyn. */
   revealedGroup?: { groupKey: string; revealKey: string };
-  /** Objekten som är samlade under det här, t.ex. sektionens fönster. */
+  /** Objekten som är samlade under det här, t.ex. sektionens fönster. De syns när objektet är utfällt. */
   children?: ReactNode;
 }
 
@@ -42,12 +42,14 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
   const paramFields = useParamFieldsWithinRules(entry, knownRanges);
   const { instance, objectType, socket, parentId } = entry;
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
+  // Samma storlek som gruppernas rubriker, t.ex. Tak, när objektet ligger under en sektion.
+  const iconSize = headingLevel === 2 ? 20 : 18;
   return (
     <section className="panel-section" data-instance-id={instance.id}>
       <div className="instance-heading">
         <Heading>
           <button type="button" className="disclosure" aria-expanded={isOpen} aria-controls={bodyId} onClick={onToggle}>
-            <svg className="disclosure-icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
+            <svg className="disclosure-icon" aria-hidden="true" viewBox="0 0 24 24" width={iconSize} height={iconSize}>
               <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             {translate(objectType.labelKey)} <span className="instance-id">{instance.id}</span>
@@ -76,12 +78,12 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
             </>
           ) : null}
           <ParamForm fields={paramFields} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} revealedGroup={revealedGroup} />
+          {children}
           <AddToInstance entry={entry} />
         </div>
       ) : null}
       {/* Felen syns även när sektionen är stängd, så att inget som stoppar ritningen göms. */}
       <ViolationList violations={violations} />
-      {children}
     </section>
   );
 }
@@ -107,7 +109,7 @@ export function ViolationList({ violations }: { violations: RuleViolation[] }) {
   return (
     <ul className="violations" role="alert">
       {violations.map((violation) => (
-        <li key={violation.message} className={`violation violation-${violation.level}`}>
+        <li key={`${violation.instanceId}/${violation.message}`} className={`violation violation-${violation.level}`}>
           <strong>{violation.level === 'error' ? uiStrings.cannotBuild : uiStrings.warning}</strong> {violation.message}
         </li>
       ))}

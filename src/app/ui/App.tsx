@@ -26,6 +26,7 @@ export function App() {
   const focusInstance = useDesignStore((state) => state.focusInstance);
   const focusedInstance = useDesignStore((state) => state.focusedInstance);
   const openInstanceId = useDesignStore((state) => state.openInstanceId);
+  const isOpenInstanceHighlighted = useDesignStore((state) => state.isOpenInstanceHighlighted);
   const hasMovedView = useSeenHints((state) => state.seen.view);
   const markHintSeen = useSeenHints((state) => state.markHintSeen);
   const captureRef = useRef<CaptureOverview>(null);
@@ -44,8 +45,8 @@ export function App() {
   const pickAreas = useMemo(() => listPickAreas(evaluation.placed), [evaluation.placed]);
   const material = activeDomain.materials.find((candidate) => candidate.id === design.material.id);
   const highlight = useMemo(
-    () => describeHighlight(evaluation.placed, evaluation.parts, { selectedSocket, focusedInstance, openInstanceId }),
-    [evaluation, selectedSocket, focusedInstance, openInstanceId],
+    () => describeHighlight(evaluation.placed, evaluation.parts, { selectedSocket, focusedInstance, openInstanceId, isOpenInstanceHighlighted }),
+    [evaluation, selectedSocket, focusedInstance, openInstanceId, isOpenInstanceHighlighted],
   );
 
   return (
@@ -66,10 +67,11 @@ export function App() {
               // En fönsterlucka eller ett dörrblad öppnar sitt fönster eller sin dörr.
               const leafId = partId ? findLeafInstanceOf(evaluation.placed, evaluation.parts, partId) : undefined;
               if (leafId) return focusInstance(leafId);
-              // Taket öppnar takets fält på sektionen det hör till.
               const part = evaluation.parts.find((candidate) => candidate.id === partId);
-              if (part?.paramGroupKey) return focusInstance(part.sourceInstanceId, part.paramGroupKey);
-              const socket = findSocketOwnedBy(evaluation.placed, partId);
+              const found = findSocketOwnedBy(evaluation.placed, partId);
+              // Taket öppnar takets fält på sektionen det hör till; en vägg väljs och fäller ut sektionens mått.
+              if (!found && part?.paramGroupKey) return focusInstance(part.sourceInstanceId, part.paramGroupKey);
+              const socket = found && part?.paramGroupKey ? { ...found, groupKey: part.paramGroupKey } : found;
               selectSocket(socket);
               if (socket) markHintSeen('addFromView');
             }}

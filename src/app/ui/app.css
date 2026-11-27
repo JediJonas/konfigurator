@@ -161,15 +161,18 @@ body {
   font-size: 1rem;
 }
 
-/* Fönster och dörrar under sektionen de sitter på, indragna med en linje. */
+/* Fönster och dörrar under sektionen de sitter på, med rubriker som sektionens grupper, t.ex. Tak (ägarens val). */
 .nested-instances {
   margin-top: 0.75rem;
-  padding-left: 0.75rem;
-  border-left: 2px solid var(--color-border);
 }
 
 .nested-instances .panel-section + .panel-section {
   margin-top: 0.75rem;
+}
+
+.nested-instances .panel-section h3 {
+  margin: 0;
+  font-size: 0.9375rem;
 }
 
 .instance-id {
@@ -468,4 +471,19 @@ body {
 .field-group h3 {
   margin: 0;
   font-size: 0.9375rem;
+}
+
+.start-over {
+  justify-self: start;
+}
+
+.start-over-confirm {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.start-over-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }

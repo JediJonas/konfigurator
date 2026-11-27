@@ -13,6 +13,7 @@ import { createDrawingRequest } from '../export/drawingRequest';
 import { useDesignStore } from '../state/designStore';
 import { FieldGroup } from './FieldGroup';
 import { InstanceSettings } from './InstanceSettings';
+import { StartOver } from './StartOver';
 import { NumberInput } from './NumberInput';
 import { uiStrings } from './strings.sv';
 
@@ -37,7 +38,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   const panelEntries = groupPanelEntries(evaluation.placed);
   // Varje nytt val av vägg räknas, även på samma objekt, och varje tryck på ett fönster.
   const focus = selectedSocket
-    ? { instanceId: selectedSocket.instanceId, key: `${selectedSocket.instanceId}/${selectedSocket.socketId}` }
+    ? { instanceId: selectedSocket.instanceId, key: `${selectedSocket.instanceId}/${selectedSocket.socketId}#${selectedSocket.count ?? 0}` }
     : focusedInstance
       ? { instanceId: focusedInstance.instanceId, key: `${focusedInstance.instanceId}#${focusedInstance.count}` }
       : undefined;
@@ -45,8 +46,9 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   const openInstanceId = openInstance.openId;
   // 3D-vyn markerar fönstret eller dörren som är öppen i panelen.
   useEffect(() => setOpenInstanceId(openInstanceId), [openInstanceId, setOpenInstanceId]);
-  const revealedGroup =
-    focusedInstance?.groupKey !== undefined
+  const revealedGroup = selectedSocket?.groupKey
+    ? { instanceId: selectedSocket.instanceId, groupKey: selectedSocket.groupKey, revealKey: `${selectedSocket.socketId}#${selectedSocket.count ?? 0}` }
+    : focusedInstance?.groupKey !== undefined
       ? { instanceId: focusedInstance.instanceId, groupKey: focusedInstance.groupKey, revealKey: String(focusedInstance.count) }
       : undefined;
   const contentRef = useRef<HTMLDivElement>(null);
@@ -58,7 +60,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
     if (focusKey) setIsExpanded(true);
   }
   const focusedInstanceId = focus?.instanceId;
-  const focusedGroupKey = selectedSocket ? undefined : focusedInstance?.groupKey;
+  const focusedGroupKey = selectedSocket ? selectedSocket.groupKey : focusedInstance?.groupKey;
   useEffect(() => {
     if (!focusKey || !focusedInstanceId) return;
     const section = contentRef.current?.querySelector(`[data-instance-id="${CSS.escape(focusedInstanceId)}"]`);
@@ -88,34 +90,39 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
         {isExpanded ? uiStrings.hideConfiguration : uiStrings.showConfiguration}
       </button>
       <div className="panel-content" id={contentId} ref={contentRef}>
-        {panelEntries.map(({ entry, nested }) => (
-          <InstanceSettings
-            key={entry.instance.id}
-            entry={entry}
-            isRemovable={entry.parentId !== rootId}
-            isOpen={openInstance.isOpen(entry.instance.id)}
-            onToggle={() => openInstance.toggle(entry.instance.id)}
-            violations={evaluation.violations.filter((violation) => violation.instanceId === entry.instance.id)}
-            revealedGroup={revealedGroup?.instanceId === entry.instance.id ? revealedGroup : undefined}
-          >
-            {nested.length > 0 ? (
-              // Fönster och dörrar samlas under sektionen de sitter på, och syns även när sektionen är stängd.
-              <div className="nested-instances">
-                {nested.map((child) => (
-                  <InstanceSettings
-                    key={child.instance.id}
-                    entry={child}
-                    headingLevel={3}
-                    isRemovable
-                    isOpen={openInstance.isOpen(child.instance.id)}
-                    onToggle={() => openInstance.toggle(child.instance.id)}
-                    violations={evaluation.violations.filter((violation) => violation.instanceId === child.instance.id)}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </InstanceSettings>
-        ))}
+        {panelEntries.map(({ entry, nested }) => {
+          const isExpanded = openInstance.isOpen(entry.instance.id) || nested.some((child) => openInstance.isOpen(child.instance.id));
+          // Felen på fönster och dörrar syns på sektionen när den är stängd, så att inget som stoppar ritningen göms.
+          const shownIds = new Set([entry.instance.id, ...(isExpanded ? [] : nested.map((child) => child.instance.id))]);
+          return (
+            <InstanceSettings
+              key={entry.instance.id}
+              entry={entry}
+              isRemovable={entry.parentId !== rootId}
+              isOpen={isExpanded}
+              onToggle={() => openInstance.toggle(entry.instance.id)}
+              violations={evaluation.violations.filter((violation) => shownIds.has(violation.instanceId))}
+              revealedGroup={revealedGroup?.instanceId === entry.instance.id ? revealedGroup : undefined}
+            >
+              {nested.length > 0 ? (
+                // Fönster och dörrar samlas under sektionen de sitter på och syns när den är utfälld (ägarens val).
+                <div className="nested-instances">
+                  {nested.map((child) => (
+                    <InstanceSettings
+                      key={child.instance.id}
+                      entry={child}
+                      headingLevel={3}
+                      isRemovable
+                      isOpen={openInstance.isOpen(child.instance.id)}
+                      onToggle={() => openInstance.toggle(child.instance.id)}
+                      violations={evaluation.violations.filter((violation) => violation.instanceId === child.instance.id)}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </InstanceSettings>
+          );
+        })}
         {/* Ändras sällan, så sektionen är hopfälld från början som takets grupp. */}
         <section className="panel-section">
           <FieldGroup label={uiStrings.settings} headingLevel={2}>
@@ -130,6 +137,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
                 ))}
               </select>
             </div>
+            <StartOver />
           </FieldGroup>
         </section>
         {error ? (
