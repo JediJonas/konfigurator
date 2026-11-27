@@ -24,14 +24,16 @@ function buildOnGables(times: number): { width: unknown; wallHeight: unknown; vi
 }
 
 describe('tillbyggnader på varandras gavlar', () => {
-  it('blir smalare och lägre för varje steg tills den minsta storleken inte ryms', () => {
+  it('blir smalare och lägre för varje steg tills den minsta storleken inte ryms, och står sedan bredvid', () => {
     // Huvudhuset är 140 mm brett med 100 mm vägghöjd. När 60 % av gaveln är smalare än 60 mm blir det den minsta bredden,
-    // och vägghöjden trappas ner 10 mm per steg tills den är lägre än den minsta.
+    // och vägghöjden trappas ner 10 mm per steg tills den är lägre än den minsta. Då står nästa sektion bredvid
+    // den sista tillbyggnaden som ett torn, och på tornets gavel blir det åter en tillbyggnad.
     expect(buildOnGables(5)).toEqual([
       { width: 80, wallHeight: 60, violations: 0 },
       { width: 60, wallHeight: 50, violations: 0 },
       { width: 60, wallHeight: 40, violations: 0 },
-      { width: undefined, wallHeight: undefined, violations: 1 },
+      { width: 60, wallHeight: 60, violations: 0 },
+      { width: 60, wallHeight: 50, violations: 0 },
     ]);
   });
 

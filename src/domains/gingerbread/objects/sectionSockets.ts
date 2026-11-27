@@ -54,13 +54,13 @@ function wallLabelKey(sideId: string, sides: readonly WallSide[]): string {
  * så att den kan vara lika bred som väggen) och under väggens överkant. Taket får gå högre, upp till
  * husets tak sett rakt mot väggen, eftersom vinkelrännan lägger det ovanpå.
  *
- * En sektion som står på fatet har också en punkt per vägg för en sektion
- * bredvid (`WALL_BESIDE`). Den har samma ram och yta, men det är bara
- * grannens mitt som behöver ligga på väggen.
+ * Varje sektion har också en punkt per vägg för en sektion bredvid
+ * (`WALL_BESIDE`). Den har samma ram och yta, men det är bara grannens mitt
+ * som behöver ligga på väggen. Även en tillbyggnad har dem, så att t.ex. ett
+ * torn kan stå bredvid ett block som sitter på ett annat torn i en borg.
  */
 export function buildSectionSockets(instance: Instance, params: SectionParams, context: BuildContext): Socket[] {
   const surfaces = buildWallSurfaceSockets(instance, params, context);
-  if (isExtension(context)) return surfaces;
   return [...surfaces, ...surfaces.map((socket) => ({ ...socket, id: `${BESIDE_SOCKET_PREFIX}${socket.id}`, kind: WALL_BESIDE, topBounds: undefined }))];
 }
 
