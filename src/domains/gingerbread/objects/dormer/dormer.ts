@@ -23,6 +23,7 @@ const PART_LABEL_KEYS: Record<string, string> = {
   'side-left': 'part.dormerSide',
   'roof-right': 'part.dormerRoof',
   'roof-left': 'part.dormerRoof',
+  roof: 'part.dormerShedRoof',
 };
 
 /** Förslagens storlekar i förhållande till den största, från störst till minst. */
@@ -37,7 +38,7 @@ const PROPOSED_EAVE_DISTANCE_SHARE = 0.15;
 const ROOF_KEYS = ['roofPitch', 'eaveOverhang', 'gableOverhang'] as const;
 
 /**
- * Takkupa (SPEC.md avsnitt 8): en liten sektion med sadeltak som står på ett
+ * Takkupa (SPEC.md avsnitt 8): en liten sektion med sadel- eller pulpettak som står på ett
  * takfall. Framväggen och sidorna står upprätt och kapas mot husets takyta,
  * kupans tak läggs ovanpå husets tak i vinkelrännor (`interactions/dormers.ts`)
  * och husets takfall får ett hål innanför kupans väggar.

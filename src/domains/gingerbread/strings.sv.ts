@@ -60,6 +60,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'part.dormerFront': 'Kupans framvägg',
   'part.dormerSide': 'Kupans sidovägg',
   'part.dormerRoof': 'Kupans takhalva',
+  'part.dormerShedRoof': 'Kupans tak',
   'socket.wall1': 'Vägg 1',
   'socket.wall2': 'Vägg 2',
   'socket.wall3': 'Vägg 3',
@@ -104,6 +105,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'rule.dormerUpright': 'En takkupa står rakt på takfallet och kan inte vridas.',
   'rule.dormerOnRoof':
     'Takkupan behöver 15 mm helt tak runt sig och måste ligga under nocken. Flytta den, gör den mindre eller håll den borta från takets kanter, nocken och andra kupor.',
+  'rule.dormerRoofTooSteep': 'Kupans pulpettak måste luta mindre än husets tak, annars möter det aldrig husets tak. Minska kupans taklutning.',
   'rule.dormerMeetsRoof': 'Takkupan går in i ett annat tak, t.ex. en tillbyggnads eller en annan kupas. Flytta den eller gör den mindre.',
   'preset.simpleHouse': 'Enkelt hus',
   'drawing.note.joints':
