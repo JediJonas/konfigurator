@@ -102,7 +102,7 @@ export function RemoveButton({ instanceId }: { instanceId: string }) {
 }
 
 function offsetField(range: OffsetRange) {
-  return { kind: 'number', key: 'u', meta: { labelKey: 'u', unit: 'mm', step: SNAP_STEP_MM }, min: range.min, max: range.max, defaultValue: 0 } as const;
+  return { kind: 'number', key: 'u', meta: { labelKey: 'u', unit: 'mm', step: SNAP_STEP_MM }, min: range.min, max: range.max, gaps: range.gaps, defaultValue: 0 } as const;
 }
 
 /**
@@ -111,10 +111,10 @@ function offsetField(range: OffsetRange) {
  */
 function describeOffsetRange(entry: PlacedInstance, isMovable: boolean, known: OffsetRange | undefined): OffsetRange {
   const u = entry.instance.attachment?.u ?? 0;
-  if (!isMovable || !entry.socket) return { min: u, max: u };
+  if (!isMovable || !entry.socket) return { min: u, max: u, gaps: [] };
   if (known) return known;
   const reach = measureOffsetReach(entry);
-  return { min: -reach, max: reach };
+  return { min: -reach, max: reach, gaps: [] };
 }
 
 export function ViolationList({ violations }: { violations: RuleViolation[] }) {
@@ -133,7 +133,8 @@ export function ViolationList({ violations }: { violations: RuleViolation[] }) {
 /**
  * Formulärets fält med min och max för talen satta så långt de går utan att
  * något i huset bryter mot reglerna, t.ex. att väggen inte blir kortare än
- * tillbyggnaden på den. Pilarna i fältet stannar då vid gränsen. Gränserna
+ * tillbyggnaden på den. Pilarna i fältet stannar då vid gränsen och hoppar
+ * över glapp där inget går att bygga. Gränserna
  * räknas vid sidan av (`useRuleRanges`); tills de finns gäller schemats.
  */
 export function useParamFieldsWithinRules(entry: PlacedInstance, knownRanges: KnownRanges): ParamField[] {

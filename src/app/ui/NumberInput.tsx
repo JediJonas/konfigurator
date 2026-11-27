@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ParamField } from '../../core/model/paramForm';
-import { canStep, stepNumber } from './stepNumber';
+import { canStep, findGap, stepNumber } from './stepNumber';
 import type { StepDirection } from './stepNumber';
 import { uiStrings } from './strings.sv';
 
@@ -17,6 +17,7 @@ interface NumberInputProps {
  * mobilen (ägarens val), eftersom webbläsarens egna pilar är små och saknas
  * på pekskärm. Det man skriver behålls lokalt och bara giltiga värden skickas
  * vidare, så att man kan sudda och skriva om ett tal utan att huset hoppar.
+ * Ett värde i ett glapp där inget går att bygga räknas inte som giltigt.
  */
 export function NumberInput({ id, label, field, value, onChange }: NumberInputProps) {
   const [draft, setDraft] = useState<string | null>(null);
@@ -24,8 +25,9 @@ export function NumberInput({ id, label, field, value, onChange }: NumberInputPr
   const labelId = `${id}-label`;
   const text = draft ?? String(value);
   const typed = parseTypedNumber(text);
-  const isValid = typed !== null && isInRange(typed, field);
-  const limits = { min: field.min, max: field.max, step: field.meta.step };
+  const gap = typed === null ? undefined : findGap(typed, field.gaps);
+  const isValid = typed !== null && isInRange(typed, field) && !gap;
+  const limits = { min: field.min, max: field.max, step: field.meta.step, gaps: field.gaps };
   const current = isValid ? typed : value;
 
   function step(direction: StepDirection) {
@@ -54,7 +56,7 @@ export function NumberInput({ id, label, field, value, onChange }: NumberInputPr
           onChange={(event) => {
             setDraft(event.target.value);
             const next = parseTypedNumber(event.target.value);
-            if (next !== null && isInRange(next, field)) onChange(next);
+            if (next !== null && isInRange(next, field) && !findGap(next, field.gaps)) onChange(next);
           }}
           onBlur={() => setDraft(null)}
         />
@@ -62,7 +64,7 @@ export function NumberInput({ id, label, field, value, onChange }: NumberInputPr
       </div>
       {isValid ? null : (
         <p className="field-error" id={errorId}>
-          {uiStrings.outOfRange(field.min, field.max)}
+          {gap ? uiStrings.inGap(gap.after, gap.before) : uiStrings.outOfRange(field.min, field.max)}
         </p>
       )}
     </div>

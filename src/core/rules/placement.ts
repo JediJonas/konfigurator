@@ -9,6 +9,7 @@ import { attachInFittingSockets, listAffectedInstanceIds, listAlternativeSockets
 import { hasAnyErrorRemembered, listViolationKeysRemembered } from './ruleCheck';
 import type { PlacedInstance } from '../pipeline/placeInstances';
 import type { ObjectType, Socket } from '../model/objectType';
+import type { ValueGap } from '../model/paramForm';
 import { coreStrings } from '../text/strings.sv';
 import { transformPoint } from '../geometry/matrix';
 import { vec3 } from '../geometry/vector';
@@ -208,6 +209,8 @@ function errorKey(violation: RuleViolation): string {
 export interface OffsetRange {
   min: number;
   max: number;
+  /** Glappen mellan `min` och `max` där inget går, i stigande ordning. Fältet hoppar över dem. */
+  gaps: ValueGap[];
 }
 
 /**
@@ -215,27 +218,15 @@ export interface OffsetRange {
  * klara reglerna, i snäppsteg från där det sitter nu. Visas i panelen, så att
  * man ser varför ett läge inte går. Objektet får byta kopplingspunkt på vägen,
  * t.ex. från tillbyggnad till sektion bredvid förbi väggens hörn, och korta
- * glapp där inget av sätten går hoppas över (`MAX_GAP_STEPS`).
+ * glapp där inget av sätten går hoppas över (`MAX_GAP_STEPS`) och lämnas med i `gaps`.
  */
 export function findAllowedOffsetRange(design: Design, domain: Domain, request: { instanceId: string; currentU: number; maxReachMm: number }): OffsetRange {
   const { instanceId, currentU, maxReachMm } = request;
   const before = listErrorKeys(design, domain);
   const fits = (u: number) =>
     findErrorsFor(attachInFittingSockets(withOffset(design, instanceId, u), domain, [instanceId]), domain, { instanceId, before }, ignoreLabel).length === 0;
-  const reach = (direction: 1 | -1) => {
-    let last = currentU;
-    let misses = 0;
-    for (let u = currentU + direction * SNAP_STEP_MM; Math.abs(u) <= maxReachMm && misses <= MAX_GAP_STEPS; u += direction * SNAP_STEP_MM) {
-      if (!fits(u)) {
-        misses += 1;
-        continue;
-      }
-      last = u;
-      misses = 0;
-    }
-    return last;
-  };
-  return { min: reach(-1), max: reach(1) };
+  const values = (direction: 1 | -1) => listSteps(currentU, direction * SNAP_STEP_MM, (u) => Math.abs(u) <= maxReachMm);
+  return combineReaches(reachFitting(values(-1), fits, currentU), reachFitting(values(1), fits, currentU));
 }
 
 /**
@@ -273,11 +264,12 @@ export interface ParamRangeRequest {
 /**
  * Hur långt ett mått kan ändras från sitt nuvarande värde och fortfarande
  * klara reglerna, t.ex. att huset inte blir kortare än tillbyggnaden på dess
- * vägg. Korta glapp där det inte går hoppas över (`MAX_GAP_STEPS`). Har designen redan fel används schemats
- * gränser, så att man kan ändra sig ur felet.
+ * vägg. Korta glapp där det inte går hoppas över (`MAX_GAP_STEPS`) och lämnas
+ * med i `gaps`, så att fältet inte erbjuder dem. Har designen redan fel används
+ * schemats gränser, så att man kan ändra sig ur felet.
  */
 export function findAllowedParamRange(design: Design, domain: Domain, request: ParamRangeRequest): OffsetRange {
-  const schemaRange = { min: request.min, max: request.max };
+  const schemaRange = { min: request.min, max: request.max, gaps: [] };
   if (hasAnyError(design, domain)) return schemaRange;
   // Sektionen får byta mellan t.ex. tillbyggnad och sektion bredvid, så att måttet bara stoppas där inget av sätten går.
   const withValue = (value: number): Design =>
@@ -286,20 +278,46 @@ export function findAllowedParamRange(design: Design, domain: Domain, request: P
       domain,
       listAffectedInstanceIds(design, request.instanceId),
     );
-  const reach = (direction: 1 | -1, limit: number) => {
-    let last = request.current;
-    let misses = 0;
-    for (let value = request.current + direction * request.step; direction * (limit - value) >= 0 && misses <= MAX_GAP_STEPS; value += direction * request.step) {
-      if (hasAnyError(withValue(value), domain)) {
-        misses += 1;
-        continue;
-      }
-      last = value;
-      misses = 0;
+  const fits = (value: number) => !hasAnyError(withValue(value), domain);
+  const down = reachFitting(listSteps(request.current, -request.step, (value) => value >= request.min), fits, request.current);
+  const up = reachFitting(listSteps(request.current, request.step, (value) => value <= request.max), fits, request.current);
+  return combineReaches(down, up);
+}
+
+/** Värdena från `start` (inte med) i steg om `step` så länge `isWithin` gäller. */
+function* listSteps(start: number, step: number, isWithin: (value: number) => boolean): Generator<number> {
+  for (let value = start + step; isWithin(value); value += step) yield value;
+}
+
+/** Det längsta värdet åt ett håll som går, och glappen på vägen dit, ordnade från `start` och utåt. */
+interface Reach {
+  last: number;
+  gaps: ValueGap[];
+}
+
+/**
+ * Går från `start` genom `values` tills `MAX_GAP_STEPS` + 1 värden i rad inte går.
+ * Ett glapp som följs av ett värde som går sparas, så att fältet kan hoppa över det.
+ */
+function reachFitting(values: Iterable<number>, fits: (value: number) => boolean, start: number): Reach {
+  let last = start;
+  let misses = 0;
+  const gaps: ValueGap[] = [];
+  for (const value of values) {
+    if (misses > MAX_GAP_STEPS) break;
+    if (!fits(value)) {
+      misses += 1;
+      continue;
     }
-    return last;
-  };
-  return { min: reach(-1, request.min), max: reach(1, request.max) };
+    if (misses > 0) gaps.push({ after: Math.min(last, value), before: Math.max(last, value) });
+    last = value;
+    misses = 0;
+  }
+  return { last, gaps };
+}
+
+function combineReaches(down: Reach, up: Reach): OffsetRange {
+  return { min: down.last, max: up.last, gaps: [...[...down.gaps].reverse(), ...up.gaps] };
 }
 
 function hasAnyError(design: Design, domain: Domain): boolean {
