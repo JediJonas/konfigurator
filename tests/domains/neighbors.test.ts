@@ -4,6 +4,11 @@ import { PAPER_FORMATS } from '../../src/core/layout/paper';
 import { buildParts } from '../../src/core/pipeline/buildParts';
 import { evaluateDesign } from '../../src/core/rules/evaluateDesign';
 import { proposeChild } from '../../src/core/rules/placement';
+import { setParamWithinRules } from '../../src/core/rules/paramAdjustment';
+import { addChildInstance, findInstance } from '../../src/core/model/instanceTree';
+import { vec2, vec3 } from '../../src/core/geometry/vector';
+import { listNeighborCandidates } from '../../src/domains/gingerbread/objects/neighborProposal';
+import { WALL_BESIDE } from '../../src/domains/gingerbread/socketKinds';
 import type { Design } from '../../src/core/model/design';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { SECTION_TYPE_ID } from '../../src/domains/gingerbread/objects/section';
@@ -26,19 +31,25 @@ function widthOf(points: readonly { x: number }[]): number {
 }
 
 describe('sektion bredvid en vägg (ägarens val)', () => {
-  it('föreslår ett torn som är högre än huset bredvid en låg vägg', () => {
-    const proposal = proposeChild(designWithExtensions(), gingerbreadDomain, { parentId: 'S1', socketId: 'beside-side-right', objectTypeId: SECTION_TYPE_ID });
-    expect(proposal.violations).toEqual([]);
-    expect(proposal.instance.params).toMatchObject({ width: 105, depth: 105, wallHeight: 160 });
+  it('föreslår ett torn bredvid en låg vägg och ett lägre block bredvid ett torn', () => {
+    const socket = { id: 'side-right', kind: WALL_BESIDE, labelKey: '', frame: { origin: vec3(0, 0, 0), u: vec3(1, 0, 0), normal: vec3(0, 0, 1) } };
+    const lowWall = [vec2(-90, 0), vec2(90, 0), vec2(90, 100), vec2(-90, 100)];
+    expect(listNeighborCandidates({ ...socket, bounds: lowWall })[0]).toMatchObject({ width: 105, depth: 105, wallHeight: 160 });
+    const towerWall = [vec2(-40, 0), vec2(40, 0), vec2(40, 200), vec2(-40, 200)];
+    expect(listNeighborCandidates({ ...socket, bounds: towerWall }, { roof: 'spire4' })[0]).toMatchObject({ wallHeight: 120, roof: 'gable' });
   });
 
-  it('föreslår ett lägre block bredvid ett torn', () => {
-    const design = designWithExtensions();
-    const tower = design.root.children[0];
-    if (tower) tower.params = TOWER_PARAMS;
-    const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'beside-side-right', objectTypeId: SECTION_TYPE_ID });
-    expect(proposal.violations).toEqual([]);
-    expect(proposal.instance.params).toMatchObject({ wallHeight: 120, roof: 'gable' });
+  it('byter mellan tillbyggnad och sektion bredvid när vägghöjden ändras', () => {
+    const start = designWithExtensions();
+    const proposal = proposeChild(start, gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: SECTION_TYPE_ID });
+    expect(proposal.instance.attachment?.socketId).toBe('side-right');
+    const withExtension = { ...start, root: addChildInstance(start.root, 'S1', proposal.instance) };
+    const socketOf = (design: Design) => findInstance(design.root, 'S2')?.attachment?.socketId;
+    const tower = setParamWithinRules(withExtension, gingerbreadDomain, { instanceId: 'S2', key: 'wallHeight', value: 160 });
+    expect(socketOf(tower)).toBe('beside-side-right');
+    expect(errorsFor(tower)).toEqual([]);
+    const lowAgain = setParamWithinRules(tower, gingerbreadDomain, { instanceId: 'S2', key: 'wallHeight', value: 60 });
+    expect(socketOf(lowAgain)).toBe('side-right');
   });
 
   it('kan inte vridas', () => {

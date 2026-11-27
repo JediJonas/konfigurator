@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findInstance } from '../../../src/core/model/instanceTree';
+import { setParamWithinRules } from '../../../src/core/rules/paramAdjustment';
 import { findAllowedOffsetRange, findAllowedParamRange, proposeChild, snapAttachmentOffset } from '../../../src/core/rules/placement';
-import { coreStrings } from '../../../src/core/text/strings.sv';
 import { gingerbreadDomain } from '../../../src/domains/gingerbread';
 import { SECTION_TYPE_ID } from '../../../src/domains/gingerbread/objects/section';
 import { designWithExtensions, extension, EXTENSION_PARAMS, HOST_PARAMS } from '../../domains/extensionFixtures';
@@ -22,36 +22,43 @@ describe('nya objekt i en kopplingspunkt', () => {
     expect(proposal.instance.params).toMatchObject({ width: 80, wallHeight: 60 });
   });
 
-  it('föreslår inget när väggen är för låg för den lägsta tillbyggnaden', () => {
+  it('föreslår en sektion bredvid när väggen är för låg för den lägsta tillbyggnaden', () => {
     const design = designWithExtensions();
     const host = design.root.children[0];
     if (!host) throw new Error('Mallen saknar sektion');
     host.params = { ...HOST_PARAMS, wallHeight: 40 };
     const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: SECTION_TYPE_ID }, (key) => key);
-    expect(proposal.violations.map((violation) => violation.message)).toEqual([coreStrings.noSizeFits]);
+    expect(proposal.violations).toEqual([]);
+    expect(proposal.instance.attachment?.socketId).toBe('beside-side-right');
   });
 
-  it('snäpper läget längs väggen till 5 mm och stannar där tillbyggnaden ryms', () => {
+  it('snäpper läget längs väggen till 5 mm och blir en sektion bredvid förbi hörnet', () => {
     const design = designWithExtensions(extension('side-right'));
-    expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', 23).root, 'S2')?.attachment?.u).toBe(25);
+    const attachmentAt = (u: number) => findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', u).root, 'S2')?.attachment;
+    expect(attachmentAt(23)).toMatchObject({ u: 25, socketId: 'side-right' });
     // Väggen är 180 mm och tillbyggnaden 80 mm. Från hörn till hörn går det till ±50 mm.
-    expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', 200).root, 'S2')?.attachment?.u).toBe(50);
-    expect(findInstance(snapAttachmentOffset(design, gingerbreadDomain, 'S2', -200).root, 'S2')?.attachment?.u).toBe(-50);
+    expect(attachmentAt(50)).toMatchObject({ u: 50, socketId: 'side-right' });
+    // Längre ut går den förbi hörnet och står bredvid, tills mitten når hörnet vid ±90 mm.
+    expect(attachmentAt(55)).toMatchObject({ u: 55, socketId: 'beside-side-right' });
+    expect(attachmentAt(200)).toMatchObject({ u: 90, socketId: 'beside-side-right' });
+    expect(attachmentAt(-200)).toMatchObject({ u: -90, socketId: 'beside-side-right' });
   });
 
-  it('räknar ut hur långt tillbyggnaden kan flyttas', () => {
+  it('räknar ut hur långt sektionen kan flyttas, som tillbyggnad eller bredvid', () => {
     const design = designWithExtensions(extension('side-right'));
-    expect(findAllowedOffsetRange(design, gingerbreadDomain, { instanceId: 'S2', currentU: 0, maxReachMm: 90 })).toEqual({ min: -50, max: 50 });
+    expect(findAllowedOffsetRange(design, gingerbreadDomain, { instanceId: 'S2', currentU: 0, maxReachMm: 90 })).toEqual({ min: -90, max: 90 });
   });
 
-  it('låter inte huset bli kortare eller lägre än tillbyggnaden på dess vägg', () => {
+  it('låter inte huset bli kortare än tillbyggnaden, men lägre, så att den står bredvid', () => {
     const design = designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 60 }));
     const depth = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'depth', current: 180, step: 5, min: 60, max: 400 });
     // Tillbyggnaden är 80 mm bred och får gå ända ut till hörnen.
     expect(depth).toEqual({ min: 80, max: 400 });
     const wallHeight = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'wallHeight', current: 100, step: 5, min: 40, max: 300 });
-    // Tillbyggnadens väggar får vara lika höga som husets.
-    expect(wallHeight.min).toBe(60);
+    // Blir huset lägre än tillbyggnaden står den bredvid i stället.
+    expect(wallHeight.min).toBe(40);
+    const lowHouse = setParamWithinRules(design, gingerbreadDomain, { instanceId: 'S1', key: 'wallHeight', value: 40 });
+    expect(findInstance(lowHouse.root, 'S2')?.attachment?.socketId).toBe('beside-side-right');
   });
 
   it('släpper gränserna när designen redan har fel, så att man kan ändra sig ur felet', () => {

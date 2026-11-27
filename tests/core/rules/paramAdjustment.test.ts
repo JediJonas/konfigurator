@@ -53,9 +53,10 @@ describe('byte av taktyp med en ärvd lutning', () => {
     expect(paramsOf(design)).toMatchObject({ roof: 'gable', roofPitch: 60 });
   });
 
-  it('sätter bara valet när inget värde går, så att felet syns', () => {
+  it('ställer sektionen bredvid väggen när taktypen bara går på fatet', () => {
     const design = setExtensionParam(startWithFrontExtension(), 'roof', 'spire4');
-    expect(paramsOf(design)).toMatchObject({ roof: 'spire4', roofPitch: 45 });
-    expect(listErrors(design)).not.toEqual([]);
+    expect(paramsOf(design)).toMatchObject({ roof: 'spire4' });
+    expect(findInstance(design.root, 'S2')?.attachment?.socketId).toBe('beside-gable-front');
+    expect(listErrors(design)).toEqual([]);
   });
 });
