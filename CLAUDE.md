@@ -81,6 +81,10 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 
 - Panelen har bara sektioner och Inställningar på toppnivån (ägarens val). Under en sektion står Tak och väggarna, numrerade runt huset från framgaveln: Vägg 1–4, en tillbyggnad Vägg 1–3 (`socket.wallN`). Varje vägg har sina mått (kopplingspunktens `paramKeys`: långväggen Längd, gaveln Bredd, alla Vägghöjd), sina fönster och dörrar och "Bygg till" (+ Sektion, + Fönster, + Dörr). Det finns ingen grupp Mått. En sektion som sitter på en annan har "Sitter på …" och läget längs väggen överst, alltid synligt, och "Ta bort" sist. "Ta bort" ligger i det utfällda objektet, inte på raden. En sak är utfälld i taget: en sektion, inuti den Tak eller en vägg, och inuti väggen ett fönster eller en dörr (`app/ui/SectionSettings.tsx`, `WallSettings.tsx`, `panelWalls.ts`). Fel på fönster och dörrar visas på väggen när den är stängd och på sektionen när den är stängd. Ett tryck på en vägg i 3D-vyn öppnar sektionen och väggen; ett tryck på ett fönster, en dörr, en lucka eller ett dörrblad öppnar objektet och dess vägg; hålen har osynliga ytor att trycka på (`app/three/pickAreas.ts`). Väggen eller fönstret som är öppet visas markerat i 3D, fönstret före väggen. Ett tryck på taket öppnar sektionen och fäller ut Tak och markerar taket: takets delar bär `paramGroupKey` (`app/ui/selectionHighlight.ts`).
 
+## 3D-vyn
+
+- Huset med alla tillbyggnader, sektioner och takutsprång står alltid mitt på fatet (ägarens önskan). 3D-vyn flyttar delarna så att mitten av rutan runt dem sett uppifrån hamnar i fatets mitt (`app/three/plateCentering.ts`). Ritningen och regelkontrollen räknar som förut; bara vyn flyttar.
+
 ## Lagring
 
 - Det öppna huset sparas av sig självt (`app/storage/`), 0,4 s efter senaste ändringen och direkt när sidan göms, via `ProjectStore` i webbläsarens lokala lagring. Vid start öppnas det senast sparade; går det inte att migrera (`core/model/migrateDesign.ts`) eller räkna börjar appen med mallen. "Börja om" under Inställningar ersätter huset med mallen efter en bekräftelse i panelen, och autosparet skriver över det sparade (ägarens önskan).
