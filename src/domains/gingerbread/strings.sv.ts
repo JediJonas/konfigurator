@@ -55,6 +55,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'socket.wall2': 'Vägg 2',
   'socket.wall3': 'Vägg 3',
   'socket.wall4': 'Vägg 4',
+  'wall.length': 'Längd',
   'add.gb.section': 'Lägg till sektion',
   'add.gb.window': 'Lägg till fönster',
   'add.gb.door': 'Lägg till dörr',

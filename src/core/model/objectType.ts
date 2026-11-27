@@ -37,7 +37,17 @@ export interface Socket {
   /** Hela id:t på delen som påverkas av t.ex. hål. Saknas när punkten inte hör till någon del. */
   ownerPartId?: string;
   /** Fälten i objektets parametrar som ändrar punktens del, t.ex. väggens längd och höjd. Panelen visar dem vid delen. */
-  paramKeys?: string[];
+  partParams?: PartParam[];
+}
+
+/**
+ * Ett fält som ändrar en del, med det namn fältet har vid delen. Gavelns
+ * längd är t.ex. sektionens bredd, men heter Längd under väggen.
+ */
+export interface PartParam {
+  key: string;
+  /** Nyckel i domänens texter. */
+  labelKey: string;
 }
 
 /**
