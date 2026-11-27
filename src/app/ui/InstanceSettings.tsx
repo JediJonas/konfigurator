@@ -42,12 +42,14 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
   const paramFields = useParamFieldsWithinRules(entry, knownRanges);
   const { instance, objectType, socket, parentId } = entry;
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
+  // Samma storlek som gruppernas rubriker, t.ex. Tak, när objektet ligger under en sektion.
+  const iconSize = headingLevel === 2 ? 20 : 18;
   return (
     <section className="panel-section" data-instance-id={instance.id}>
       <div className="instance-heading">
         <Heading>
           <button type="button" className="disclosure" aria-expanded={isOpen} aria-controls={bodyId} onClick={onToggle}>
-            <svg className="disclosure-icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
+            <svg className="disclosure-icon" aria-hidden="true" viewBox="0 0 24 24" width={iconSize} height={iconSize}>
               <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             {translate(objectType.labelKey)} <span className="instance-id">{instance.id}</span>
