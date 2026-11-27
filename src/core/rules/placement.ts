@@ -3,7 +3,7 @@ import type { Domain } from '../model/domain';
 import { addChildInstance, nextInstanceId, updateInstance } from '../model/instanceTree';
 import { pickInheritedParams } from '../model/paramForm';
 import { findObjectType, placeInstances } from '../pipeline/placeInstances';
-import type { RuleViolation } from './rule';
+import type { MaxCountPerSocketRule, RuleViolation } from './rule';
 import { listViolations } from './evaluateDesign';
 import { attachInFittingSockets, listAffectedInstanceIds, listAlternativeSockets } from './socketChoice';
 import { hasAnyErrorRemembered, listViolationKeysRemembered } from './ruleCheck';
@@ -27,6 +27,8 @@ export interface ChildProposal {
   instance: Instance;
   /** Regelbrott för det nya objektet. Tom när det går att lägga till. */
   violations: RuleViolation[];
+  /** Varför objektet inte går att lägga till alls, oavsett storlek och läge, t.ex. att väggen redan har en dörr. */
+  blockingMessage?: string;
 }
 
 const ignoreLabel = (key: string) => key;
@@ -71,6 +73,13 @@ function proposeInSocket(design: Design, domain: Domain, request: SocketProposal
   // Objekttypen lägger själv de ärvda värdena på sina förslag, och får byta ut ett ärvt värde som inte går här.
   const candidates = objectType.paramCandidates?.(socket, { thickness: design.material.thickness, socket }, inherited) ?? [{ ...inherited }];
   const id = nextInstanceId(design.root, objectType.instanceIdPrefix);
+  const full = findFullCountRule(domain, parent.instance, socket, objectType);
+  if (full) {
+    const message = resolveLabel(full.messageKey);
+    const instance: Instance = { id, type: objectType.id, params: candidates[0] ?? {}, attachment: { socketId: socket.id, u: 0, v: 0, rotationDegrees: 0 }, children: [] };
+    return { instance, violations: [{ level: full.level, instanceId: id, message }], blockingMessage: message };
+  }
+  const before = listErrorKeys(design, domain, resolveLabel);
   if (candidates.length === 0) {
     const instance: Instance = { id, type: objectType.id, params: {}, attachment: { socketId: socket.id, u: 0, v: 0, rotationDegrees: 0 }, children: [] };
     return { instance, violations: [{ level: 'error', instanceId: id, message: coreStrings.noSizeFits }] };
@@ -78,20 +87,31 @@ function proposeInSocket(design: Design, domain: Domain, request: SocketProposal
   const propose = (params: Record<string, unknown>, u: number): ChildProposal => {
     const instance: Instance = { id, type: objectType.id, params, attachment: { socketId: socket.id, u, v: 0, rotationDegrees: 0 }, children: [] };
     const candidateDesign = { ...design, root: addChildInstance(design.root, parent.instance.id, instance) };
-    return { instance, violations: findErrorsFor(candidateDesign, domain, id, resolveLabel) };
+    return { instance, violations: findErrorsFor(candidateDesign, domain, { instanceId: id, before }, resolveLabel) };
   };
   const reach = Math.max(...socket.bounds.map((point) => Math.abs(point.x)));
   const offsets = [0, ...listSearchOffsets(reach)];
   let centered: ChildProposal | undefined;
-  for (const u of offsets) {
-    for (const params of candidates) {
-      const proposal = propose(params, u);
-      if (proposal.violations.length === 0) return proposal;
-      if (u === 0) centered = proposal;
-    }
+  for (const [u, params] of listTrials(offsets, candidates, objectType.prefersSizeOverCenter ?? false)) {
+    const proposal = propose(params, u);
+    if (proposal.violations.length === 0) return proposal;
+    if (u === 0) centered = proposal;
   }
   if (!centered) throw new Error(`Objekttypen "${objectType.id}" har inga förslag på parametrar.`);
   return centered;
+}
+
+/** Regeln om högsta antal som redan är nådd i kopplingspunkten, t.ex. en dörr per vägg. */
+function findFullCountRule(domain: Domain, parent: Instance, socket: Socket, objectType: ObjectType<unknown>): MaxCountPerSocketRule | undefined {
+  const count = parent.children.filter((child) => child.type === objectType.id && child.attachment?.socketId === socket.id).length;
+  return domain.rules.find((rule): rule is MaxCountPerSocketRule => rule.kind === 'maxCountPerSocket' && rule.objectType === objectType.id && count >= rule.max);
+}
+
+/** Lägen och storlekar i den ordning de prövas: alla storlekar i mitten först, eller varje storlek längs hela punkten först. */
+function listTrials<T>(offsets: readonly number[], candidates: readonly T[], isSizeFirst: boolean): [number, T][] {
+  return isSizeFirst
+    ? candidates.flatMap((params) => offsets.map((u): [number, T] => [u, params]))
+    : offsets.flatMap((u) => candidates.map((params): [number, T] => [u, params]));
 }
 
 /** Lägen från mitten och utåt, omväxlande åt båda hållen: 10, −10, 20, −20 … */
@@ -107,11 +127,12 @@ function listSearchOffsets(reach: number): number[] {
  */
 export function snapAttachmentOffset(design: Design, domain: Domain, instanceId: string, desiredU: number): Design {
   const snapped = Math.round(desiredU / SNAP_STEP_MM) * SNAP_STEP_MM;
+  const before = listErrorKeys(design, domain);
   const direction = -Math.sign(snapped);
   const stepCount = Math.abs(snapped) / SNAP_STEP_MM;
   for (let step = 0; step <= stepCount; step++) {
     const candidate = attachInFittingSockets(withOffset(design, instanceId, snapped + direction * step * SNAP_STEP_MM), domain, [instanceId]);
-    if (findErrorsFor(candidate, domain, instanceId, ignoreLabel).length === 0) return candidate;
+    if (findErrorsFor(candidate, domain, { instanceId, before }, ignoreLabel).length === 0) return candidate;
   }
   return attachInFittingSockets(withOffset(design, instanceId, snapped), domain, [instanceId]);
 }
@@ -125,17 +146,45 @@ function withOffset(design: Design, instanceId: string, u: number): Design {
   };
 }
 
-function findErrorsFor(design: Design, domain: Domain, instanceId: string, resolveLabel: (key: string) => string): RuleViolation[] {
+/** Objektet som ändras, och felen som designen hade innan, som nycklar från `listErrorKeys`. */
+interface ChangedInstance {
+  instanceId: string;
+  before: ReadonlySet<string>;
+}
+
+/**
+ * Felen för objektet, och nya fel på andra objekt som ändringen ger, t.ex.
+ * ett fönster som en ny tillbyggnad skulle täcka. Fel som fanns innan räknas inte.
+ */
+function findErrorsFor(design: Design, domain: Domain, changed: ChangedInstance, resolveLabel: (key: string) => string): RuleViolation[] {
+  const { instanceId, before } = changed;
+  const isCaused = (violation: RuleViolation) => violation.level === 'error' && (violation.instanceId === instanceId || !before.has(errorKey(violation)));
   if (resolveLabel === ignoreLabel) {
     const violations = listViolationKeysRemembered(design, domain);
     if (!violations) return [{ level: 'error', instanceId, message: coreStrings.noSizeFits }];
-    return violations.filter((violation) => violation.instanceId === instanceId && violation.level === 'error');
+    return violations.filter(isCaused);
   }
   try {
-    return listViolations(design, domain, resolveLabel).filter((violation) => violation.instanceId === instanceId && violation.level === 'error');
+    return listViolations(design, domain, resolveLabel).filter(isCaused);
   } catch (error) {
     return [{ level: 'error', instanceId, message: error instanceof Error ? error.message : String(error) }];
   }
+}
+
+function listErrorKeys(design: Design, domain: Domain, resolveLabel = ignoreLabel): Set<string> {
+  if (resolveLabel === ignoreLabel) {
+    const violations = listViolationKeysRemembered(design, domain) ?? [];
+    return new Set(violations.filter((violation) => violation.level === 'error').map(errorKey));
+  }
+  try {
+    return new Set(listViolations(design, domain, resolveLabel).filter((violation) => violation.level === 'error').map(errorKey));
+  } catch {
+    return new Set();
+  }
+}
+
+function errorKey(violation: RuleViolation): string {
+  return `${violation.instanceId}|${violation.message}`;
 }
 
 export interface OffsetRange {
@@ -152,7 +201,9 @@ export interface OffsetRange {
  */
 export function findAllowedOffsetRange(design: Design, domain: Domain, request: { instanceId: string; currentU: number; maxReachMm: number }): OffsetRange {
   const { instanceId, currentU, maxReachMm } = request;
-  const fits = (u: number) => findErrorsFor(attachInFittingSockets(withOffset(design, instanceId, u), domain, [instanceId]), domain, instanceId, ignoreLabel).length === 0;
+  const before = listErrorKeys(design, domain);
+  const fits = (u: number) =>
+    findErrorsFor(attachInFittingSockets(withOffset(design, instanceId, u), domain, [instanceId]), domain, { instanceId, before }, ignoreLabel).length === 0;
   const reach = (direction: 1 | -1) => {
     let last = currentU;
     let misses = 0;

@@ -16,6 +16,14 @@ export interface InteractionConflict {
  */
 export interface InteractionResolver {
   id: string;
+  /**
+   * Sant när samverkan kan ta bort stora delar av en yta som andra objekt
+   * sitter på, t.ex. en vägg som en granne står mot. Den räknas då med när
+   * regelkontrollen prövar många lägen och mått efter varandra (`listViolations`).
+   * Samverkan som bara putsar kanter, t.ex. vinkelrännor, hoppas över där
+   * eftersom den är dyr; den prövas ändå i den fulla kontrollen.
+   */
+  affectsSurfaces: boolean;
   resolve(placed: readonly PlacedInstance[], parts: readonly Part[]): Part[];
   /**
    * Möten som inte går att lösa, prövade på delarna innan samverkan. Blir fel

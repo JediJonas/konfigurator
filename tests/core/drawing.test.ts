@@ -44,6 +44,13 @@ describe('delar med samma form', () => {
     expect(groups.map((group) => [group.count, group.mirroredCount])).toEqual([[2, 0]]);
   });
 
+  it('räknas som samma oavsett i vilken ordning hålen kommer, men inte med hålen på andra ställen', () => {
+    const hole = (x: number) => [vec2(x, 10), vec2(x, 20), vec2(x + 10, 20), vec2(x + 10, 10)];
+    const wall = (id: string, holes: ReturnType<typeof hole>[]): Part => ({ ...rectanglePart(id, 100, 50), holes });
+    expect(groupIdenticalParts([wall('a', [hole(10), hole(30)]), wall('b', [hole(30), hole(10)])]).map((group) => group.count)).toEqual([2]);
+    expect(groupIdenticalParts([wall('a', [hole(10), hole(30)]), wall('b', [hole(10), hole(50)])]).map((group) => group.count)).toEqual([1, 1]);
+  });
+
   it('slås ihop med sin spegelbild och räknas som spegelvänd', () => {
     const groups = groupIdenticalParts([triangle('a', [[0, 0], [40, 0], [10, 30]]), triangle('b', [[0, 0], [40, 0], [30, 30]])]);
     expect(groups.map((group) => [group.count, group.mirroredCount])).toEqual([[2, 1]]);

@@ -38,6 +38,19 @@ export interface Socket {
   ownerPartId?: string;
 }
 
+/**
+ * Hur ett objekt använder ytan på en annan del, t.ex. ett fönster i en vägg.
+ * Områdena är punkter i objektets eget koordinatsystem och läggs vinkelrätt mot delen.
+ */
+export interface SurfaceArea {
+  /** Hela id:t på delen, t.ex. "S1/side-right". */
+  targetPartId: string;
+  /** Måste vara hel del, utom där objektets egna öppningar går, t.ex. en kant runt ett fönster. */
+  solidRegion: Vec3[];
+  /** Det objektet tar av ytan, t.ex. öppningen och luckorna. Två objekt får inte ta samma yta. */
+  coveredRegion: Vec3[];
+}
+
 /** Det objekttyperna får veta om designen när de räknar fram delar. */
 export interface BuildContext {
   thickness: Mm;
@@ -60,6 +73,8 @@ export interface ObjectType<P = Record<string, unknown>> {
   parts(instance: Instance, params: P, context: BuildContext): Part[];
   /** Påverkan på andra objekts delar, t.ex. en öppning i förälderns vägg. */
   modifiers?(instance: Instance, params: P, context: BuildContext): Modifier[];
+  /** Ytor på andra delar som objektet behöver, t.ex. väggen runt ett fönster. Prövas av regeln `onSolidPart`. */
+  surfaceAreas?(params: P, context: BuildContext): SurfaceArea[];
   /**
    * Hur objektets eget koordinatsystem sitter i kopplingspunktens (x → u,
    * y → normal, z → u × normal). Saknas den sitter objektets origo i punkten utan vridning.
@@ -83,5 +98,11 @@ export interface ObjectType<P = Record<string, unknown>> {
    * `inherited` är förälderns värden för fälten som ärvs. Objekttypen lägger dem
    * på varje förslag, och får byta ut ett ärvt värde som inte går i kopplingspunkten.
    */
+  /**
+   * Sant när ett nytt objekt hellre ska behålla sin storlek och flyttas från
+   * mitten än bli mindre, t.ex. ett andra fönster bredvid det första. Annars
+   * prövas alla storlekar i mitten innan objektet flyttas.
+   */
+  prefersSizeOverCenter?: boolean;
   paramCandidates?(socket: Socket, context: BuildContext, inherited: Record<string, unknown>): Record<string, unknown>[];
 }

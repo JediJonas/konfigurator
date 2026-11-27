@@ -5,6 +5,8 @@ import { transformPoint } from '../geometry/matrix';
 import type { Vec2, Vec3 } from '../geometry/vector';
 import { vec3 } from '../geometry/vector';
 import type { Socket } from '../model/objectType';
+import type { Part } from '../model/part';
+import { findBeyondCount, findCoveringOthers, findOffSolidPart } from './surfaceRules';
 import { projectOntoFrame } from '../pipeline/frame';
 import type { PlacedInstance } from '../pipeline/placeInstances';
 import { coreStrings } from '../text/strings.sv';
@@ -22,11 +24,11 @@ type ResolveLabel = (key: string) => string;
  * Prövar designen mot domänens regler. Samma kontroll används för att visa
  * fel i panelen, gråa ut val och stoppa ritningen när huset inte går att bygga.
  */
-export function validateDesign(placed: readonly PlacedInstance[], rules: readonly Rule[], resolveLabel: ResolveLabel): RuleViolation[] {
+export function validateDesign(placed: readonly PlacedInstance[], parts: readonly Part[], rules: readonly Rule[], resolveLabel: ResolveLabel): RuleViolation[] {
   const violations = placed.flatMap((entry) => checkAttachesTo(entry));
   for (const rule of rules) {
     const matching = placed.filter((entry) => entry.instance.type === rule.objectType);
-    const failing = findFailingInstances(rule, matching);
+    const failing = findFailingInstances(rule, matching, { placed, parts });
     violations.push(...failing.map((instanceId) => ({ level: rule.level, instanceId, message: resolveLabel(rule.messageKey) })));
   }
   return violations;
@@ -42,7 +44,13 @@ function checkAttachesTo(entry: PlacedInstance): RuleViolation[] {
   return [{ level: 'error', instanceId: entry.instance.id, message: coreStrings.cannotAttachHere }];
 }
 
-function findFailingInstances(rule: Rule, entries: PlacedInstance[]): string[] {
+/** Hela designen, för regler som prövar ett objekt mot andra objekt eller mot de färdiga delarna. */
+interface DesignState {
+  placed: readonly PlacedInstance[];
+  parts: readonly Part[];
+}
+
+function findFailingInstances(rule: Rule, entries: PlacedInstance[], design: DesignState): string[] {
   switch (rule.kind) {
     case 'allowedRotations':
       return entries.filter((entry) => !hasAllowedRotation(rule, entry)).map((entry) => entry.instance.id);
@@ -54,6 +62,10 @@ function findFailingInstances(rule: Rule, entries: PlacedInstance[]): string[] {
       return entries.filter((entry) => exceedsLimit(rule, entry)).map((entry) => entry.instance.id);
     case 'allowedParamValues':
       return entries.filter((entry) => !hasAllowedValue(rule, entry)).map((entry) => entry.instance.id);
+    case 'onSolidPart':
+      return [...new Set([...findOffSolidPart(entries, design.parts), ...findCoveringOthers(entries, design.placed, design.parts)])];
+    case 'maxCountPerSocket':
+      return findBeyondCount(entries, rule.max);
   }
 }
 

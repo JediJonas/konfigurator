@@ -1,10 +1,12 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Bounds, OrbitControls, useBounds } from '@react-three/drei';
 import { useEffect, useMemo, useRef } from 'react';
-import { TOUCH, Vector3 } from 'three';
+import { Shape, ShapeGeometry, TOUCH, Vector2, Vector3 } from 'three';
 import type { Camera, DirectionalLight, Group } from 'three';
 import type { RefObject } from 'react';
+import type { Polygon } from '../../core/geometry/polygon';
 import type { Part } from '../../core/model/part';
+import { listInsideFloors } from './insideFloor';
 import { PartMesh } from './PartMesh';
 import { lightPositionForView } from './viewerLight';
 import { cameraPositionOutsideParts, prepareClearanceParts } from './cameraClearance';
@@ -35,6 +37,9 @@ export type FitView = () => void;
 const SHADOW_MAP_SIZE_PX = 2048;
 /** Hur mörk skuggan är på bordet utanför fatet. */
 const FLOOR_SHADOW_OPACITY = 0.2;
+/** Golvet inne i huset: mörkare än fatet, som i skugga, och strax ovanför fatet (som ligger på −0,5 mm). */
+const INSIDE_FLOOR_COLOR = '#5a4a3c';
+const INSIDE_FLOOR_HEIGHT_MM = -0.25;
 const CAMERA_POSITION_MM: [number, number, number] = [260, 230, 340];
 const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 /** Närmaste avstånd till vyns mittpunkt. Husets egna väggar och tak stoppar zoomen långt innan dess. */
@@ -46,6 +51,7 @@ export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, o
   const isUserHoldingViewRef = useRef(false);
   const extent = useMemo(() => measurePartsExtent(parts), [parts]);
   const shadowBox = useMemo(() => shadowCameraBox(extent), [extent]);
+  const insideFloors = useMemo(() => listInsideFloors(parts), [parts]);
   return (
     <Canvas
       // Ritar bara om när något ändras, vilket sparar batteri i mobilen.
@@ -63,6 +69,9 @@ export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, o
         <circleGeometry args={[plateRadius(extent), 64]} />
         <meshStandardMaterial color="#fbfbf8" roughness={0.4} />
       </mesh>
+      {insideFloors.map((floor, index) => (
+        <InsideFloor key={index} floor={floor} />
+      ))}
       {/* Osynligt bord under fatet som bara visar skuggan, så att den kan falla utanför fatet. */}
       <mesh rotation-x={-Math.PI / 2} position-y={-1} receiveShadow>
         <circleGeometry args={[SHADOW_FLOOR_RADIUS_MM, 64]} />
@@ -195,5 +204,19 @@ function ViewerLight({ shadowBox }: { shadowBox: ShadowCameraBox }) {
         args={[-shadowBox.halfSizeMm, shadowBox.halfSizeMm, shadowBox.halfSizeMm, -shadowBox.halfSizeMm, 1, shadowBox.farMm]}
       />
     </directionalLight>
+  );
+}
+
+/** Golvet inne i huset, mörkare än fatet, som i skugga. Ligger strax över fatet och under delarna. */
+function InsideFloor({ floor }: { floor: Polygon }) {
+  const geometry = useMemo(() => {
+    // Polygonens y är världens z; planet vrids ner så att formens y pekar mot −z, därför byts tecknet.
+    const shape = new Shape(floor.map((point) => new Vector2(point.x, -point.y)));
+    return new ShapeGeometry(shape);
+  }, [floor]);
+  return (
+    <mesh geometry={geometry} rotation-x={-Math.PI / 2} position-y={INSIDE_FLOOR_HEIGHT_MM}>
+      <meshStandardMaterial color={INSIDE_FLOOR_COLOR} roughness={0.9} />
+    </mesh>
   );
 }

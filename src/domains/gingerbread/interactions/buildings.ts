@@ -3,6 +3,7 @@ import { transformPoint } from '../../../core/geometry/matrix';
 import type { Mm, Vec3 } from '../../../core/geometry/vector';
 import { cross3, dot3, subtract3, vec2, vec3 } from '../../../core/geometry/vector';
 import type { Part } from '../../../core/model/part';
+import { PART_PIECE_SEPARATOR } from '../../../core/model/part';
 import type { WorldHalfSpace } from '../../../core/pipeline/partRegions';
 import type { PlacedInstance } from '../../../core/pipeline/placeInstances';
 import { SECTION_TYPE_ID } from '../objects/section';
@@ -26,7 +27,7 @@ export interface SectionInBuilding {
 }
 
 /** En del som klipps i bitar får id:n som "S1/side-right~2". */
-export const PIECE_SEPARATOR = '~';
+export const PIECE_SEPARATOR = PART_PIECE_SEPARATOR;
 
 const UP = vec3(0, 1, 0);
 const WALL_IDS: readonly string[] = ['side-right', 'side-left', 'gable-front', 'gable-back'];

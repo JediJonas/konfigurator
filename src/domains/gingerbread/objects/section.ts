@@ -57,7 +57,7 @@ export const sectionType: ObjectType<SectionParams> = {
     socket.kind === WALL_BESIDE ? listNeighborCandidates(socket, inherited) : listExtensionCandidates(socket, context, inherited),
 };
 
-/** Gemensamma fält för alla delar i en sektion. */
+/** Gemensamma fält för alla delar i en sektion. Väggarnas, kanternas och takets insida ligger vid z = 0. */
 function sectionPart(instance: Instance, context: BuildContext, draft: PartDraft): Part {
-  return { ...draft, id: `${instance.id}/${draft.id}`, sourceInstanceId: instance.id, holes: [], thickness: context.thickness };
+  return { ...draft, id: `${instance.id}/${draft.id}`, sourceInstanceId: instance.id, holes: [], thickness: context.thickness, hasInsideAtZero: true };
 }

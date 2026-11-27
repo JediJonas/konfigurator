@@ -55,7 +55,7 @@ export function AddToInstance({ entry }: AddToInstanceProps) {
             </button>
             {canAdd ? null : (
               <p className="field-hint" id={reasonId}>
-                {uiStrings.cannotAdd}
+                {proposal.blockingMessage ?? uiStrings.cannotAdd}
               </p>
             )}
           </div>
@@ -82,7 +82,7 @@ function listAddOptions(design: Design, entry: PlacedInstance, selectedSocket: S
   const proposals = selected
     ? activeDomain.objectTypes
         .filter((objectType) => onSelectedWall.some((socket) => objectType.attachesTo.includes(socket.kind)))
-        .map((objectType) => ({ objectType, proposal: proposeChild(design, activeDomain, { parentId: instanceId, socketId: selected.id, objectTypeId: objectType.id }) }))
+        .map((objectType) => ({ objectType, proposal: proposeChild(design, activeDomain, { parentId: instanceId, socketId: selected.id, objectTypeId: objectType.id }, translate) }))
     : [];
   return { sockets, selected, proposals };
 }
