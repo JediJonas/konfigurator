@@ -10,6 +10,7 @@ import { vec2, vec3 } from '../../src/core/geometry/vector';
 import { listNeighborCandidates } from '../../src/domains/gingerbread/objects/neighborProposal';
 import { WALL_BESIDE } from '../../src/domains/gingerbread/socketKinds';
 import type { Design } from '../../src/core/model/design';
+import type { Part } from '../../src/core/model/part';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { SECTION_TYPE_ID } from '../../src/domains/gingerbread/objects/section';
 import { designWithExtensions, HOST_PARAMS } from './extensionFixtures';
@@ -129,9 +130,38 @@ describe('borg med fyra torn', () => {
 });
 
 describe('tak som möts', () => {
-  it('är ett fel när ett block med sadeltak når upp i husets takutsprång', () => {
-    const design = houseWithTower({ width: 80, depth: 80, wallHeight: 100, roof: 'gable', roofPitch: 45 });
+  it('är ett fel när en tornspira går upp genom husets takutsprång', () => {
+    const design = houseWithTower({ width: 100, depth: 80, wallHeight: 80, roof: 'spire8' });
     expect(errorsFor(design)).toContain('rule.roofsMeet');
+  });
+
+  it('lägger ett block lika högt som huset med taket under husets takutsprång', () => {
+    const design = houseWithTower({ width: 80, depth: 80, wallHeight: 100, roof: 'gable', roofPitch: 45 });
+    expect(errorsFor(design)).toEqual([]);
+  });
+
+  it('går att bygga för varje vägghöjd strax över husets vägg, utan glapp', () => {
+    for (let wallHeight = 100; wallHeight <= 160; wallHeight += 5) {
+      const design = houseWithTower({ width: 100, depth: 80, wallHeight, roof: 'gable', roofPitch: 45, eaveOverhang: 10, gableOverhang: 10 });
+      expect(errorsFor(design), `vägghöjd ${wallHeight}`).toEqual([]);
+    }
+  });
+
+  it('är ett fel när sektionen har mindre kontakt med väggen än en tjocklek', () => {
+    const design = houseWithTower({ width: 100, depth: 80, wallHeight: 60, roof: 'gable', roofPitch: 45 });
+    const section = design.root.children[0]?.children[0];
+    // Väggen är 180 mm och sektionen 100 mm: 90 + 50 − 4 = 136 mm.
+    if (section?.attachment) section.attachment.u = 140;
+    expect(errorsFor(design)).toContain('rule.extensionFitsWall');
+  });
+
+  it('går att bygga i varje läge där sektionen har kontakt med väggen', () => {
+    for (let u = 0; u <= 135; u += 5) {
+      const design = houseWithTower({ width: 100, depth: 80, wallHeight: 60, roof: 'gable', roofPitch: 45, eaveOverhang: 10, gableOverhang: 10 });
+      const section = design.root.children[0]?.children[0];
+      if (section?.attachment) section.attachment.u = u;
+      expect(errorsFor(design), `läge ${u}`).toEqual([]);
+    }
   });
 
   it('är inget fel när blocket är så lågt att taket går fritt under utsprånget', () => {
@@ -143,15 +173,22 @@ describe('tak som möts', () => {
     expect(errorsFor(castleDesign())).not.toContain('rule.roofsMeet');
   });
 
-  it('gäller också sektioner som står var för sig på fatet', () => {
-    const design = designWithExtensions();
-    const house = design.root.children[0];
-    if (!house) throw new Error('Mallen saknar sektion');
-    house.params = HOST_PARAMS;
+  it('lägger det senare taket under när två lika höga hus står nära varandra på fatet', () => {
+    const housesApart = (gap: number) => {
+      const design = designWithExtensions();
+      const neighbor = beside('S2', 'ground', HOST_PARAMS);
+      if (neighbor.attachment) neighbor.attachment.u = HOST_PARAMS.width + gap;
+      design.root.children.push(neighbor);
+      return design;
+    };
     // Väggarna står 10 mm isär, så takutsprången på 10 mm går in i varandra.
-    const neighbor = beside('S2', 'ground', HOST_PARAMS);
-    if (neighbor.attachment) neighbor.attachment.u = HOST_PARAMS.width + 10;
-    design.root.children.push(neighbor);
-    expect(errorsFor(design)).toContain('rule.roofsMeet');
+    const near = housesApart(10);
+    expect(errorsFor(near)).toEqual([]);
+    const parts = buildParts(near, gingerbreadDomain);
+    const apart = buildParts(housesApart(100), gingerbreadDomain);
+    const eaveEdge = (part: Part, pick: (...xs: number[]) => number) => pick(...worldCorners(part).map((corner) => corner.x));
+    // Det första huset behåller hela sitt utsprång; det andras kapas där det möter det.
+    expect(eaveEdge(partById(parts, 'S1/roof-right'), Math.max)).toBeCloseTo(eaveEdge(partById(apart, 'S1/roof-right'), Math.max));
+    expect(eaveEdge(partById(parts, 'S2/roof-left'), Math.min)).toBeGreaterThan(eaveEdge(partById(apart, 'S2/roof-left'), Math.min) - 90);
   });
 });

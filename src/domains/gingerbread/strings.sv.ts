@@ -41,7 +41,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'rule.rightAnglesOnly': 'Sektionen kan bara vridas i räta vinklar.',
   'rule.extensionUpright': 'En tillbyggnad står rakt ut från väggen och kan inte vridas.',
   'rule.extensionFitsWall':
-    'Sektionen ryms inte på väggen som tillbyggnad, och bredvid väggen skulle taken gå in i varandra. Gör den lägre eller smalare så att den ryms på väggen, gör den så mycket högre att taken går fria från varandra, eller flytta den.',
+    'Sektionen ryms inte på väggen som tillbyggnad och kan inte heller stå bredvid den, t.ex. för att den inte har kontakt med väggen eller för att taken skulle gå in i varandra. Flytta den närmare väggens mitt, eller gör den lägre eller smalare så att den ryms på väggen.',
   'rule.noSpireOnExtension': 'En tornspira kan bara stå på fatet. Välj en annan taktyp för tillbyggnaden.',
   'rule.neighborUpright': 'En sektion bredvid står rakt ut från väggen och kan inte vridas.',
   'rule.roofsMeet':

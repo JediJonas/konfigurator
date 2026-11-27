@@ -9,6 +9,9 @@ import { attachInFittingSockets, listAffectedInstanceIds, listAlternativeSockets
 import type { PlacedInstance } from '../pipeline/placeInstances';
 import type { ObjectType, Socket } from '../model/objectType';
 import { coreStrings } from '../text/strings.sv';
+import { transformPoint } from '../geometry/matrix';
+import { vec3 } from '../geometry/vector';
+import { projectOntoFrame } from '../pipeline/frame';
 
 /** Lägen längs en kopplingspunkt snäpper till jämna steg, så att mitten och symmetriska lägen är lätta att träffa. */
 export const SNAP_STEP_MM = 5;
@@ -137,17 +140,41 @@ export interface OffsetRange {
 /**
  * Hur långt ett objekt kan flyttas längs sin kopplingspunkt och fortfarande
  * klara reglerna, i snäppsteg från där det sitter nu. Visas i panelen, så att
- * man ser varför ett läge inte går.
+ * man ser varför ett läge inte går. Objektet får byta kopplingspunkt på vägen,
+ * t.ex. från tillbyggnad till sektion bredvid förbi väggens hörn, och korta
+ * glapp där inget av sätten går hoppas över (`MAX_GAP_STEPS`).
  */
 export function findAllowedOffsetRange(design: Design, domain: Domain, request: { instanceId: string; currentU: number; maxReachMm: number }): OffsetRange {
   const { instanceId, currentU, maxReachMm } = request;
   const fits = (u: number) => findErrorsFor(attachInFittingSockets(withOffset(design, instanceId, u), domain, [instanceId]), domain, instanceId, ignoreLabel).length === 0;
   const reach = (direction: 1 | -1) => {
     let last = currentU;
-    for (let u = currentU + direction * SNAP_STEP_MM; Math.abs(u) <= maxReachMm && fits(u); u += direction * SNAP_STEP_MM) last = u;
+    let misses = 0;
+    for (let u = currentU + direction * SNAP_STEP_MM; Math.abs(u) <= maxReachMm && misses <= MAX_GAP_STEPS; u += direction * SNAP_STEP_MM) {
+      if (!fits(u)) {
+        misses += 1;
+        continue;
+      }
+      last = u;
+      misses = 0;
+    }
     return last;
   };
   return { min: reach(-1), max: reach(1) };
+}
+
+/**
+ * Längsta läget längs kopplingspunkten som kan vara värt att pröva: halva
+ * punktens längd plus halva objektets bredd längs den, så att ett objekt som
+ * får stå bredvid kan flyttas tills det bara nuddar punktens ände.
+ */
+export function measureOffsetReach(entry: PlacedInstance): number {
+  const socket = entry.socket;
+  if (!socket) return 0;
+  const halfLength = Math.max(...socket.bounds.map((point) => Math.abs(point.x)));
+  const along = entry.parts.flatMap((part) => part.outline.map((point) => projectOntoFrame(socket.frame, transformPoint(part.transform, vec3(point.x, point.y, 0))).x));
+  const halfWidth = along.length > 0 ? (Math.max(...along) - Math.min(...along)) / 2 : 0;
+  return halfLength + halfWidth;
 }
 
 /**

@@ -38,6 +38,49 @@ export function regionOnPart(part: Part, halfSpaces: readonly WorldHalfSpace[]):
   return clipByHalfPlanes(squareAround(center, halfSize), halfPlanes);
 }
 
+/** Under så här mycket räknas ett villkor som oberoende av djupet i delen. */
+const DEPTH_INDEPENDENT_EPSILON = 1e-9;
+
+/**
+ * Den del av delens plan där någon punkt genom delens tjocklek ligger i
+ * kroppen som villkoren ger, i delens egna koordinater. Till skillnad från
+ * att pröva delens båda sidor var för sig fångar det också en del som går in
+ * i kroppen genom dess sida och ut genom dess ovansida mitt i tjockleken.
+ * Djupet räknas bort ur villkoren (Fourier–Motzkin), så området är konvext.
+ */
+export function regionThroughPart(part: Part, halfSpaces: readonly Pick<WorldHalfSpace, 'normal' | 'offset'>[]): Vec2[] {
+  const origin = transformPoint(part.transform, vec3(0, 0, 0));
+  const alongX = subtract3(transformPoint(part.transform, vec3(1, 0, 0)), origin);
+  const alongY = subtract3(transformPoint(part.transform, vec3(0, 1, 0)), origin);
+  const alongZ = subtract3(transformPoint(part.transform, vec3(0, 0, 1)), origin);
+  // Varje villkor blir a · (x, y) + b · djup ≤ c, och djupet ligger mellan 0 och tjockleken.
+  const constraints = [
+    ...halfSpaces.map((space) => ({
+      a: vec2(dot3(space.normal, alongX), dot3(space.normal, alongY)),
+      b: dot3(space.normal, alongZ),
+      c: space.offset - dot3(space.normal, origin),
+    })),
+    { a: vec2(0, 0), b: 1, c: part.thickness },
+    { a: vec2(0, 0), b: -1, c: 0 },
+  ];
+  const isFree = (constraint: { b: number }) => Math.abs(constraint.b) < DEPTH_INDEPENDENT_EPSILON;
+  const upper = constraints.filter((constraint) => !isFree(constraint) && constraint.b > 0);
+  const lower = constraints.filter((constraint) => !isFree(constraint) && constraint.b < 0);
+  const halfPlanes: HalfPlane[] = [
+    ...constraints.filter(isFree).map((constraint) => ({ normal: constraint.a, offset: constraint.c })),
+    ...upper.flatMap((high) =>
+      lower.map((low) => ({
+        normal: vec2(high.a.x / high.b - low.a.x / low.b, high.a.y / high.b - low.a.y / low.b),
+        offset: high.c / high.b - low.c / low.b,
+      })),
+    ),
+  ];
+  const bounds = boundsOf(part.outline);
+  const center = vec2((bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2);
+  const halfSize = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY) + REGION_MARGIN_MM;
+  return clipByHalfPlanes(squareAround(center, halfSize), halfPlanes);
+}
+
 /**
  * Tar bort områdena från delen. Blir delen flera bitar behålls den som
  * `score` ger högst värde, t.ex. den som når längst bort från ett annat
