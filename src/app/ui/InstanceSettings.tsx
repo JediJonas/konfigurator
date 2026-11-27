@@ -11,7 +11,8 @@ import type { KnownRanges } from '../rules/useRuleRanges';
 import { useRuleRanges } from '../rules/useRuleRanges';
 import { useDesignStore } from '../state/designStore';
 import { AddToInstance } from './AddToInstance';
-import { NumberInput, ParamForm } from './ParamForm';
+import { NumberInput } from './NumberInput';
+import { ParamForm } from './ParamForm';
 import { uiStrings } from './strings.sv';
 
 interface InstanceSettingsProps {
