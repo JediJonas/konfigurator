@@ -21,6 +21,8 @@ export interface SocketRef {
   socketId: string;
   /** Fältgruppen som fälls ut när väggen väljs i 3D-vyn, t.ex. måtten. */
   groupKey?: string;
+  /** Ökar vid varje val, så att sektionen öppnas igen när man trycker på samma vägg en gång till. */
+  count?: number;
 }
 
 interface DesignState {
@@ -51,6 +53,8 @@ interface DesignState {
   moveAlongSocket: (instanceId: string, u: number) => void;
   /** Byter hela designen, t.ex. mot den som sparades senast. */
   replaceDesign: (design: Design) => void;
+  /** Börjar om med domänens mall. Autosparet sparar mallen över det som var sparat. */
+  resetDesign: () => void;
 }
 
 function createStartDesign(): Design {
@@ -65,7 +69,11 @@ export const useDesignStore = create<DesignState>((set) => ({
   setParam: (instanceId, key, value) => set((state) => ({ design: setParamWithinRules(state.design, activeDomain, { instanceId, key, value }) })),
   setThickness: (thickness) => set((state) => ({ design: { ...state.design, material: { ...state.design.material, thickness } } })),
   setPaper: (paper) => set({ paper }),
-  selectSocket: (selectedSocket) => set({ selectedSocket, focusedInstance: undefined }),
+  selectSocket: (socket) =>
+    set((state) => ({
+      selectedSocket: socket ? { ...socket, count: (state.selectedSocket?.count ?? state.focusedInstance?.count ?? 0) + 1 } : undefined,
+      focusedInstance: undefined,
+    })),
   focusInstance: (instanceId, groupKey) =>
     set((state) => ({ selectedSocket: undefined, focusedInstance: { instanceId, groupKey, count: (state.focusedInstance?.count ?? 0) + 1 } })),
   setOpenInstanceId: (openInstanceId) => set({ openInstanceId }),
@@ -83,4 +91,5 @@ export const useDesignStore = create<DesignState>((set) => ({
     })),
   moveAlongSocket: (instanceId, u) => set((state) => ({ design: snapAttachmentOffset(state.design, activeDomain, instanceId, u) })),
   replaceDesign: (design) => set({ design, selectedSocket: undefined, focusedInstance: undefined }),
+  resetDesign: () => set({ design: createStartDesign(), selectedSocket: undefined, focusedInstance: undefined }),
 }));

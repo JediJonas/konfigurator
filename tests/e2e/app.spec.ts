@@ -139,6 +139,38 @@ test('fäller ut takets fält när man trycker på taket i 3D-vyn', async ({ pag
   await expect(page.getByLabel('Taktyp')).toBeVisible();
 });
 
+test('öppnar sektionen och dess mått när man trycker på väggen, även samma vägg igen', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
+  await page.getByRole('button', { name: 'Sektion S1' }).click();
+  await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'false');
+  await page.waitForTimeout(800);
+  await page.mouse.click(540, 660);
+  await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByLabel('Gavelbredd')).toBeVisible();
+});
+
+test('börjar om från början och glömmer det sparade huset', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
+  await page.getByRole('button', { name: 'Lägg till fönster' }).click();
+  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
+  await page.getByRole('button', { name: 'Inställningar', exact: true }).click();
+  await page.getByRole('button', { name: 'Börja om' }).click();
+  // Man får bekräfta först, och kan ångra sig.
+  await page.getByRole('button', { name: 'Avbryt' }).click();
+  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
+  await page.getByRole('button', { name: 'Börja om' }).click();
+  await page.getByRole('button', { name: 'Ja, börja om' }).click();
+  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toHaveCount(0);
+  await page.waitForTimeout(600);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Sektion S1' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toHaveCount(0);
+});
+
 test('ställer en sektion bredvid huset när den blir högre än väggen', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');

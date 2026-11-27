@@ -33,4 +33,8 @@ export const uiStrings = {
   outOfRange: (min?: number, max?: number) => `Välj ett värde mellan ${min ?? '–'} och ${max ?? '–'}.`,
   pdfFileName: 'ritning.pdf',
   projectName: 'Mitt hus',
+  startOver: 'Börja om',
+  startOverQuestion: 'Huset ersätts med ett nytt från början. Det går inte att ångra.',
+  confirmStartOver: 'Ja, börja om',
+  cancel: 'Avbryt',
 } as const;

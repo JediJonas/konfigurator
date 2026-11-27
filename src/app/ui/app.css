@@ -469,3 +469,18 @@ body {
   margin: 0;
   font-size: 0.9375rem;
 }
+
+.start-over {
+  justify-self: start;
+}
+
+.start-over-confirm {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.start-over-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
