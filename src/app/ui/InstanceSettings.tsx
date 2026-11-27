@@ -1,17 +1,16 @@
 import { useId, useMemo } from 'react';
-import type { ReactNode } from 'react';
 import type { ParamField } from '../../core/model/paramForm';
 import { describeParams } from '../../core/model/paramForm';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { RuleViolation } from '../../core/rules/rule';
 import type { OffsetRange } from '../../core/rules/placement';
 import { measureOffsetReach, SNAP_STEP_MM } from '../../core/rules/placement';
+import { fromShownOffset, toShownOffset, toShownOffsetRange } from './shownOffset';
 import { translate } from '../activeDomain';
 import { OFFSET_KEY } from '../rules/ruleRanges';
 import type { KnownRanges } from '../rules/useRuleRanges';
 import { useRuleRanges } from '../rules/useRuleRanges';
 import { useDesignStore } from '../state/designStore';
-import { AddToInstance } from './AddToInstance';
 import { NumberInput } from './NumberInput';
 import { ParamForm } from './ParamForm';
 import { uiStrings } from './strings.sv';
@@ -19,72 +18,86 @@ import { uiStrings } from './strings.sv';
 interface InstanceSettingsProps {
   entry: PlacedInstance;
   violations: RuleViolation[];
-  /** Objekt som sitter på ett annat objekt (inte direkt på roten) kan tas bort och flyttas längs väggen. */
-  isRemovable: boolean;
   /** Öppen visar läge och parametrar; stängd bara rubriken och det reglerna säger. */
   isOpen: boolean;
   onToggle: () => void;
-  /** Rubriknivå: 2 för sektioner, 3 för objekt som är samlade under en sektion. */
-  headingLevel?: 2 | 3;
-  /** Fältgruppen som ska fällas ut, t.ex. taket man tryckte på i 3D-vyn. */
-  revealedGroup?: { groupKey: string; revealKey: string };
-  /** Objekten som är samlade under det här, t.ex. sektionens fönster. De syns när objektet är utfällt. */
-  children?: ReactNode;
 }
 
-/** Ett objekts inställningar: läge i kopplingspunkten, parametrar och det reglerna säger om det. */
-export function InstanceSettings({ entry, violations, isRemovable, isOpen, onToggle, headingLevel = 2, revealedGroup, children }: InstanceSettingsProps) {
-  const { setParam, removeChild, moveAlongSocket } = useDesignStore();
-  const offsetId = useId();
+/**
+ * Inställningarna för ett objekt som sitter på en vägg, t.ex. ett fönster:
+ * läge längs väggen, parametrar och det reglerna säger om det.
+ */
+export function InstanceSettings({ entry, violations, isOpen, onToggle }: InstanceSettingsProps) {
+  const { setParam } = useDesignStore();
   const bodyId = useId();
-  const knownRanges = useRuleRanges(entry, isOpen, isRemovable);
-  const offsetRange = describeOffsetRange(entry, isRemovable, knownRanges[OFFSET_KEY]);
+  const knownRanges = useRuleRanges(entry, isOpen, true);
   const paramFields = useParamFieldsWithinRules(entry, knownRanges);
-  const { instance, objectType, socket, parentId } = entry;
-  const Heading = headingLevel === 2 ? 'h2' : 'h3';
-  // Samma storlek som gruppernas rubriker, t.ex. Tak, när objektet ligger under en sektion.
-  const iconSize = headingLevel === 2 ? 20 : 18;
+  const { instance } = entry;
   return (
     <section className="panel-section" data-instance-id={instance.id}>
-      <div className="instance-heading">
-        <Heading>
-          <button type="button" className="disclosure" aria-expanded={isOpen} aria-controls={bodyId} onClick={onToggle}>
-            <svg className="disclosure-icon" aria-hidden="true" viewBox="0 0 24 24" width={iconSize} height={iconSize}>
-              <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            {translate(objectType.labelKey)} <span className="instance-id">{instance.id}</span>
-          </button>
-        </Heading>
-        {isRemovable ? (
-          <button type="button" className="secondary-button" aria-label={uiStrings.remove(instance.id)} onClick={() => removeChild(instance.id)}>
-            {uiStrings.removeLabel}
-          </button>
-        ) : null}
-      </div>
+      <InstanceHeading entry={entry} headingLevel={3} isOpen={isOpen} onToggle={onToggle} bodyId={bodyId} />
       {isOpen ? (
-        <div id={bodyId}>
-          {isRemovable && socket && parentId ? (
-            <>
-              <p className="instance-place">{uiStrings.attachedTo(uiStrings.socketName(parentId, translate(socket.labelKey)))}</p>
-              <NumberInput
-                id={offsetId}
-                label={uiStrings.offsetAlongSocket}
-                field={offsetField(offsetRange)}
-                value={instance.attachment?.u ?? 0}
-                onChange={(u) => moveAlongSocket(instance.id, u)}
-              />
-              {/* Fältets min och max visar hur långt den kan flyttas; texten behövs bara när det inte går alls. */}
-              {knownRanges[OFFSET_KEY] && offsetRange.min === offsetRange.max ? <p className="field-hint">{uiStrings.noRoomToMove}</p> : null}
-            </>
-          ) : null}
-          <ParamForm fields={paramFields} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} revealedGroup={revealedGroup} />
-          {children}
-          <AddToInstance entry={entry} />
+        <div id={bodyId} className="instance-body">
+          <OffsetInput entry={entry} knownRanges={knownRanges} />
+          <ParamForm fields={paramFields} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} />
+          <RemoveButton instanceId={instance.id} />
         </div>
       ) : null}
-      {/* Felen syns även när sektionen är stängd, så att inget som stoppar ritningen göms. */}
+      {/* Felen syns även när objektet är stängt, så att inget som stoppar ritningen göms. */}
       <ViolationList violations={violations} />
     </section>
+  );
+}
+
+interface InstanceHeadingProps {
+  entry: PlacedInstance;
+  /** 2 för sektioner, 3 för objekt som är samlade under en sektion. */
+  headingLevel: 2 | 3;
+  isOpen: boolean;
+  onToggle: () => void;
+  bodyId: string;
+}
+
+/** Objektets rubrik, t.ex. "Fönster F1", som fäller ut och fäller ihop det. */
+export function InstanceHeading({ entry, headingLevel, isOpen, onToggle, bodyId }: InstanceHeadingProps) {
+  const Heading = headingLevel === 2 ? 'h2' : 'h3';
+  const iconSize = headingLevel === 2 ? 20 : 18;
+  return (
+    <Heading>
+      <button type="button" className="disclosure" aria-expanded={isOpen} aria-controls={bodyId} onClick={onToggle}>
+        <svg className="disclosure-icon" aria-hidden="true" viewBox="0 0 24 24" width={iconSize} height={iconSize}>
+          <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {translate(entry.objectType.labelKey)} <span className="instance-id">{entry.instance.id}</span>
+      </button>
+    </Heading>
+  );
+}
+
+/** Läge längs väggen för ett objekt som sitter på en vägg, med gränser så långt det kan flyttas. */
+export function OffsetInput({ entry, knownRanges }: { entry: PlacedInstance; knownRanges: KnownRanges }) {
+  const { moveAlongSocket } = useDesignStore();
+  const offsetId = useId();
+  const offsetRange = describeOffsetRange(entry, true, knownRanges[OFFSET_KEY]);
+  const { instance, socket, parentId } = entry;
+  if (!socket || !parentId) return null;
+  return (
+    <>
+      <p className="instance-place">{uiStrings.attachedTo(uiStrings.socketName(parentId, translate(socket.labelKey)))}</p>
+      <NumberInput id={offsetId} label={uiStrings.offsetAlongSocket} field={offsetField(toShownOffsetRange(offsetRange))} value={toShownOffset(instance.attachment?.u ?? 0)} onChange={(shown) => moveAlongSocket(instance.id, fromShownOffset(shown))} />
+      {/* Fältets min och max visar hur långt det kan flyttas; texten behövs bara när det inte går alls. */}
+      {knownRanges[OFFSET_KEY] && offsetRange.min === offsetRange.max ? <p className="field-hint">{uiStrings.noRoomToMove}</p> : null}
+    </>
+  );
+}
+
+/** "Ta bort F1" sist i det utfällda objektet, så att listan inte har en knapp på varje rad (ägarens val). */
+export function RemoveButton({ instanceId }: { instanceId: string }) {
+  const { removeChild } = useDesignStore();
+  return (
+    <button type="button" className="secondary-button remove-button" onClick={() => removeChild(instanceId)}>
+      {uiStrings.remove(instanceId)}
+    </button>
   );
 }
 
@@ -123,7 +136,7 @@ export function ViolationList({ violations }: { violations: RuleViolation[] }) {
  * tillbyggnaden på den. Pilarna i fältet stannar då vid gränsen. Gränserna
  * räknas vid sidan av (`useRuleRanges`); tills de finns gäller schemats.
  */
-function useParamFieldsWithinRules(entry: PlacedInstance, knownRanges: KnownRanges): ParamField[] {
+export function useParamFieldsWithinRules(entry: PlacedInstance, knownRanges: KnownRanges): ParamField[] {
   const { objectType } = entry;
   const fields = useMemo(() => describeParams(objectType.params), [objectType.params]);
   return useMemo(

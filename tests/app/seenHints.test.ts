@@ -25,7 +25,6 @@ describe('hjälptexter som döljs efter första gången', () => {
     expect(hasSeenHint(storage, 'view')).toBe(false);
     rememberSeenHint(storage, 'view');
     expect(hasSeenHint(storage, 'view')).toBe(true);
-    expect(hasSeenHint(storage, 'addFromView')).toBe(false);
   });
 
   it('visar texten när lagringen saknas eller är blockerad', () => {

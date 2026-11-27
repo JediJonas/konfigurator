@@ -163,11 +163,11 @@ body {
 
 /* Fönster och dörrar under sektionen de sitter på, med rubriker som sektionens grupper, t.ex. Tak (ägarens val). */
 .nested-instances {
-  margin-top: 0.75rem;
+  display: grid;
 }
 
 .nested-instances .panel-section + .panel-section {
-  margin-top: 0.75rem;
+  margin-top: 0.25rem;
 }
 
 .nested-instances .panel-section h3 {
@@ -383,9 +383,6 @@ body {
   color: var(--color-muted);
 }
 
-.instance-place {
-  margin-bottom: 0.5rem;
-}
 
 .secondary-button {
   min-height: var(--tap-size);
@@ -406,11 +403,6 @@ body {
   cursor: not-allowed;
 }
 
-.add-object {
-  display: grid;
-  gap: 0.25rem;
-  margin-top: 0.75rem;
-}
 
 .violations {
   margin: 0.75rem 0 0;
@@ -457,15 +449,38 @@ body {
   }
 }
 
-.add-to-instance {
-  margin-top: 1rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--color-border);
+.instance-body {
+  display: grid;
+  gap: 0.75rem;
 }
 
-.add-to-instance h3 {
-  margin: 0 0 0.5rem;
-  font-size: 0.9375rem;
+/* "Bygg till" under väggens fönster och dörrar: rubrik och en rad med knappar (ägarens val). */
+.add-to-wall {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.add-to-wall h4 {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.add-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  gap: 0.5rem;
+}
+
+.add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
+}
+
+.remove-button {
+  justify-self: start;
 }
 
 .field-group h3 {

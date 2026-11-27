@@ -18,7 +18,7 @@ const LEVEL_TOLERANCE_MM = 0.01;
 export type WallId = 'gable-front' | 'gable-back' | 'side-right' | 'side-left';
 
 /** En vägg sett uppifrån: ytterkanten med utsidan åt u × upp. */
-interface WallSide extends UprightLine {
+export interface WallSide extends UprightLine {
   id: WallId;
   labelKey: string;
   pair: 'gable' | 'side';

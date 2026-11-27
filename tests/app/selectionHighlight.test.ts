@@ -15,8 +15,7 @@ describe('markeringen i 3D-vyn', () => {
     const roofIds = parts.filter((part) => part.paramGroupKey === 'group.roof').map((part) => part.id);
     expect(roofIds).toEqual(expect.arrayContaining(['S1/roof-left', 'S1/roof-right', 'S2/roof-left', 'S2/roof-right']));
     expect(roofIds.some((id) => id.includes('side'))).toBe(false);
-    const wallIds = parts.filter((part) => part.paramGroupKey === 'group.dimensions').map((part) => part.id);
-    expect(wallIds).toEqual(expect.arrayContaining(['S1/side-left', 'S1/gable-front', 'S2/side-right']));
+    expect(parts.filter((part) => part.id.includes('side')).every((part) => part.paramGroupKey === undefined)).toBe(true);
   });
 
   it('markerar taket på sektionen man tryckte på så länge den är öppen', () => {
@@ -37,9 +36,15 @@ describe('markeringen i 3D-vyn', () => {
     expect(highlight.partIds.size).toBe(0);
   });
 
-  it('markerar väggen man tryckte på före allt annat', () => {
-    const highlight = describeHighlight(placed, parts, { selectedSocket: { instanceId: 'S1', socketId: 'side-left' }, openInstanceId: 'F1' });
+  it('markerar väggen som är vald', () => {
+    const highlight = describeHighlight(placed, parts, { selectedSocket: { instanceId: 'S1', socketId: 'side-left' }, openInstanceId: 'S1' });
     expect([...highlight.partIds]).toEqual(['S1/side-left']);
     expect(highlight.pickInstanceId).toBeUndefined();
+  });
+
+  it('markerar fönstret som är öppet före väggen det sitter på', () => {
+    const highlight = describeHighlight(placed, parts, { selectedSocket: { instanceId: 'S1', socketId: 'side-left' }, openInstanceId: 'F1' });
+    expect(highlight.pickInstanceId).toBe('F1');
+    expect([...highlight.partIds].sort()).toEqual(['F1/shutter-left', 'F1/shutter-right']);
   });
 });

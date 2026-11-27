@@ -9,8 +9,10 @@ interface ParamFormProps {
   fields: ParamField[];
   values: Record<string, unknown>;
   onChange: (key: string, value: unknown) => void;
-  /** Gruppen som ska fällas ut och nyckeln för trycket som bad om det. */
-  revealedGroup?: { groupKey: string; revealKey: string };
+  /** Gruppen som är utfälld när panelen styr det, t.ex. taket man tryckte på i 3D-vyn. */
+  openGroupKey?: string;
+  /** Anges den styr panelen vilken grupp som är utfälld; annars fäller varje grupp ut sig själv. */
+  onToggleGroup?: (groupKey: string) => void;
 }
 
 /**
@@ -19,7 +21,7 @@ interface ParamFormProps {
  * är hopfälld från början, eftersom de sällan ändras (ägarens val). Fält som
  * bara gäller vissa val, t.ex. kantens höjd på ett platt tak, visas bara då.
  */
-export function ParamForm({ fields, values, onChange, revealedGroup }: ParamFormProps) {
+export function ParamForm({ fields, values, onChange, openGroupKey, onToggleGroup }: ParamFormProps) {
   const visible = fields.filter((field) => isFieldVisible(field, values, fields));
   return (
     <div className="param-form">
@@ -29,7 +31,8 @@ export function ParamForm({ fields, values, onChange, revealedGroup }: ParamForm
             key={group.groupKey}
             label={translate(group.groupKey)}
             groupKey={group.groupKey}
-            revealKey={revealedGroup?.groupKey === group.groupKey ? revealedGroup.revealKey : undefined}
+            isOpen={onToggleGroup ? openGroupKey === group.groupKey : undefined}
+            onToggle={onToggleGroup ? () => onToggleGroup(group.groupKey ?? '') : undefined}
           >
             {group.fields.map((field) => renderInput(field, values, onChange))}
           </FieldGroup>

@@ -36,6 +36,8 @@ export interface Socket {
   topBounds?: Vec2[];
   /** Hela id:t på delen som påverkas av t.ex. hål. Saknas när punkten inte hör till någon del. */
   ownerPartId?: string;
+  /** Fälten i objektets parametrar som ändrar punktens del, t.ex. väggens längd och höjd. Panelen visar dem vid delen. */
+  paramKeys?: string[];
 }
 
 /**

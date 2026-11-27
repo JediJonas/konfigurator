@@ -68,12 +68,10 @@ export function App() {
               const leafId = partId ? findLeafInstanceOf(evaluation.placed, evaluation.parts, partId) : undefined;
               if (leafId) return focusInstance(leafId);
               const part = evaluation.parts.find((candidate) => candidate.id === partId);
-              const found = findSocketOwnedBy(evaluation.placed, partId);
-              // Taket öppnar takets fält på sektionen det hör till; en vägg väljs och fäller ut sektionens mått.
-              if (!found && part?.paramGroupKey) return focusInstance(part.sourceInstanceId, part.paramGroupKey);
-              const socket = found && part?.paramGroupKey ? { ...found, groupKey: part.paramGroupKey } : found;
+              const socket = findSocketOwnedBy(evaluation.placed, partId);
+              // Taket öppnar takets fält på sektionen det hör till; en vägg väljs och öppnas i panelen.
+              if (!socket && part?.paramGroupKey) return focusInstance(part.sourceInstanceId, part.paramGroupKey);
               selectSocket(socket);
-              if (socket) markHintSeen('addFromView');
             }}
             pickAreas={result.error ? [] : pickAreas}
             onSelectInstance={focusInstance}
