@@ -18,6 +18,7 @@ import type { CaptureOverview } from './OverviewCapture';
 import { OverviewCapture, VIEWER_LIGHT_NAME } from './OverviewCapture';
 import { measurePartsExtent, plateRadius, SHADOW_FLOOR_RADIUS_MM, shadowCameraBox } from './viewerFloor';
 import type { ShadowCameraBox } from './viewerFloor';
+import { measurePlateCenteringOffset, shiftParts, shiftPickAreas } from './plateCentering';
 
 interface DesignViewProps {
   parts: Part[];
@@ -52,7 +53,11 @@ const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 /** Närmaste avstånd till vyns mittpunkt. Husets egna väggar och tak stoppar zoomen långt innan dess. */
 const MIN_ORBIT_DISTANCE_MM = 20;
 
-export function DesignView({ parts, color, captureRef, fitRef, highlight, onSelectPart, pickAreas, onSelectInstance, onUserMoveView }: DesignViewProps) {
+export function DesignView({ parts: designParts, color, captureRef, fitRef, highlight, onSelectPart, pickAreas: designPickAreas, onSelectInstance, onUserMoveView }: DesignViewProps) {
+  // Huset med alla tillbyggnader och sektioner står alltid mitt på fatet (ägarens önskan).
+  const offset = useMemo(() => measurePlateCenteringOffset(designParts), [designParts]);
+  const parts = useMemo(() => shiftParts(designParts, offset), [designParts, offset]);
+  const pickAreas = useMemo(() => shiftPickAreas(designPickAreas, offset), [designPickAreas, offset]);
   const partsRef = useRef<Group>(null);
   // Sant mellan att man tar tag i vyn och släpper. Ett tryck utan rörelse ändrar inte kameran och räknas inte.
   const isUserHoldingViewRef = useRef(false);

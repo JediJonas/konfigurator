@@ -80,6 +80,10 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 
 - Panelen har bara sektioner och Inställningar på toppnivån. Sektionens mått ligger i gruppen Mått, hopfälld från början som Tak, och fälls ut när man trycker på en vägg (ägarens val). Fönster och dörrar samlas under sektionen de sitter på och syns när den är utfälld (`app/ui/panelEntries.ts`); deras fel visas på sektionen när den är stängd. Ett tryck på ett fönster, en dörr, en lucka eller ett dörrblad i 3D-vyn öppnar objektet; hålen har osynliga ytor att trycka på (`app/three/pickAreas.ts`). Fönstret eller dörren som är öppen i panelen visas markerad i 3D, med hålet fyllt i markeringens färg. Ett tryck på taket öppnar sektionen och fäller ut gruppen Tak och markerar taket: delar bär `paramGroupKey`, fältgruppen som styr dem (`app/ui/selectionHighlight.ts`).
 
+## 3D-vyn
+
+- Huset med alla tillbyggnader, sektioner och takutsprång står alltid mitt på fatet (ägarens önskan). 3D-vyn flyttar delarna så att mitten av rutan runt dem sett uppifrån hamnar i fatets mitt (`app/three/plateCentering.ts`). Ritningen och regelkontrollen räknar som förut; bara vyn flyttar.
+
 ## Lagring
 
 - Det öppna huset sparas av sig självt (`app/storage/`), 0,4 s efter senaste ändringen och direkt när sidan göms, via `ProjectStore` i webbläsarens lokala lagring. Vid start öppnas det senast sparade; går det inte att migrera (`core/model/migrateDesign.ts`) eller räkna börjar appen med mallen. "Börja om" under Inställningar ersätter huset med mallen efter en bekräftelse i panelen, och autosparet skriver över det sparade (ägarens önskan).
