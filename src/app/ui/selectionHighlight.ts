@@ -2,7 +2,7 @@ import type { Part } from '../../core/model/part';
 import { isPieceOf } from '../../core/model/part';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { FocusedInstance, SocketRef } from '../state/designStore';
-import { isLeafInstance } from './socketSelection';
+import { isShownUnderParent } from './socketSelection';
 
 /** Det som visas markerat i 3D-vyn. */
 export interface SelectionHighlight {
@@ -25,9 +25,9 @@ interface SelectionState {
  */
 export function describeHighlight(placed: readonly PlacedInstance[], parts: readonly Part[], selection: SelectionState): SelectionHighlight {
   const { selectedSocket, focusedInstance, openInstanceId, isOpenInstanceHighlighted = true } = selection;
-  // Fönstret eller dörren som är öppen går före väggen den sitter på, som står kvar vald.
+  // Fönstret, dörren eller kupan som är öppen går före väggen den sitter på, som står kvar vald.
   const open = placed.find((entry) => entry.instance.id === openInstanceId);
-  if (open && isLeafInstance(open) && isOpenInstanceHighlighted) {
+  if (open && isShownUnderParent(open) && isOpenInstanceHighlighted) {
     return { partIds: idsOf(parts.filter((part) => part.sourceInstanceId === open.instance.id)), pickInstanceId: open.instance.id };
   }
   if (selectedSocket) {

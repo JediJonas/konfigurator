@@ -5,10 +5,10 @@ import type { Part } from '../../../../core/model/part';
 import { identityMatrix } from '../../../../core/geometry/matrix';
 import type { Mm } from '../../../../core/geometry/vector';
 import { BUILD_STEP } from '../../buildOrder';
-import { WALL_SURFACE } from '../../socketKinds';
+import { DORMER_WALL, WALL_SURFACE } from '../../socketKinds';
 import type { OpeningShape, OpeningSize } from './openingShape';
 import { crossPanes, WINDOW_SHAPES, openingOutline, shutterOutlines, toWallPlane, wallRectangle } from './openingShape';
-import { eaveHeightOf, OPENING_MARGIN_MM, roundToStep, targetWallId, wallOpeningMountMatrix } from './wallOpening';
+import { eaveHeightOf, openingMarginOf, roundToStep, targetWallId, wallOpeningMountMatrix } from './wallOpening';
 
 export const WINDOW_TYPE_ID = 'gb.window';
 
@@ -62,15 +62,15 @@ export const windowType: ObjectType<WindowParams> = {
   labelKey: 'object.window',
   params: windowParams,
   instanceIdPrefix: 'F',
-  attachesTo: [WALL_SURFACE],
+  attachesTo: [WALL_SURFACE, DORMER_WALL],
   sockets: () => [],
   parts: (instance, params, context) => (hasShutters(params) ? buildShutters(instance.id, params, context.thickness) : []),
   modifiers: (_instance, params, context) => buildWindowOpening(params, targetWallId(context)),
   mountMatrix: () => wallOpeningMountMatrix(),
   socketOutline: (params) => wallRectangle(-params.width / 2, params.sillHeight, params.width / 2, params.sillHeight + windowSizeOf(params).height),
-  surfaceAreas: (params, context) => describeWindowSurface(params, targetWallId(context)),
+  surfaceAreas: (params, context) => describeWindowSurface(params, targetWallId(context), openingMarginOf(context.socket)),
   prefersSizeOverCenter: true,
-  paramCandidates: (socket, _context, inherited) => listCandidatesAtHeights(listWindowCandidates(eaveHeightOf(socket), inherited), wallTopOf(socket)),
+  paramCandidates: (socket, _context, inherited) => listCandidatesAtHeights(listWindowCandidates(eaveHeightOf(socket), inherited), wallTopOf(socket), openingMarginOf(socket)),
 };
 
 /**
@@ -99,16 +99,16 @@ function buildWindowOpening(params: WindowParams, targetPartId: string | undefin
 }
 
 /** Kanten runt fönstret ska vara hel vägg, och luckorna ska ligga mot väggen. */
-function describeWindowSurface(params: WindowParams, targetPartId: string | undefined): SurfaceArea[] {
+function describeWindowSurface(params: WindowParams, targetPartId: string | undefined, margin: Mm): SurfaceArea[] {
   if (!targetPartId) return [];
   const half = params.width / 2;
   const coveredHalf = hasShutters(params) ? params.width : half;
-  const solidHalf = Math.max(half + OPENING_MARGIN_MM, coveredHalf);
+  const solidHalf = Math.max(half + margin, coveredHalf);
   const top = params.sillHeight + windowSizeOf(params).height;
   return [
     {
       targetPartId,
-      solidRegion: wallRectangle(-solidHalf, params.sillHeight - OPENING_MARGIN_MM, solidHalf, top + OPENING_MARGIN_MM),
+      solidRegion: wallRectangle(-solidHalf, params.sillHeight - margin, solidHalf, top + margin),
       coveredRegion: wallRectangle(-coveredHalf, params.sillHeight, coveredHalf, top),
     },
   ];
@@ -162,9 +162,9 @@ function fitToShape(candidate: Record<string, unknown>, eaveHeight: Mm): Record<
  * igen på sin egen höjd, så att ett fönster som inte ryms någonstans visas
  * där, i mitten av väggen, med sina regelbrott.
  */
-function listCandidatesAtHeights(candidates: Record<string, unknown>[], wallTop: Mm): Record<string, unknown>[] {
+function listCandidatesAtHeights(candidates: Record<string, unknown>[], wallTop: Mm, margin: Mm): Record<string, unknown>[] {
   const smallest = candidates.at(-1);
-  const atHeights = candidates.flatMap((candidate) => listSillHeights(candidate, wallTop));
+  const atHeights = candidates.flatMap((candidate) => listSillHeights(candidate, wallTop, margin));
   return smallest ? [...atHeights, smallest] : atHeights;
 }
 
@@ -173,9 +173,9 @@ function listCandidatesAtHeights(candidates: Record<string, unknown>[], wallTop:
  * lägre, närmast först. Ryms fönstret inte bredvid en dörr eller ett annat
  * fönster kan det då hamna ovanför eller under dem i stället för att bli mindre.
  */
-function listSillHeights(candidate: Record<string, unknown>, wallTop: Mm): Record<string, unknown>[] {
+function listSillHeights(candidate: Record<string, unknown>, wallTop: Mm, margin: Mm): Record<string, unknown>[] {
   const { shape, width, height, sillHeight } = candidate as Pick<WindowParams, 'shape' | 'width' | 'height' | 'sillHeight'>;
-  const highestSill = wallTop - heightFor(shape, width, height) - OPENING_MARGIN_MM;
+  const highestSill = wallTop - heightFor(shape, width, height) - margin;
   const others: Mm[] = [];
   for (let sill = MIN_SILL_HEIGHT_MM; sill <= highestSill; sill += SILL_SEARCH_STEP_MM) if (sill !== sillHeight) others.push(sill);
   others.sort((a, b) => Math.abs(a - sillHeight) - Math.abs(b - sillHeight));

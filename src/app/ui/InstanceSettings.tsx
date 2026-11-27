@@ -11,48 +11,76 @@ import { OFFSET_KEY } from '../rules/ruleRanges';
 import type { KnownRanges } from '../rules/useRuleRanges';
 import { useRuleRanges } from '../rules/useRuleRanges';
 import { useDesignStore } from '../state/designStore';
+import { AddToWall } from './AddToWall';
 import { NumberInput } from './NumberInput';
 import { ParamForm } from './ParamForm';
 import { uiStrings } from './strings.sv';
 
 interface InstanceSettingsProps {
   entry: PlacedInstance;
+  /** Felen för objektet och för det som sitter på det, t.ex. fönstret i en takkupa. */
   violations: RuleViolation[];
   /** Öppen visar läge och parametrar; stängd bara rubriken och det reglerna säger. */
   isOpen: boolean;
   onToggle: () => void;
+  /** 3 under en vägg eller taket, 4 för t.ex. ett fönster i en takkupa. */
+  headingLevel?: 3 | 4;
+  /** Det som sitter på objektet, t.ex. fönstret i en takkupa, med om det är utfällt. */
+  nested?: PlacedInstance[];
+  isNestedOpen?: (instanceId: string) => boolean;
+  onToggleNested?: (instanceId: string) => void;
 }
 
 /**
- * Inställningarna för ett objekt som sitter på en vägg, t.ex. ett fönster:
- * läge längs väggen, parametrar och det reglerna säger om det.
+ * Inställningarna för ett objekt som sitter på en vägg eller på taket, t.ex.
+ * ett fönster eller en takkupa: läge, parametrar, det som sitter på objektet
+ * med knappar för att lägga till mer, och det reglerna säger om det.
  */
-export function InstanceSettings({ entry, violations, isOpen, onToggle }: InstanceSettingsProps) {
+export function InstanceSettings(props: InstanceSettingsProps) {
+  const { entry, violations, isOpen, onToggle, headingLevel = 3, nested = [] } = props;
   const { setParam } = useDesignStore();
   const bodyId = useId();
   const knownRanges = useRuleRanges(entry, isOpen, true);
   const paramFields = useParamFieldsWithinRules(entry, knownRanges);
   const { instance } = entry;
+  const violationsOf = (instanceId: string) => violations.filter((violation) => violation.instanceId === instanceId);
   return (
     <section className="panel-section" data-instance-id={instance.id}>
-      <InstanceHeading entry={entry} headingLevel={3} isOpen={isOpen} onToggle={onToggle} bodyId={bodyId} />
+      <InstanceHeading entry={entry} headingLevel={headingLevel} isOpen={isOpen} onToggle={onToggle} bodyId={bodyId} />
       {isOpen ? (
         <div id={bodyId} className="instance-body">
           <OffsetInput entry={entry} knownRanges={knownRanges} />
           <ParamForm fields={paramFields} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} />
+          {nested.length > 0 ? (
+            <div className="nested-instances">
+              {nested.map((child) => (
+                <InstanceSettings
+                  key={child.instance.id}
+                  entry={child}
+                  headingLevel={4}
+                  isOpen={props.isNestedOpen?.(child.instance.id) ?? false}
+                  onToggle={() => props.onToggleNested?.(child.instance.id)}
+                  violations={violationsOf(child.instance.id)}
+                />
+              ))}
+            </div>
+          ) : null}
+          {entry.sockets.map((socket) => (
+            <AddToWall key={socket.id} entry={entry} wall={socket} />
+          ))}
           <RemoveButton instanceId={instance.id} />
         </div>
       ) : null}
       {/* Felen syns även när objektet är stängt, så att inget som stoppar ritningen göms. */}
-      <ViolationList violations={violations} />
+      <ViolationList violations={isOpen ? violationsOf(instance.id) : violations} />
     </section>
   );
 }
 
 interface InstanceHeadingProps {
   entry: PlacedInstance;
-  /** 2 för sektioner, 3 för objekt som är samlade under en sektion. */
-  headingLevel: 2 | 3;
+  /** 2 för sektioner, 3 för objekt som är samlade under en sektion och 4 för det som sitter på dem. */
+  headingLevel: 2 | 3 | 4;
   isOpen: boolean;
   onToggle: () => void;
   bodyId: string;
@@ -60,7 +88,7 @@ interface InstanceHeadingProps {
 
 /** Objektets rubrik, t.ex. "Fönster F1", som fäller ut och fäller ihop det. */
 export function InstanceHeading({ entry, headingLevel, isOpen, onToggle, bodyId }: InstanceHeadingProps) {
-  const Heading = headingLevel === 2 ? 'h2' : 'h3';
+  const Heading = (['h2', 'h3', 'h4'] as const)[headingLevel - 2] ?? 'h3';
   const iconSize = headingLevel === 2 ? 20 : 18;
   return (
     <Heading>

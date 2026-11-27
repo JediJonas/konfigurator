@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { placeInstances } from '../../src/core/pipeline/placeInstances';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
-import { groupPanelEntries } from '../../src/app/ui/panelEntries';
+import { findOutermostNested, groupPanelEntries, listOpenChain } from '../../src/app/ui/panelEntries';
 import { groupKeyOfPlace, listGroupSockets, listPanelWalls } from '../../src/app/ui/panelWalls';
 import { findSocketOwnedBy } from '../../src/app/ui/socketSelection';
 import { designWithExtensions } from '../domains/extensionFixtures';
@@ -35,5 +35,24 @@ describe('takkupor under Tak i panelen', () => {
   it('väljer ingen vägg när man trycker på taket, så att takets grupp öppnas', () => {
     expect(findSocketOwnedBy(placed, 'S1/roof-left')).toBeUndefined();
     expect(findSocketOwnedBy(placed, 'S1/side-right')).toEqual({ instanceId: 'S1', socketId: 'side-right' });
+  });
+});
+
+describe('fönster i en takkupa i panelen', () => {
+  const dormerWindow = { ...windowOn('gable-front'), id: 'F2', params: { width: 15, height: 15, sillHeight: 5 } };
+  const design = designWithExtensions({ ...dormerOn('roof-left'), children: [dormerWindow] });
+  const placed = placeInstances(design, gingerbreadDomain);
+  const byId = (id: string) => placed.find((entry) => entry.instance.id === id) ?? placed[0]!;
+
+  it('samlar kupan och fönstret i den under sektionen', () => {
+    const entries = groupPanelEntries(placed);
+    expect(entries.map((entry) => entry.entry.instance.id)).toEqual(['S1']);
+    expect(entries[0]?.nested.map((child) => child.instance.id)).toEqual(['K1', 'F2']);
+  });
+
+  it('fäller ut taket och kupan runt ett öppet fönster i kupan', () => {
+    expect(findOutermostNested(placed, byId('F2')).instance.id).toBe('K1');
+    expect([...listOpenChain(placed, 'F2')].sort()).toEqual(['F2', 'K1']);
+    expect([...listOpenChain(placed, 'S1')]).toEqual(['S1']);
   });
 });

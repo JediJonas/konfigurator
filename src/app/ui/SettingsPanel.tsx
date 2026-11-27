@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { groupPanelEntries } from './panelEntries';
+import { findOutermostNested, groupPanelEntries, listOpenChain } from './panelEntries';
 import { useOpenInstance } from './useOpenInstance';
 import type { RefObject } from 'react';
 import { buildDrawingPages } from '../../core/export/drawingDocument';
@@ -15,7 +15,7 @@ import { FieldGroup } from './FieldGroup';
 import type { OpenPart } from './SectionSettings';
 import { SectionSettings } from './SectionSettings';
 import { findOwnerPartId, groupKeyOfPlace } from './panelWalls';
-import { isLeafInstance } from './socketSelection';
+import { isShownUnderParent } from './socketSelection';
 import { scrollHeadingToTop } from './scrollToHeading';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { FocusedInstance, SocketRef } from '../state/designStore';
@@ -55,7 +55,9 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   const openInstanceId = openInstance.openId;
   // 3D-vyn markerar fönstret eller dörren som är öppen i panelen.
   useEffect(() => setOpenInstanceId(openInstanceId), [openInstanceId, setOpenInstanceId]);
-  const openLeaf = instanceEntries.find((entry) => entry.instance.id === openInstanceId && isLeafInstance(entry));
+  const openLeaf = instanceEntries.find((entry) => entry.instance.id === openInstanceId && isShownUnderParent(entry));
+  // Kupan runt ett öppet fönster är också utfälld.
+  const openChain = listOpenChain(evaluation.placed, openInstanceId);
   const [storedPart, setStoredPart] = useState<{ instanceId?: string; part: OpenPart }>({ part: {} });
   const contentRef = useRef<HTMLDivElement>(null);
   // Trycker man på en vägg, ett tak eller ett fönster fälls det ut och arket fälls upp i mobilen.
@@ -67,8 +69,8 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
     const focusedPart = describeFocusedPart(evaluation.placed, selectedSocket, focusedInstance);
     if (focusedPart) setStoredPart(focusedPart);
   }
-  // Ett öppet fönster eller en öppen dörr håller sin vägg utfälld, och en öppen takkupa taket.
-  const openPart = openLeaf?.parentId ? { instanceId: openLeaf.parentId, part: placeOf(openLeaf) } : storedPart;
+  // Ett öppet fönster eller en öppen dörr håller sin vägg utfälld, och en öppen takkupa, eller fönstret i den, taket.
+  const openPart = openLeaf ? describeNestedPart(evaluation.placed, openLeaf) : storedPart;
   const focusedInstanceId = focus?.instanceId;
   const focusedGroupKey = selectedSocket ? findOwnerPartId(evaluation.placed.find((entry) => entry.instance.id === selectedSocket.instanceId), selectedSocket.socketId) : focusedInstance?.groupKey;
   useEffect(() => {
@@ -102,7 +104,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   function toggleNested(child: PlacedInstance) {
     if (!openInstance.isOpen(child.instance.id)) return openInstance.open(child.instance.id);
     if (child.parentId) openInstance.open(child.parentId);
-    setStoredPart({ instanceId: child.parentId, part: placeOf(child) });
+    setStoredPart(describeNestedPart(evaluation.placed, child));
   }
 
   async function handleDownload() {
@@ -144,7 +146,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
               violations={evaluation.violations.filter((violation) => shownIds.has(violation.instanceId))}
               openPart={openPart.instanceId === entry.instance.id ? openPart.part : {}}
               onTogglePart={(part) => togglePart(entry, part)}
-              isNestedOpen={(instanceId) => openInstance.isOpen(instanceId)}
+              isNestedOpen={(instanceId) => openChain.has(instanceId)}
               onToggleNested={(instanceId) => {
                 const child = nested.find((candidate) => candidate.instance.id === instanceId);
                 if (child) toggleNested(child);
@@ -207,7 +209,13 @@ function describeFocusedPart(placed: readonly PlacedInstance[], selectedSocket: 
   if (!focusedInstance) return undefined;
   if (focusedInstance.groupKey) return { instanceId: focusedInstance.instanceId, part: { groupKey: focusedInstance.groupKey } };
   const leaf = placed.find((candidate) => candidate.instance.id === focusedInstance.instanceId);
-  return leaf && isLeafInstance(leaf) ? { instanceId: leaf.parentId, part: placeOf(leaf) } : undefined;
+  return leaf && isShownUnderParent(leaf) ? describeNestedPart(placed, leaf) : undefined;
+}
+
+/** Sektionen och det som fälls ut i den runt ett objekt under den, även runt fönstret i en takkupa. */
+function describeNestedPart(placed: readonly PlacedInstance[], entry: PlacedInstance): { instanceId?: string; part: OpenPart } {
+  const outermost = findOutermostNested(placed, entry);
+  return { instanceId: outermost.parentId, part: placeOf(outermost) };
 }
 
 /** Det som fälls ut runt ett objekt utan egna kopplingspunkter: väggen det sitter på, eller gruppen, t.ex. taket för en takkupa. */

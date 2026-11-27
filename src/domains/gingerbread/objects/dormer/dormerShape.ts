@@ -13,7 +13,7 @@ import type { DormerParams } from './dormerParams';
  * Väggarna börjar så här långt under takets ovansida och kapas sedan mot den
  * (`interactions/dormers.ts`), så att de går ner till taket hela vägen.
  */
-const WALL_DROP_MM = 1;
+export const WALL_DROP_MM = 1;
 /** Sidoväggarna räknas så här mycket längre in än där de möter taket, innan de kapas. */
 const DEPTH_MARGIN_MM = 2;
 /** Djupet i utkastet som takets plan räknas ur; vilket som helst går. */

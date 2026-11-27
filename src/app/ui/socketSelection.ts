@@ -14,16 +14,26 @@ export function findSocketOwnedBy(placed: readonly PlacedInstance[], partId: str
 }
 
 /**
- * Objektet som ska öppnas när man trycker på en del som hör till ett objekt utan
- * egna kopplingspunkter, t.ex. en fönsterlucka eller ett dörrblad.
+ * Objektet som ska öppnas när man trycker på en del som hör till ett objekt
+ * som visas under ett annat i panelen, t.ex. en fönsterlucka, ett dörrblad
+ * eller en vägg på en takkupa.
  */
 export function findLeafInstanceOf(placed: readonly PlacedInstance[], parts: readonly Part[], partId: string): string | undefined {
   const sourceId = parts.find((part) => part.id === partId)?.sourceInstanceId;
   const entry = placed.find((candidate) => candidate.instance.id === sourceId);
-  return entry && isLeafInstance(entry) ? entry.instance.id : undefined;
+  return entry && isShownUnderParent(entry) ? entry.instance.id : undefined;
 }
 
 /** Ett objekt som sitter på ett annat och inte bär något själv, t.ex. ett fönster. */
 export function isLeafInstance(entry: PlacedInstance): boolean {
   return entry.parentId !== undefined && entry.sockets.length === 0;
+}
+
+/**
+ * Ett objekt som visas under objektet det sitter på i panelen och inte med
+ * egen rubrik: det bär inget själv, t.ex. ett fönster, eller sitter i en
+ * fältgrupp, t.ex. en takkupa under Tak, även om den har ett fönster.
+ */
+export function isShownUnderParent(entry: PlacedInstance): boolean {
+  return isLeafInstance(entry) || (entry.parentId !== undefined && entry.socket?.paramGroupKey !== undefined);
 }
