@@ -116,11 +116,27 @@ describe('förslag för fönster och dörrar', () => {
   });
 
   it('behåller förra fönstrets form, spröjs och luckor när storleken inte ryms', () => {
-    const design = designWithExtensions(windowOn('side-right', { width: 100, height: 60, sillHeight: 10, shape: 'arch', mullions: 'cross' }));
+    const design = designWithExtensions(windowOn('side-right', { width: 130, height: 60, sillHeight: 10, shape: 'arch', mullions: 'cross' }));
     const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: 'gb.window' });
     expect(proposal.violations).toEqual([]);
     expect(proposal.instance.params).toMatchObject({ shape: 'arch', mullions: 'cross', hasShutters: false });
-    expect(proposal.instance.params.width).toBeLessThan(100);
+    expect(proposal.instance.params.width).toBeLessThan(130);
+  });
+
+  it('lägger ett lika stort fönster ovanför det första när det inte ryms bredvid', () => {
+    const wide = { width: 120, height: 20, sillHeight: 10, shape: 'rect', mullions: 'none', hasShutters: false };
+    const proposal = proposeChild(designWithExtensions(windowOn('side-right', wide)), gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: 'gb.window' });
+    expect(proposal.violations).toEqual([]);
+    expect(proposal.instance.params).toMatchObject({ width: 120, height: 20 });
+    // Minst 15 mm hel vägg mellan fönstren.
+    expect(proposal.instance.params.sillHeight).toBeGreaterThanOrEqual(wide.sillHeight + wide.height + 15);
+  });
+
+  it('lägger ett fönster ovanför dörren när det inte ryms bredvid den', () => {
+    const design = designWithExtensions(doorOn('gable-front', { width: 60, height: 70 }));
+    const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: 'gb.window' });
+    expect(proposal.violations).toEqual([]);
+    expect(proposal.instance.params.sillHeight).toBeGreaterThanOrEqual(70 + 15);
   });
 
   it('säger varför en andra dörr inte går att lägga till', () => {
