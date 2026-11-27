@@ -150,15 +150,15 @@ test.describe('pekskärm', () => {
     expect(bottom).toBeCloseTo(innerHeight - BOTTOM_GAP_PX, 0);
   });
 
-  test('visar måtten i ett ark och behåller knapparna nertill', async ({ page }) => {
+  test('visar konfigurationen i ett ark och behåller knapparna nertill', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Visa mått' }).click();
+    await page.getByRole('button', { name: 'Visa konfiguration' }).click();
     await expect(page.getByLabel('Gavelbredd')).toBeVisible();
     const bottom = await page.getByRole('button', { name: 'Ladda ner ritning (PDF)' }).evaluate((button) => button.getBoundingClientRect().bottom);
     expect(bottom).toBeCloseTo((await page.evaluate(() => window.innerHeight)) - BOTTOM_GAP_PX, 0);
   });
 
-  test('fäller upp arket med måtten när man trycker på en vägg', async ({ page }) => {
+  test('fäller upp arket med konfigurationen när man trycker på en vägg', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByLabel('Gavelbredd')).toBeHidden();
     const view = page.locator('.viewport canvas');
@@ -166,15 +166,15 @@ test.describe('pekskärm', () => {
     const box = await view.boundingBox();
     if (!box) throw new Error('3D-vyn saknas');
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height * 0.6);
-    await expect(page.getByRole('button', { name: 'Dölj mått' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dölj konfiguration' })).toBeVisible();
     await expect(page.getByLabel('Gavelbredd')).toBeVisible();
   });
 
   test('döljer hjälptexten om väggar när man har tryckt på en vägg', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Visa mått' }).click();
+    await page.getByRole('button', { name: 'Visa konfiguration' }).click();
     await expect(page.getByText(WALL_HINT)).toBeVisible();
-    await page.getByRole('button', { name: 'Dölj mått' }).click();
+    await page.getByRole('button', { name: 'Dölj konfiguration' }).click();
     const view = page.locator('.viewport canvas');
     await page.waitForTimeout(1500);
     const box = await view.boundingBox();
@@ -185,7 +185,7 @@ test.describe('pekskärm', () => {
     // Ett tryck utan att dra vrider inte vyn, så den hjälptexten står kvar.
     await expect(page.getByText(VIEW_HINT)).toBeVisible();
     await page.reload();
-    await page.getByRole('button', { name: 'Visa mått' }).click();
+    await page.getByRole('button', { name: 'Visa konfiguration' }).click();
     await expect(page.getByLabel('Gavelbredd')).toBeVisible();
     await expect(page.getByText(WALL_HINT)).toHaveCount(0);
   });
