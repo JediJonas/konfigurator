@@ -12,6 +12,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'param.roof': 'Taktyp',
   'group.dimensions': 'Mått',
   'group.roof': 'Tak',
+  'param.isRoofTurned': 'Vrid taket 90°',
   'param.roofPitch': 'Taklutning',
   'param.eaveOverhang': 'Takutsprång vid takfot',
   'param.gableOverhang': 'Takutsprång vid gavel',

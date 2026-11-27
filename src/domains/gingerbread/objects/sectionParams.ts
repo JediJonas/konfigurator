@@ -29,6 +29,10 @@ export const sectionParams = z.object({
       optionLabelKeys: Object.fromEntries(ROOF_TYPES.map((roof) => [roof, `roof.${roof}`])),
       ...roofField,
     }),
+  isRoofTurned: z
+    .boolean()
+    .default(false)
+    .meta({ labelKey: 'param.isRoofTurned', visibleWhen: { roof: SLOPED_ROOFS }, ...roofField }),
   roofPitch: z.number().min(10).max(60).default(45).meta({ labelKey: 'param.roofPitch', unit: '°', step: 1, visibleWhen: { roof: SLOPED_ROOFS }, ...roofField }),
   mansardLowerPitch: z
     .number()
@@ -59,3 +63,8 @@ export const sectionParams = z.object({
 });
 
 export type SectionParams = z.infer<typeof sectionParams>;
+
+/** Taket är vridet 90° runt sin mitt, t.ex. sadeltakets nock tvärs över huset. Gäller bara tak med lutning. */
+export function isRoofTurned(params: SectionParams): boolean {
+  return params.isRoofTurned && SLOPED_ROOFS.includes(params.roof);
+}
