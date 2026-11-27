@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { signedArea } from '../../src/core/geometry/polygon';
-import { degreesToRadians } from '../../src/core/geometry/vector';
+import { degreesToRadians, dot3 } from '../../src/core/geometry/vector';
 import type { Vec3 } from '../../src/core/geometry/vector';
 import { groupIdenticalParts } from '../../src/core/layout/partGroups';
 import { buildParts } from '../../src/core/pipeline/buildParts';
+import { placeInstances } from '../../src/core/pipeline/placeInstances';
 import { evaluateDesign } from '../../src/core/rules/evaluateDesign';
 import { proposeChild } from '../../src/core/rules/placement';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
@@ -108,6 +109,45 @@ describe('tillbyggnad som går över huset', () => {
     const steep = { ...EXTENSION_PARAMS, roof: 'shed', roofPitch: 60, wallHeight: 80 };
     const parts = buildParts(designWithExtensions(extension('side-right', steep)), gingerbreadDomain);
     expect(Math.min(...allCorners(partById(parts, 'S2/roof')).map((corner) => corner.x))).toBeGreaterThanOrEqual(-HOST_HALF_WIDTH - 0.01);
+  });
+});
+
+describe('pulpettak som stiger in mot huset', () => {
+  it.each([20, 32, 39, 41])('slutar vid gaveln och går inte upp genom huvudtaket vid %s°', (roofPitch) => {
+    const design = designWithExtensions(extension('gable-front', { ...EXTENSION_PARAMS, roof: 'shed', roofPitch, wallHeight: 60 }));
+    expect(errorsFor(design)).toEqual([]);
+    const gable = placeInstances(design, gingerbreadDomain).find((entry) => entry.instance.id === 'S2')?.socket;
+    if (!gable) throw new Error('Tillbyggnaden saknar kopplingspunkt');
+    const wallPlane = dot3(gable.frame.normal, gable.frame.origin);
+    const parts = buildParts(design, gingerbreadDomain);
+    const innermost = Math.min(...allCorners(partById(parts, 'S2/roof')).map((corner) => dot3(gable.frame.normal, corner)));
+    expect(innermost).toBeGreaterThanOrEqual(wallPlane - 0.01);
+  });
+});
+
+describe('mansardtak mot mansardtak på långväggen', () => {
+  /**
+   * Om konturen går upp längs lutningen en gång och ner en gång. Ett hack i
+   * rännan är ett ställe där kanten vänder ner och upp igen.
+   */
+  const hasNoNotch = (outline: readonly { y: number }[]) => {
+    const steps = outline.map((point, index) => (outline[(index + 1) % outline.length] ?? point).y - point.y).filter((dy) => Math.abs(dy) > 1e-6);
+    const turns = steps.filter((dy, index) => Math.sign(dy) !== Math.sign(steps[(index + 1) % steps.length] ?? dy)).length;
+    return turns === 2;
+  };
+
+  it.each([60, 80, 100])('ger tillbyggnaden alla fyra takdelarna och en ränna utan hack vid vägghöjd %i mm', (wallHeight) => {
+    const design = designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, width: 100, roof: 'mansard', wallHeight }));
+    const host = design.root.children[0];
+    if (!host) throw new Error('Mallen saknar sektion');
+    host.params = { ...HOST_PARAMS, roof: 'mansard' };
+    expect(errorsFor(design)).toEqual([]);
+    const roofParts = buildParts(design, gingerbreadDomain).filter((part) => part.id.startsWith('S2/roof'));
+    expect(roofParts.map((part) => part.id).sort()).toEqual(['S2/roof-lower-left', 'S2/roof-lower-right', 'S2/roof-upper-left', 'S2/roof-upper-right']);
+    // Rännan över huvudtakets brytlinje är en obruten linje på de övre takdelarna.
+    for (const id of ['S2/roof-upper-left', 'S2/roof-upper-right']) expect(hasNoNotch(partById(roofParts, id).outline)).toBe(true);
+    // Takhalvorna är spegelvända, så båda sidorna får lika stora delar.
+    expect(signedArea(partById(roofParts, 'S2/roof-upper-left').outline)).toBeCloseTo(signedArea(partById(roofParts, 'S2/roof-upper-right').outline), 3);
   });
 });
 
