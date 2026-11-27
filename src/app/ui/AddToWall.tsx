@@ -1,9 +1,9 @@
-import { useId, useMemo } from 'react';
-import type { Design } from '../../core/model/design';
+import { useId } from 'react';
 import type { Socket } from '../../core/model/objectType';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
-import { proposeChild } from '../../core/rules/placement';
 import { activeDomain, translate } from '../activeDomain';
+import { useWallProposals } from '../rules/useWallProposals';
+import { listWallObjectTypes } from '../rules/wallProposals';
 import { useDesignStore } from '../state/designStore';
 import { uiStrings } from './strings.sv';
 
@@ -17,18 +17,21 @@ interface AddToWallProps {
 
 /** Knapparna för att bygga till en vägg, en per objekttyp som kan fästa där, t.ex. + Sektion, + Fönster och + Dörr. Utan rubrik (ägarens val). */
 export function AddToWall({ entry, wall, placeLabel }: AddToWallProps) {
-  const { design, addChild } = useDesignStore();
+  const { addChild } = useDesignStore();
   const idPrefix = useId();
   const instanceId = entry.instance.id;
-  // Förslagen prövar många storlekar och lägen, så de räknas bara om när designen eller väggen ändras.
-  const proposals = useMemo(() => listWallProposals(design, entry, wall), [design, entry, wall]);
+  // Förslagen prövar många storlekar och lägen, så de räknas vid sidan av; tills de är kända går alla knappar att trycka på.
+  const states = useWallProposals(entry, wall);
+  const proposals = listWallObjectTypes(activeDomain, entry, wall).map((objectType) => {
+    const state = states?.find((candidate) => candidate.objectTypeId === objectType.id);
+    return { objectType, canAdd: state?.canAdd ?? true, blockingMessage: state?.blockingMessage };
+  });
   if (proposals.length === 0) return null;
-  const blocked = proposals.filter(({ proposal }) => proposal.violations.length > 0);
+  const blocked = proposals.filter(({ canAdd }) => !canAdd);
   return (
     <div className="add-to-wall">
       <div className="add-buttons">
-        {proposals.map(({ objectType, proposal }) => {
-          const canAdd = proposal.violations.length === 0;
+        {proposals.map(({ objectType, canAdd }) => {
           return (
             <button
               key={objectType.id}
@@ -47,28 +50,13 @@ export function AddToWall({ entry, wall, placeLabel }: AddToWallProps) {
           );
         })}
       </div>
-      {blocked.map(({ objectType, proposal }) => (
+      {blocked.map(({ objectType, blockingMessage }) => (
         <p key={objectType.id} className="field-hint" id={`${idPrefix}-${objectType.id}`}>
-          {placeLabel ? uiStrings.objectAt(translate(objectType.labelKey), placeLabel) : translate(objectType.labelKey)}: {proposal.blockingMessage ?? noRoomMessage(wall)}
+          {placeLabel ? uiStrings.objectAt(translate(objectType.labelKey), placeLabel) : translate(objectType.labelKey)}: {blockingMessage ?? noRoomMessage(wall)}
         </p>
       ))}
     </div>
   );
-}
-
-/**
- * Förslaget för varje objekttyp som kan fästa på väggen. En vägg kan ha flera
- * kopplingspunkter, t.ex. för en tillbyggnad och för en sektion bredvid; förslaget
- * väljer den punkt där objektet ryms.
- */
-function listWallProposals(design: Design, entry: PlacedInstance, wall: Socket) {
-  const onWall = entry.sockets.filter((socket) => socket.id === wall.id || (wall.ownerPartId !== undefined && socket.ownerPartId === wall.ownerPartId));
-  return activeDomain.objectTypes
-    .filter((objectType) => onWall.some((socket) => objectType.attachesTo.includes(socket.kind)))
-    .map((objectType) => ({
-      objectType,
-      proposal: proposeChild(design, activeDomain, { parentId: entry.instance.id, socketId: wall.id, objectTypeId: objectType.id }, translate),
-    }));
 }
 
 /** Varför inget ryms, med domänens egen text för sorten av kopplingspunkt när den finns, t.ex. ett takfall. */

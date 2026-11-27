@@ -13,16 +13,11 @@ test('lägger en takkupa på taket och visar den under Tak', async ({ page }) =>
   // Kupan sitter under Tak, inte som en egen sektion på toppnivån.
   await expect(page.locator('[data-group-key="group.roof"]').getByRole('heading', { name: 'Takkupa K1' })).toBeVisible();
 
-  // Ett fel på kupan syns på sektionen när taket är stängt.
-  await page.getByLabel(/^Avstånd från takfoten/).fill('0');
-  await page.getByLabel(/^Avstånd från takfoten/).blur();
-  await openWall(page, 'Vägg 1');
-  await expect(page.getByText(/Takkupan behöver 15 mm helt tak/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Ladda ner ritning (PDF)' })).toBeDisabled();
-  await openWall(page, 'Tak');
-  await page.getByRole('button', { name: 'Takkupa K1' }).click();
-  await page.getByLabel(/^Avstånd från takfoten/).fill('20');
-  await page.getByLabel(/^Avstånd från takfoten/).blur();
+  // Fältet ger bara lägen där kupan har 15 mm helt tak mot takfoten.
+  const eaveDistance = page.getByLabel(/^Avstånd från takfoten/);
+  await eaveDistance.fill('0');
+  await eaveDistance.blur();
+  await expect(eaveDistance).toHaveValue('15');
 
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ladda ner ritning (PDF)' }).click()]);
   expect(download.suggestedFilename()).toBe('ritning.pdf');

@@ -24,6 +24,24 @@ export interface RangeResult {
 }
 
 /**
+ * Den senaste begäran för varje objekt. Ett fönster och sektionen det sitter
+ * på är öppna samtidigt och frågar båda när designen ändras; med en gemensam
+ * senaste begäran tog sektionen över, och fönstrets fält fick aldrig några gränser.
+ */
+export interface LatestRequests {
+  mark(request: Pick<RangeRequest, 'id' | 'instanceId'>): void;
+  isOutdated(request: Pick<RangeRequest, 'id' | 'instanceId'>): boolean;
+}
+
+export function createLatestRequests(): LatestRequests {
+  const latestIds = new Map<string, number>();
+  return {
+    mark: (request) => void latestIds.set(request.instanceId, request.id),
+    isOutdated: (request) => latestIds.get(request.instanceId) !== request.id,
+  };
+}
+
+/**
  * Räknar gränserna en i taget, först läget och sedan fälten i ordning, och
  * lämnar varje resultat så snart det finns. `shouldStop` frågas mellan varje,
  * så att en ny begäran kan ta över när man fortsätter ändra.

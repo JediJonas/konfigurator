@@ -15,21 +15,20 @@ import { eaveHeightOf, OPENING_MARGIN_MM, roundToStep, targetWallId, wallOpening
 export const DOOR_TYPE_ID = 'gb.door';
 
 /**
- * Vänster- och högerhängd dörr har ett dörrblad med gångjärnet på den sidan,
+ * En enkeldörr har ett dörrblad med gångjärnet till vänster (ägarens val),
  * dubbeldörrar två blad och en öppning inget.
  */
-const DOOR_KINDS = ['right', 'left', 'double', 'opening'] as const;
-const KINDS_WITH_LEAF = ['right', 'left', 'double'] as const;
+const DOOR_KINDS = ['single', 'double', 'opening'] as const;
 type HingeSide = 'left' | 'right';
 const MIN_DOOR_WIDTH_MM = 20;
 const MIN_DOOR_HEIGHT_MM = 30;
-/** Dörren står på glänt, så att man ser att den går att öppna. */
-const DEFAULT_OPEN_ANGLE_DEGREES = 30;
+/** Dörren står alltid på glänt, så att man ser att den går att öppna (ägarens val). */
+const OPEN_ANGLE_DEGREES = 30;
 
 export const doorParams = z.object({
   kind: z
     .enum(DOOR_KINDS)
-    .default('left')
+    .default('single')
     .meta({ labelKey: 'param.doorKind', optionLabelKeys: Object.fromEntries(DOOR_KINDS.map((kind) => [kind, `doorKind.${kind}`])) }),
   width: z.number().min(MIN_DOOR_WIDTH_MM).max(150).default(35).meta({ labelKey: 'param.openingWidth', unit: 'mm', step: 5 }),
   height: z.number().min(MIN_DOOR_HEIGHT_MM).max(250).default(65).meta({ labelKey: 'param.openingHeight', unit: 'mm', step: 5 }),
@@ -37,12 +36,6 @@ export const doorParams = z.object({
     .enum(DOOR_SHAPES)
     .default('rect')
     .meta({ labelKey: 'param.openingShape', optionLabelKeys: Object.fromEntries(DOOR_SHAPES.map((shape) => [shape, `shape.${shape}`])) }),
-  openAngle: z
-    .number()
-    .min(0)
-    .max(90)
-    .default(DEFAULT_OPEN_ANGLE_DEGREES)
-    .meta({ labelKey: 'param.openAngle', unit: '°', step: 5, visibleWhen: { kind: KINDS_WITH_LEAF } }),
 });
 
 export type DoorParams = z.infer<typeof doorParams>;
@@ -102,9 +95,9 @@ function buildDoorLeaves(instanceId: string, params: DoorParams, thickness: Mm):
   const opening = openingOutline({ shape: params.shape, width: params.width, height: params.height, bottom: 0 });
   const edge = params.width / 2;
   const leafOf = (id: string, outline: Vec2[], hinge: HingeSide): Part =>
-    buildDoorLeaf(instanceId, { id, outline: leafFromHinge(outline, hinge, edge), hinge, hingeX: hinge === 'left' ? -edge : edge, angle: params.openAngle }, thickness);
+    buildDoorLeaf(instanceId, { id, outline: leafFromHinge(outline, hinge, edge), hinge, hingeX: hinge === 'left' ? -edge : edge, angle: OPEN_ANGLE_DEGREES }, thickness);
   if (params.kind === 'opening') return [];
-  if (params.kind !== 'double') return [leafOf(`${instanceId}/leaf`, opening, params.kind)];
+  if (params.kind === 'single') return [leafOf(`${instanceId}/leaf`, opening, 'left')];
   const [left, right] = splitInHalves(opening);
   return [leafOf(`${instanceId}/leaf-left`, left, 'left'), leafOf(`${instanceId}/leaf-right`, right, 'right')];
 }
@@ -172,6 +165,6 @@ function listDoorCandidates(eaveHeight: Mm): Record<string, unknown>[] {
   return PROPOSAL_SCALES.map((scale) => {
     const height = roundToStep(eaveHeight * PROPOSED_HEIGHT_SHARE * scale, MIN_DOOR_HEIGHT_MM);
     const width = roundToStep(height * PROPOSED_WIDTH_PER_HEIGHT, MIN_DOOR_WIDTH_MM);
-    return { kind: 'left', width, height, shape: 'rect', openAngle: DEFAULT_OPEN_ANGLE_DEGREES };
+    return { kind: 'single', width, height, shape: 'rect' };
   });
 }

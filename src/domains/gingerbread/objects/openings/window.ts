@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ObjectType, SurfaceArea } from '../../../../core/model/objectType';
+import type { ObjectType, Socket, SurfaceArea } from '../../../../core/model/objectType';
 import type { Modifier } from '../../../../core/model/modifier';
 import type { Part } from '../../../../core/model/part';
 import { identityMatrix } from '../../../../core/geometry/matrix';
@@ -49,6 +49,8 @@ const PROPOSAL_SCALES = [1, 0.8, 0.6, 0.45];
 /** Det största förslaget är så högt i förhållande till väggens höjd vid hörnen. */
 const PROPOSED_HEIGHT_SHARE = 0.45;
 const PROPOSED_WIDTH_PER_HEIGHT = 0.7;
+/** Steget mellan höjderna över golvet som ett nytt fönster prövas på när det inte ryms på sin vanliga höjd. */
+const SILL_SEARCH_STEP_MM = 10;
 
 /**
  * Fönster: ett hål i väggen, med eller utan spröjs och fönsterluckor.
@@ -68,7 +70,7 @@ export const windowType: ObjectType<WindowParams> = {
   socketOutline: (params) => wallRectangle(-params.width / 2, params.sillHeight, params.width / 2, params.sillHeight + windowSizeOf(params).height),
   surfaceAreas: (params, context) => describeWindowSurface(params, targetWallId(context)),
   prefersSizeOverCenter: true,
-  paramCandidates: (socket, _context, inherited) => listWindowCandidates(eaveHeightOf(socket), inherited),
+  paramCandidates: (socket, _context, inherited) => listCandidatesAtHeights(listWindowCandidates(eaveHeightOf(socket), inherited), wallTopOf(socket)),
 };
 
 /**
@@ -153,4 +155,34 @@ function fitToShape(candidate: Record<string, unknown>, eaveHeight: Mm): Record<
   const width = roundToStep(shape === 'circle' ? height : 2 * height, MIN_WINDOW_SIZE_MM);
   const openingHeight = heightFor(shape, width, height);
   return { ...candidate, width, sillHeight: roundToStep((eaveHeight - openingHeight) / 2, MIN_SILL_HEIGHT_MM) };
+}
+
+/**
+ * Varje förslag på alla höjder innan nästa, mindre förslag. Det sista prövas
+ * igen på sin egen höjd, så att ett fönster som inte ryms någonstans visas
+ * där, i mitten av väggen, med sina regelbrott.
+ */
+function listCandidatesAtHeights(candidates: Record<string, unknown>[], wallTop: Mm): Record<string, unknown>[] {
+  const smallest = candidates.at(-1);
+  const atHeights = candidates.flatMap((candidate) => listSillHeights(candidate, wallTop));
+  return smallest ? [...atHeights, smallest] : atHeights;
+}
+
+/**
+ * Förslaget på sin egen höjd över golvet först, sedan samma storlek högre och
+ * lägre, närmast först. Ryms fönstret inte bredvid en dörr eller ett annat
+ * fönster kan det då hamna ovanför eller under dem i stället för att bli mindre.
+ */
+function listSillHeights(candidate: Record<string, unknown>, wallTop: Mm): Record<string, unknown>[] {
+  const { shape, width, height, sillHeight } = candidate as Pick<WindowParams, 'shape' | 'width' | 'height' | 'sillHeight'>;
+  const highestSill = wallTop - heightFor(shape, width, height) - OPENING_MARGIN_MM;
+  const others: Mm[] = [];
+  for (let sill = MIN_SILL_HEIGHT_MM; sill <= highestSill; sill += SILL_SEARCH_STEP_MM) if (sill !== sillHeight) others.push(sill);
+  others.sort((a, b) => Math.abs(a - sillHeight) - Math.abs(b - sillHeight));
+  return [candidate, ...others.map((sill) => ({ ...candidate, sillHeight: sill }))];
+}
+
+/** Väggens högsta punkt i kopplingspunktens yta, t.ex. gavelns topp under nocken. */
+function wallTopOf(socket: Socket): Mm {
+  return Math.max(0, ...socket.bounds.map((point) => point.y));
 }

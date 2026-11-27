@@ -18,6 +18,20 @@ function cornersIn(part: Part, frame: Part) {
   return [0, part.thickness].flatMap((z) => part.outline.map((point) => transformPoint(toFrame, transformPoint(part.transform, vec3(point.x, point.y, z)))));
 }
 
+/** Dörren står alltid 30° öppen. */
+const OPEN_ANGLE = Math.PI / 6;
+
+/**
+ * Ett blad som står 30° ut från väggens utsida (z = tjockleken): den yttre
+ * kanten når bladets bredd · sin 30° utanför väggen, och inget går in i huset.
+ */
+function expectOpenLeaf(leaf: { z: number }[], thickness: number, leafWidth: number) {
+  const reach = Math.max(...leaf.map((point) => point.z)) - thickness;
+  expect(Math.min(...leaf.map((point) => point.z))).toBeGreaterThan(-0.01);
+  expect(reach).toBeGreaterThan(leafWidth * Math.sin(OPEN_ANGLE) - 0.01);
+  expect(reach).toBeLessThan(leafWidth * Math.sin(OPEN_ANGLE) + thickness);
+}
+
 function span(values: number[]): [number, number] {
   return [Math.min(...values), Math.max(...values)];
 }
@@ -95,7 +109,7 @@ describe('dörr', () => {
     expect(archway.some((part) => part.id === 'D1/leaf')).toBe(false);
   });
 
-  it('går från golvet och har ett blad med samma form som fyller öppningen när det är stängt', () => {
+  it('går från golvet och har ett blad med samma form, med gångjärnet i öppningens vänstra kant', () => {
     const parts = buildParts(designWithExtensions(doorOn('gable-front', { shape: 'arch' })), gingerbreadDomain);
     const wall = partById(parts, 'S1/gable-front');
     expect(wall.holes).toHaveLength(0);
@@ -103,43 +117,21 @@ describe('dörr', () => {
     const leaf = cornersIn(partById(parts, 'D1/leaf'), wall);
     const wallXs = span(wall.outline.map((point) => point.x));
     const middle = (wallXs[0] + wallXs[1]) / 2;
-    expect(span(leaf.map((point) => point.x - middle)).map((value) => Math.round(value * 100) / 100)).toEqual([-17.5, 17.5]);
-    expect(span(leaf.map((point) => point.z))).toEqual([0, wall.thickness].map((value) => expect.closeTo(value)));
+    expect(Math.min(...leaf.map((point) => point.x - middle))).toBeCloseTo(-17.5);
+    expectOpenLeaf(leaf, wall.thickness, 35);
     expect(Math.max(...leaf.map((point) => point.y))).toBeCloseTo(60);
   });
 
-  it('som dubbeldörr har två blad som fyller var sin halva när de är stängda', () => {
-    const parts = buildParts(designWithExtensions(doorOn('gable-front', { kind: 'double', shape: 'arch', openAngle: 0 })), gingerbreadDomain);
+  it('som dubbeldörr har två blad, var sin halva, på glänt utåt åt var sitt håll', () => {
+    const parts = buildParts(designWithExtensions(doorOn('gable-front', { kind: 'double', shape: 'arch' })), gingerbreadDomain);
     const wall = partById(parts, 'S1/gable-front');
     const wallXs = span(wall.outline.map((point) => point.x));
     const middle = (wallXs[0] + wallXs[1]) / 2;
     const [left, right] = ['D1/leaf-left', 'D1/leaf-right'].map((id) => cornersIn(partById(parts, id), wall));
-    const round = (value: number) => Math.round(value * 100) / 100;
-    expect(span((left ?? []).map((point) => round(point.x - middle)))).toEqual([-17.5, 0]);
-    expect(span((right ?? []).map((point) => round(point.x - middle)))).toEqual([0, 17.5]);
-    for (const leaf of [left, right]) expect(span((leaf ?? []).map((point) => point.z))).toEqual([0, wall.thickness].map((value) => expect.closeTo(value)));
+    expect(Math.min(...(left ?? []).map((point) => point.x - middle))).toBeLessThan(-17.5 + 0.01);
+    expect(Math.max(...(right ?? []).map((point) => point.x - middle))).toBeCloseTo(17.5);
+    for (const leaf of [left, right]) expectOpenLeaf(leaf ?? [], wall.thickness, 17.5);
     expect(parts.some((part) => part.id === 'D1/leaf')).toBe(false);
-  });
-
-  it('som dubbeldörr står bladen på glänt utåt åt var sitt håll', () => {
-    const parts = buildParts(designWithExtensions(doorOn('gable-front', { kind: 'double', openAngle: 90 })), gingerbreadDomain);
-    const wall = partById(parts, 'S1/gable-front');
-    for (const id of ['D1/leaf-left', 'D1/leaf-right']) {
-      const leaf = cornersIn(partById(parts, id), wall);
-      expect(Math.max(...leaf.map((point) => point.z))).toBeCloseTo(wall.thickness + 17.5);
-      expect(Math.min(...leaf.map((point) => point.z))).toBeGreaterThan(wall.thickness - 0.01);
-    }
-  });
-
-  it('står på glänt utåt med gångjärnet i öppningens kant', () => {
-    for (const hinge of ['left', 'right']) {
-      const parts = buildParts(designWithExtensions(doorOn('gable-front', { kind: hinge, openAngle: 90 })), gingerbreadDomain);
-      const wall = partById(parts, 'S1/gable-front');
-      const leaf = cornersIn(partById(parts, 'D1/leaf'), wall);
-      // Helt öppen står bladet vinkelrätt ut från väggen, 35 mm ut.
-      expect(Math.max(...leaf.map((point) => point.z))).toBeCloseTo(wall.thickness + 35);
-      expect(Math.min(...leaf.map((point) => point.z))).toBeGreaterThan(wall.thickness - 0.01);
-    }
   });
 });
 
