@@ -11,7 +11,6 @@ import type { PlacedInstance } from '../../../core/pipeline/placeInstances';
 import type { Socket } from '../../../core/model/objectType';
 import { SECTION_TYPE_ID } from '../objects/section';
 import { WALL_SURFACE } from '../socketKinds';
-import { notchHostRoof } from './hostRoofNotches';
 
 /** En del räknas som upprätt (vägg eller takkant) när normalen nästan saknar höjd. */
 const UPRIGHT_NORMAL_Y = 0.01;
@@ -25,12 +24,6 @@ const REGION_OVERLAP_MM = 0.01;
 const EAVE_TOLERANCE_MM = 0.01;
 /** Två takytor på värden möts när deras undersidor har ett hörn så nära varandra. */
 const MEETING_CORNER_MM = 0.01;
-
-/** En ändyta på en takskiva: halvrummet där skivan ligger och kantens hörn på undersidan. */
-interface SlabEnd {
-  space: WorldHalfSpace;
-  corners: [Vec3, Vec3];
-}
 
 /** En takyta på värden som en skiva: undersidans plan, normal uppåt och tjocklek. */
 interface HostRoofSlab {
@@ -46,10 +39,9 @@ interface HostRoofSlab {
    * skivan ligger. Vid ett brott, t.ex. mansardtakets, slutar skivan där i
    * stället för att räknas uppåt rakt ovanför sig, över grannskivan.
    */
-  ends: SlabEnd[];
+  ends: WorldHalfSpace[];
   /** Undersidans hörn, för att se vilka skivor som möts. */
   undersideCorners: Vec3[];
-  partId: string;
 }
 
 /**
@@ -74,33 +66,17 @@ export const valleyResolver: InteractionResolver = {
       const walls = hostWallPlan(host);
       const outward = socket.frame.normal;
       const reachOutward = (points: Vec3[]) => Math.max(...points.map((point) => dot3(point, outward)));
-      const withExtension = current.flatMap((part) => {
+      return current.flatMap((part) => {
         if (part.sourceInstanceId !== entry.instance.id) return [part];
         const regions = isUpright(part)
           ? uprightRegions(part, slabs)
           : [
-              ...roofRegions(part, slabs, walls),
+              ...roofRegions(part, slabs, walls, outward),
               ...besideHostWalls(part, slabs, walls, socket),
               beyondHost(part, walls, outward),
               ...insideHostWhenRising(part, socket),
             ];
         const clipped = removeRegionsFromPart(part, regions, reachOutward);
-        return clipped ? [clipped] : [];
-      });
-      const extensionRoofs = withExtension.filter((part) => part.sourceInstanceId === entry.instance.id && isRoofSlab(part));
-      const blocked: HostRoofSlab[] = [];
-      const withNotches = withExtension.map((part) => {
-        if (part.sourceInstanceId !== host.instance.id || !isRoofSlab(part)) return part;
-        const slab = slabs.find((candidate) => candidate.partId === part.id);
-        const notch = notchHostRoof(part, extensionRoofs, outward, (point) => isSharedCorner(slabs, part.id, point));
-        if (notch.kind === 'blocked' && slab) blocked.push(slab);
-        return notch.kind === 'notched' ? notch.part : part;
-      });
-      if (blocked.length === 0) return withNotches;
-      // Går det inte att ta urtaget ur värdens skiva kapas tillbyggnadens tak där det går genom den.
-      return withNotches.flatMap((part) => {
-        if (part.sourceInstanceId !== entry.instance.id || !isRoofSlab(part)) return [part];
-        const clipped = removeRegionsFromPart(part, crossingRegions(part, blocked, outward), reachOutward);
         return clipped ? [clipped] : [];
       });
     }, [...parts]),
@@ -118,59 +94,37 @@ function partNormal(part: Part): Vec3 {
   return subtract3(transformPoint(part.transform, vec3(0, 0, 1)), origin);
 }
 
-/** Takytor och takskivor, inte takkanterna. */
-function isRoofSlab(part: Part): boolean {
-  return ROOF_PART_PREFIXES.some((prefix) => part.id.slice(part.id.indexOf('/') + 1).startsWith(prefix)) && !isUpright(part);
-}
-
 function isUpright(part: Part): boolean {
   return Math.abs(partNormal(part).y) < UPRIGHT_NORMAL_Y;
 }
 
 /** Värdens lutande takytor och takskivor som de byggdes, före samverkan. */
 function describeHostRoof(host: PlacedInstance): HostRoofSlab[] {
-  const roofParts = host.parts.filter(isRoofSlab);
-  const undersideOf = (part: Part) => part.outline.map((point) => transformPoint(part.transform, vec3(point.x, point.y, 0)));
-  const allCorners = roofParts.map(undersideOf);
-  return roofParts.map((part, index) => {
-    const underside = allCorners[index] ?? [];
-    const otherCorners = allCorners.filter((_, otherIndex) => otherIndex !== index).flat();
-    const top = part.outline.map((point) => transformPoint(part.transform, vec3(point.x, point.y, part.thickness)));
-    return {
-      underside: transformPoint(part.transform, vec3(0, 0, 0)),
-      normal: partNormal(part),
-      thickness: part.thickness,
-      plan: convexHull([...underside, ...top].map((point) => vec2(point.x, point.z))),
-      lowestUnderside: Math.min(...underside.map((point) => point.y)),
-      ends: describeSlabEnds(part, underside, otherCorners),
-      undersideCorners: underside,
-      partId: part.id,
-    };
-  });
+  return host.parts
+    .filter((part) => ROOF_PART_PREFIXES.some((prefix) => part.id.slice(part.id.indexOf('/') + 1).startsWith(prefix)) && !isUpright(part))
+    .map((part) => {
+      const corners = (z: Mm) => part.outline.map((point) => transformPoint(part.transform, vec3(point.x, point.y, z)));
+      const underside = corners(0);
+      return {
+        underside: transformPoint(part.transform, vec3(0, 0, 0)),
+        normal: partNormal(part),
+        thickness: part.thickness,
+        plan: convexHull([...underside, ...corners(part.thickness)].map((point) => vec2(point.x, point.z))),
+        lowestUnderside: Math.min(...underside.map((point) => point.y)),
+        ends: describeSlabEnds(part, underside),
+        undersideCorners: underside,
+      };
+    });
 }
 
-/** Om hörnet är ett hörn på en annan av värdens takskivor än `partId`. */
-function isSharedCorner(slabs: readonly HostRoofSlab[], partId: string, point: Vec3): boolean {
-  return slabs.some((slab) => slab.partId !== partId && isNear(point, slab.undersideCorners));
+function isMeeting(slab: HostRoofSlab, other: HostRoofSlab): boolean {
+  return slab.undersideCorners.some((corner) =>
+    other.undersideCorners.some((otherCorner) => Math.hypot(corner.x - otherCorner.x, corner.y - otherCorner.y, corner.z - otherCorner.z) < MEETING_CORNER_MM),
+  );
 }
 
-function isNear(point: Vec3, corners: readonly Vec3[]): boolean {
-  return corners.some((corner) => Math.hypot(point.x - corner.x, point.y - corner.y, point.z - corner.z) < MEETING_CORNER_MM);
-}
-
-/** Ändytan på `slab` där den möter `other`, dvs. där båda kantens hörn är hörn på den andra skivan. */
-function findMeetingEnd(slab: HostRoofSlab, other: HostRoofSlab): SlabEnd | undefined {
-  return slab.ends.find((end) => end.corners.every((corner) => isNear(corner, other.undersideCorners)));
-}
-
-/** Utanför en ändyta, dvs. på andra sidan om den än skivan. */
-function beyondEnd(end: SlabEnd): WorldHalfSpace {
-  const { normal, offset, depth } = end.space;
-  return { normal: vec3(-normal.x, -normal.y, -normal.z), offset: -offset, depth };
-}
-
-/** Ändytorna längs konturens kanter, utom takfoten: en kant i skivans lägsta höjd som ingen annan skiva möter. */
-function describeSlabEnds(part: Part, underside: readonly Vec3[], otherCorners: readonly Vec3[]): SlabEnd[] {
+/** Ändytorna längs konturens kanter, utom kanterna i takfotens höjd. */
+function describeSlabEnds(part: Part, underside: readonly Vec3[]): WorldHalfSpace[] {
   const lowest = Math.min(...underside.map((point) => point.y));
   const origin = transformPoint(part.transform, vec3(0, 0, 0));
   return part.outline.flatMap((start, index) => {
@@ -178,11 +132,10 @@ function describeSlabEnds(part: Part, underside: readonly Vec3[], otherCorners: 
     const end = part.outline[nextIndex] ?? start;
     const [startWorld, endWorld] = [underside[index], underside[nextIndex]];
     if (!startWorld || !endWorld) return [];
-    const isLowest = Math.max(startWorld.y, endWorld.y) - lowest < EAVE_TOLERANCE_MM;
-    if (isLowest && !(isNear(startWorld, otherCorners) && isNear(endWorld, otherCorners))) return [];
+    if (Math.max(startWorld.y, endWorld.y) - lowest < EAVE_TOLERANCE_MM) return [];
     // Konturen går moturs, så kantens utåtriktade normal i delens plan är (dy, −dx).
     const outwardInPlane = subtract3(transformPoint(part.transform, vec3(end.y - start.y, -(end.x - start.x), 0)), origin);
-    return [{ space: { normal: outwardInPlane, offset: dot3(outwardInPlane, startWorld), depth: 0 }, corners: [startWorld, endWorld] }];
+    return [{ normal: outwardInPlane, offset: dot3(outwardInPlane, startWorld), depth: 0 }];
   });
 }
 
@@ -224,50 +177,36 @@ function slopesDownOutward(surface: { normal: Vec3 }, outward: Vec3): boolean {
 
 /**
  * Det som tas bort från en takyta på tillbyggnaden: allt under värdens tak
- * innanför värdens väggar. Där taket går genom en takyta på värden utanför
- * väggarna, t.ex. in under takutsprånget, får värdens takyta ett urtag i
- * stället (`notchHostRoof`).
- */
-function roofRegions(part: Part, slabs: readonly HostRoofSlab[], walls: Polygon): Vec2[][] {
-  const throughSlabs = slabs.flatMap((slab) => [
-    regionOnPart(part, [...insidePlan(slab.plan, 0), ...insidePlan(walls, 0), belowTopOf(slab, 0), ...slab.ends.map((end) => end.space)]),
-    regionOnPart(part, [...insidePlan(slab.plan, 0), ...insidePlan(walls, 0), belowUndersideOf(slab, 0)]),
-  ]);
-  return [...throughSlabs, ...grooveRegions(part, slabs)];
-}
-
-/**
- * Där tillbyggnadens tak går genom en takskiva på värden som inte kan få ett
- * urtag. Mot ett takfall som sjunker utåt räknas allt som når över takfotens
+ * innanför värdens väggar, och där den skulle gå genom en takyta på värden.
+ * Mot ett takfall som sjunker utåt räknas allt som når över takfotens
  * nederkant som genom takytan, så att taket antingen ligger ovanpå eller går
  * hela vägen in under utsprånget, aldrig båda.
  */
-function crossingRegions(part: Part, slabs: readonly HostRoofSlab[], outward: Vec3): Vec2[][] {
+function roofRegions(part: Part, slabs: readonly HostRoofSlab[], walls: Polygon, outward: Vec3): Vec2[][] {
   const top = part.thickness;
-  return slabs.map((slab) => {
-    const crossing: WorldHalfSpace = slopesDownOutward(slab, outward)
-      ? { normal: vec3(0, -1, 0), offset: -slab.lowestUnderside, depth: top }
-      : aboveUndersideOf(slab, top);
-    return regionOnPart(part, [...insidePlan(slab.plan, 0), belowTopOf(slab, 0), crossing, ...slab.ends.map((end) => end.space)]);
-  });
+  const crossing = (slab: HostRoofSlab): WorldHalfSpace =>
+    slopesDownOutward(slab, outward) ? { normal: vec3(0, -1, 0), offset: -slab.lowestUnderside, depth: top } : aboveUndersideOf(slab, top);
+  const throughSlabs = slabs.flatMap((slab) => [
+    regionOnPart(part, [...insidePlan(slab.plan, 0), ...insidePlan(walls, 0), belowTopOf(slab, 0), ...slab.ends]),
+    regionOnPart(part, [...insidePlan(slab.plan, 0), ...insidePlan(walls, 0), belowUndersideOf(slab, 0)]),
+    regionOnPart(part, [...insidePlan(slab.plan, 0), belowTopOf(slab, 0), crossing(slab), ...slab.ends]),
+  ]);
+  return [...throughSlabs, ...grooveRegions(part, slabs, crossing)];
 }
 
 /**
  * Där två takytor på värden möts i ett utåtgående brott, t.ex. mansardtakets
  * brytlinje eller nocken, lämnar skivornas ovansidor en skåra. Den räknas som
  * fylld, så att tillbyggnadens tak inte får en udd ner i den: under båda
- * ovansidorna, ovanför någon av undersidorna och bortom båda skivornas ändytor
- * där de möts.
+ * ovansidorna och genom någon av skivorna, inom de två skivorna sett uppifrån.
  * Värdens tak är konvext, så det gäller alla skivor som möts.
  */
-function grooveRegions(part: Part, slabs: readonly HostRoofSlab[]): Vec2[][] {
-  const top = part.thickness;
+function grooveRegions(part: Part, slabs: readonly HostRoofSlab[], crossing: (slab: HostRoofSlab) => WorldHalfSpace): Vec2[][] {
   return slabs.flatMap((slab, index) =>
     slabs.slice(index + 1).flatMap((other) => {
-      const [slabEnd, otherEnd] = [findMeetingEnd(slab, other), findMeetingEnd(other, slab)];
-      if (!slabEnd || !otherEnd) return [];
-      const groove = [...insidePlan(convexHull([...slab.plan, ...other.plan]), 0), belowTopOf(slab, 0), belowTopOf(other, 0), beyondEnd(slabEnd), beyondEnd(otherEnd)];
-      return [regionOnPart(part, [...groove, aboveUndersideOf(slab, top)]), regionOnPart(part, [...groove, aboveUndersideOf(other, top)])];
+      if (!isMeeting(slab, other)) return [];
+      const between = [...insidePlan(convexHull([...slab.plan, ...other.plan]), 0), belowTopOf(slab, 0), belowTopOf(other, 0)];
+      return [regionOnPart(part, [...between, crossing(slab)]), regionOnPart(part, [...between, crossing(other)])];
     }),
   );
 }

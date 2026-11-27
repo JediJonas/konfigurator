@@ -42,28 +42,9 @@ describe('vinkelränna mot en hög tillbyggnad på långväggen', () => {
     expect(errorsFor(design)).toEqual([]);
   });
 
-  it('tar ett urtag ur huvudhusets takfot som följer tillbyggnadens tak (ägarens val)', () => {
+  it('lämnar huvudhusets tak helt (snickarmetoden)', () => {
     const alone = buildParts(designWithExtensions(), gingerbreadDomain);
-    expect(partById(parts, 'S1/roof-left')).toEqual(partById(alone, 'S1/roof-left'));
-    const original = partById(alone, 'S1/roof-right').outline;
-    const notch = partById(parts, 'S1/roof-right').outline.filter((corner) => !original.some((other) => Math.hypot(other.x - corner.x, other.y - corner.y) < 1e-6));
-    // Urtaget öppnar sig mot takfoten (y = 0) och är högst mitt för tillbyggnadens nock, där taket är högst.
-    const atEave = notch.filter((corner) => Math.abs(corner.y) < 1e-6);
-    expect(atEave).toHaveLength(2);
-    const top = Math.max(...notch.map((corner) => corner.y));
-    const apex = notch.filter((corner) => corner.y > top - 1e-6);
-    const middle = (Math.min(...atEave.map((corner) => corner.x)) + Math.max(...atEave.map((corner) => corner.x))) / 2;
-    expect(apex.every((corner) => Math.abs(corner.x - middle) < EXTENSION_PARAMS.width / 4)).toBe(true);
-    // Sidorna är sneda, så urtaget är smalare uppe än vid takfoten.
-    const width = (corners: { x: number }[]) => Math.max(...corners.map((corner) => corner.x)) - Math.min(...corners.map((corner) => corner.x));
-    expect(width(apex)).toBeLessThan(width(atEave) / 2);
-  });
-
-  it('låter tillbyggnadens tak gå hela vägen in till väggen under huvudhusets takutsprång', () => {
-    // Inga hörn mellan takdelens yttre gavel (x = 0) och väggen (x = djup + utsprång): inget hack.
-    const wallX = EXTENSION_PARAMS.depth + EXTENSION_PARAMS.gableOverhang;
-    const between = partById(parts, 'S2/roof-right').outline.filter((corner) => corner.x > 1e-6 && corner.x < wallX - 1e-6);
-    expect(between).toEqual([]);
+    for (const id of ['S1/roof-right', 'S1/roof-left']) expect(partById(parts, id)).toEqual(partById(alone, id));
   });
 
   it('lägger tillbyggnadens tak på huvudtakets ovansida längs rännan', () => {
