@@ -20,6 +20,10 @@ const DOWNWARD_SLOPE = 1e-6;
 const ROOF_PART_PREFIXES = ['roof', 'spire-'];
 /** Områden som möts längs en linje får gå så här mycket in i varandra, så att ingen tunn remsa blir kvar mellan dem. */
 const REGION_OVERLAP_MM = 0.01;
+/** En kant på en takskiva räknas som takfot när den ligger så nära skivans lägsta undersida. */
+const EAVE_TOLERANCE_MM = 0.01;
+/** Två takytor på värden möts när deras undersidor har ett hörn så nära varandra. */
+const MEETING_CORNER_MM = 0.01;
 
 /** En takyta på värden som en skiva: undersidans plan, normal uppåt och tjocklek. */
 interface HostRoofSlab {
@@ -30,6 +34,14 @@ interface HostRoofSlab {
   plan: Polygon;
   /** Skivans lägsta undersida, t.ex. takfotens nederkant. */
   lowestUnderside: Mm;
+  /**
+   * Skivans ändytor utom takfoten, vinkelräta mot skivan, som halvrum där
+   * skivan ligger. Vid ett brott, t.ex. mansardtakets, slutar skivan där i
+   * stället för att räknas uppåt rakt ovanför sig, över grannskivan.
+   */
+  ends: WorldHalfSpace[];
+  /** Undersidans hörn, för att se vilka skivor som möts. */
+  undersideCorners: Vec3[];
 }
 
 /**
@@ -99,8 +111,32 @@ function describeHostRoof(host: PlacedInstance): HostRoofSlab[] {
         thickness: part.thickness,
         plan: convexHull([...underside, ...corners(part.thickness)].map((point) => vec2(point.x, point.z))),
         lowestUnderside: Math.min(...underside.map((point) => point.y)),
+        ends: describeSlabEnds(part, underside),
+        undersideCorners: underside,
       };
     });
+}
+
+function isMeeting(slab: HostRoofSlab, other: HostRoofSlab): boolean {
+  return slab.undersideCorners.some((corner) =>
+    other.undersideCorners.some((otherCorner) => Math.hypot(corner.x - otherCorner.x, corner.y - otherCorner.y, corner.z - otherCorner.z) < MEETING_CORNER_MM),
+  );
+}
+
+/** Ändytorna längs konturens kanter, utom kanterna i takfotens höjd. */
+function describeSlabEnds(part: Part, underside: readonly Vec3[]): WorldHalfSpace[] {
+  const lowest = Math.min(...underside.map((point) => point.y));
+  const origin = transformPoint(part.transform, vec3(0, 0, 0));
+  return part.outline.flatMap((start, index) => {
+    const nextIndex = (index + 1) % part.outline.length;
+    const end = part.outline[nextIndex] ?? start;
+    const [startWorld, endWorld] = [underside[index], underside[nextIndex]];
+    if (!startWorld || !endWorld) return [];
+    if (Math.max(startWorld.y, endWorld.y) - lowest < EAVE_TOLERANCE_MM) return [];
+    // Konturen går moturs, så kantens utåtriktade normal i delens plan är (dy, −dx).
+    const outwardInPlane = subtract3(transformPoint(part.transform, vec3(end.y - start.y, -(end.x - start.x), 0)), origin);
+    return [{ normal: outwardInPlane, offset: dot3(outwardInPlane, startWorld), depth: 0 }];
+  });
 }
 
 /** Värdens väggar sett uppifrån, ytterkanten. */
@@ -125,6 +161,10 @@ function belowTopOf(slab: HostRoofSlab, depth: Mm): WorldHalfSpace {
   return { normal: slab.normal, offset: dot3(slab.normal, top), depth };
 }
 
+function belowUndersideOf(slab: HostRoofSlab, depth: Mm): WorldHalfSpace {
+  return { normal: slab.normal, offset: dot3(slab.normal, slab.underside), depth };
+}
+
 function aboveUndersideOf(slab: HostRoofSlab, depth: Mm): WorldHalfSpace {
   const normal = vec3(-slab.normal.x, -slab.normal.y, -slab.normal.z);
   return { normal, offset: dot3(normal, slab.underside), depth };
@@ -144,15 +184,31 @@ function slopesDownOutward(surface: { normal: Vec3 }, outward: Vec3): boolean {
  */
 function roofRegions(part: Part, slabs: readonly HostRoofSlab[], walls: Polygon, outward: Vec3): Vec2[][] {
   const top = part.thickness;
-  return slabs.flatMap((slab) => {
-    const crossing: WorldHalfSpace = slopesDownOutward(slab, outward)
-      ? { normal: vec3(0, -1, 0), offset: -slab.lowestUnderside, depth: top }
-      : aboveUndersideOf(slab, top);
-    return [
-      regionOnPart(part, [...insidePlan(slab.plan, 0), ...insidePlan(walls, 0), belowTopOf(slab, 0)]),
-      regionOnPart(part, [...insidePlan(slab.plan, 0), belowTopOf(slab, 0), crossing]),
-    ];
-  });
+  const crossing = (slab: HostRoofSlab): WorldHalfSpace =>
+    slopesDownOutward(slab, outward) ? { normal: vec3(0, -1, 0), offset: -slab.lowestUnderside, depth: top } : aboveUndersideOf(slab, top);
+  const throughSlabs = slabs.flatMap((slab) => [
+    regionOnPart(part, [...insidePlan(slab.plan, 0), ...insidePlan(walls, 0), belowTopOf(slab, 0), ...slab.ends]),
+    regionOnPart(part, [...insidePlan(slab.plan, 0), ...insidePlan(walls, 0), belowUndersideOf(slab, 0)]),
+    regionOnPart(part, [...insidePlan(slab.plan, 0), belowTopOf(slab, 0), crossing(slab), ...slab.ends]),
+  ]);
+  return [...throughSlabs, ...grooveRegions(part, slabs, crossing)];
+}
+
+/**
+ * Där två takytor på värden möts i ett utåtgående brott, t.ex. mansardtakets
+ * brytlinje eller nocken, lämnar skivornas ovansidor en skåra. Den räknas som
+ * fylld, så att tillbyggnadens tak inte får en udd ner i den: under båda
+ * ovansidorna och genom någon av skivorna, inom de två skivorna sett uppifrån.
+ * Värdens tak är konvext, så det gäller alla skivor som möts.
+ */
+function grooveRegions(part: Part, slabs: readonly HostRoofSlab[], crossing: (slab: HostRoofSlab) => WorldHalfSpace): Vec2[][] {
+  return slabs.flatMap((slab, index) =>
+    slabs.slice(index + 1).flatMap((other) => {
+      if (!isMeeting(slab, other)) return [];
+      const between = [...insidePlan(convexHull([...slab.plan, ...other.plan]), 0), belowTopOf(slab, 0), belowTopOf(other, 0)];
+      return [regionOnPart(part, [...between, crossing(slab)]), regionOnPart(part, [...between, crossing(other)])];
+    }),
+  );
 }
 
 /**

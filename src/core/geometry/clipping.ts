@@ -28,12 +28,26 @@ const SNAP_GRIDS_MM = [0, 1e-6, 1e-4, 1e-2];
 /** Områden mindre än så tas inte bort, eftersom de bara är avrundningsbrus. */
 const MIN_REGION_AREA_MM2 = 1e-6;
 
-/** Tar bort flera områden på en gång. Områden med färre än tre hörn hoppas över. */
+/**
+ * Tar bort flera områden, ett i taget. Biblioteket kan tappa hela formen när
+ * många områden som möts i nästan samma punkter tas bort på en gång, så varje
+ * område tas bort från de bitar som blev kvar efter det förra. Områden med
+ * färre än tre hörn hoppas över.
+ */
 export function subtractRegions(shape: { outline: Polygon; holes: readonly Polygon[] }, regions: readonly Polygon[]): ShapeWithHoles[] {
   const usable = regions.filter((region) => region.length >= 3 && Math.abs(signedArea(region)) > MIN_REGION_AREA_MM2);
+  let pieces: readonly ClipSubject[] = [shape];
+  for (const region of usable) pieces = pieces.flatMap((piece) => subtractOnFirstWorkingGrid(piece, region));
+  // Utan områden ges formen tillbaka som den var.
+  return pieces.map((piece) => ({ outline: [...piece.outline], holes: piece.holes.map((hole) => [...hole]) }));
+}
+
+type ClipSubject = { outline: Polygon; holes: readonly Polygon[] };
+
+function subtractOnFirstWorkingGrid(shape: ClipSubject, region: Polygon): ShapeWithHoles[] {
   for (const [index, grid] of SNAP_GRIDS_MM.entries()) {
     try {
-      return differenceOnGrid(shape, usable, grid);
+      return differenceOnGrid(shape, [region], grid);
     } catch (error) {
       if (index === SNAP_GRIDS_MM.length - 1) throw error;
     }

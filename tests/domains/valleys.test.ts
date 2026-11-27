@@ -125,6 +125,32 @@ describe('pulpettak som stiger in mot huset', () => {
   });
 });
 
+describe('mansardtak mot mansardtak på långväggen', () => {
+  /**
+   * Om konturen går upp längs lutningen en gång och ner en gång. Ett hack i
+   * rännan är ett ställe där kanten vänder ner och upp igen.
+   */
+  const hasNoNotch = (outline: readonly { y: number }[]) => {
+    const steps = outline.map((point, index) => (outline[(index + 1) % outline.length] ?? point).y - point.y).filter((dy) => Math.abs(dy) > 1e-6);
+    const turns = steps.filter((dy, index) => Math.sign(dy) !== Math.sign(steps[(index + 1) % steps.length] ?? dy)).length;
+    return turns === 2;
+  };
+
+  it.each([60, 80, 100])('ger tillbyggnaden alla fyra takdelarna och en ränna utan hack vid vägghöjd %i mm', (wallHeight) => {
+    const design = designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, width: 100, roof: 'mansard', wallHeight }));
+    const host = design.root.children[0];
+    if (!host) throw new Error('Mallen saknar sektion');
+    host.params = { ...HOST_PARAMS, roof: 'mansard' };
+    expect(errorsFor(design)).toEqual([]);
+    const roofParts = buildParts(design, gingerbreadDomain).filter((part) => part.id.startsWith('S2/roof'));
+    expect(roofParts.map((part) => part.id).sort()).toEqual(['S2/roof-lower-left', 'S2/roof-lower-right', 'S2/roof-upper-left', 'S2/roof-upper-right']);
+    // Rännan över huvudtakets brytlinje är en obruten linje på de övre takdelarna.
+    for (const id of ['S2/roof-upper-left', 'S2/roof-upper-right']) expect(hasNoNotch(partById(roofParts, id).outline)).toBe(true);
+    // Takhalvorna är spegelvända, så båda sidorna får lika stora delar.
+    expect(signedArea(partById(roofParts, 'S2/roof-upper-left').outline)).toBeCloseTo(signedArea(partById(roofParts, 'S2/roof-upper-right').outline), 3);
+  });
+});
+
 describe('vinkelrännor mot andra taktyper', () => {
   it.each(['hip', 'mansard', 'shed', 'flat', 'spire4', 'spire8'])('klipper tillbyggnadens tak mot ett hus med %s', (roof) => {
     const design = designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 60 }));
