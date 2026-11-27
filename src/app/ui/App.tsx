@@ -26,6 +26,7 @@ export function App() {
   const focusInstance = useDesignStore((state) => state.focusInstance);
   const focusedInstance = useDesignStore((state) => state.focusedInstance);
   const openInstanceId = useDesignStore((state) => state.openInstanceId);
+  const isOpenInstanceHighlighted = useDesignStore((state) => state.isOpenInstanceHighlighted);
   const hasMovedView = useSeenHints((state) => state.seen.view);
   const markHintSeen = useSeenHints((state) => state.markHintSeen);
   const captureRef = useRef<CaptureOverview>(null);
@@ -44,8 +45,8 @@ export function App() {
   const pickAreas = useMemo(() => listPickAreas(evaluation.placed), [evaluation.placed]);
   const material = activeDomain.materials.find((candidate) => candidate.id === design.material.id);
   const highlight = useMemo(
-    () => describeHighlight(evaluation.placed, evaluation.parts, { selectedSocket, focusedInstance, openInstanceId }),
-    [evaluation, selectedSocket, focusedInstance, openInstanceId],
+    () => describeHighlight(evaluation.placed, evaluation.parts, { selectedSocket, focusedInstance, openInstanceId, isOpenInstanceHighlighted }),
+    [evaluation, selectedSocket, focusedInstance, openInstanceId, isOpenInstanceHighlighted],
   );
 
   return (

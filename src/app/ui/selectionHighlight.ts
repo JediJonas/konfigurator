@@ -15,6 +15,8 @@ interface SelectionState {
   selectedSocket?: SocketRef;
   focusedInstance?: FocusedInstance;
   openInstanceId?: string;
+  /** Falskt efter ett tryck utanför huset. */
+  isOpenInstanceHighlighted?: boolean;
 }
 
 /**
@@ -22,7 +24,7 @@ interface SelectionState {
  * sektion är öppen i panelen, eller fönstret eller dörren som är öppen i panelen.
  */
 export function describeHighlight(placed: readonly PlacedInstance[], parts: readonly Part[], selection: SelectionState): SelectionHighlight {
-  const { selectedSocket, focusedInstance, openInstanceId } = selection;
+  const { selectedSocket, focusedInstance, openInstanceId, isOpenInstanceHighlighted = true } = selection;
   if (selectedSocket) {
     const ownerPartId = placed
       .find((entry) => entry.instance.id === selectedSocket.instanceId)
@@ -34,7 +36,7 @@ export function describeHighlight(placed: readonly PlacedInstance[], parts: read
     return { partIds: idsOf(parts.filter((part) => part.sourceInstanceId === openInstanceId && part.paramGroupKey === groupKey)) };
   }
   const open = placed.find((entry) => entry.instance.id === openInstanceId);
-  if (open && isLeafInstance(open)) {
+  if (open && isLeafInstance(open) && isOpenInstanceHighlighted) {
     return { partIds: idsOf(parts.filter((part) => part.sourceInstanceId === open.instance.id)), pickInstanceId: open.instance.id };
   }
   return { partIds: new Set() };

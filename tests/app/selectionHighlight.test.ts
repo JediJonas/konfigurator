@@ -31,6 +31,12 @@ describe('markeringen i 3D-vyn', () => {
     expect([...highlight.partIds].sort()).toEqual(['F1/shutter-left', 'F1/shutter-right']);
   });
 
+  it('släcker fönstret efter ett tryck utanför huset', () => {
+    const highlight = describeHighlight(placed, parts, { openInstanceId: 'F1', isOpenInstanceHighlighted: false });
+    expect(highlight.pickInstanceId).toBeUndefined();
+    expect(highlight.partIds.size).toBe(0);
+  });
+
   it('markerar väggen man tryckte på före allt annat', () => {
     const highlight = describeHighlight(placed, parts, { selectedSocket: { instanceId: 'S1', socketId: 'side-left' }, openInstanceId: 'F1' });
     expect([...highlight.partIds]).toEqual(['S1/side-left']);
