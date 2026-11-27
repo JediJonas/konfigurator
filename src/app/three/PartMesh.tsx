@@ -14,6 +14,9 @@ interface PartMeshProps {
 
 /** Färgen på en vald vägg, så att man ser var en tillbyggnad hamnar. */
 const SELECTED_COLOR = '#d9a441';
+/** Så ljus insidan av väggar och tak är jämfört med utsidan, så att det ser mörkt ut inne i huset. */
+const INSIDE_SHADE = 0.45;
+const INSIDE_TOLERANCE_MM = 1e-6;
 /** Rör sig pekaren mer än så här i pixlar är det en vridning av vyn, inte ett tryck. */
 const TAP_MAX_MOVEMENT_PX = 6;
 
@@ -30,7 +33,7 @@ export function PartMesh({ part, color, isSelected, onSelect }: PartMeshProps) {
   }
   return (
     <mesh geometry={geometry} matrix={matrix} matrixAutoUpdate={false} castShadow receiveShadow onClick={handleClick}>
-      <meshStandardMaterial color={isSelected ? SELECTED_COLOR : color} roughness={0.85} />
+      <meshStandardMaterial color={isSelected ? SELECTED_COLOR : color} roughness={0.85} vertexColors />
       <lineSegments geometry={edges}>
         <lineBasicMaterial color="#5a3313" />
       </lineSegments>
@@ -46,7 +49,21 @@ function buildGeometry(part: Part): ExtrudeGeometry {
     tracePolygon(path, hole);
     shape.holes.push(path);
   }
-  return new ExtrudeGeometry(shape, { depth: part.thickness, bevelEnabled: false });
+  const geometry = new ExtrudeGeometry(shape, { depth: part.thickness, bevelEnabled: false });
+  geometry.setAttribute('color', new Float32BufferAttribute(shadeInside(geometry, part.hasInsideAtZero ?? false), 3));
+  return geometry;
+}
+
+/** En färgfaktor per hörn: mörkare på trianglarna som ligger i insidan vid z = 0. */
+function shadeInside(geometry: ExtrudeGeometry, hasInsideAtZero: boolean): number[] {
+  const positions = geometry.getAttribute('position');
+  const colors: number[] = [];
+  for (let start = 0; start < positions.count; start += 3) {
+    const isInside = hasInsideAtZero && [0, 1, 2].every((offset) => Math.abs(positions.getZ(start + offset)) < INSIDE_TOLERANCE_MM);
+    const shade = isInside ? INSIDE_SHADE : 1;
+    for (let corner = 0; corner < 3; corner++) colors.push(shade, shade, shade);
+  }
+  return colors;
 }
 
 function buildEdges(part: Part): BufferGeometry {

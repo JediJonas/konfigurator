@@ -28,6 +28,11 @@ export interface Part {
   mirroredPairOf?: string;
   marks?: Mark[];
   buildStep: number;
+  /**
+   * Sant när delens sida vid z = 0 vetter in i det som byggs, t.ex. en väggs
+   * insida eller takets undersida. 3D-vyn ritar den sidan mörkare, som i skugga.
+   */
+  hasInsideAtZero?: boolean;
 }
 
 /**
