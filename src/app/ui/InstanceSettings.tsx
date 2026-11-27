@@ -1,11 +1,14 @@
 import { useId, useMemo } from 'react';
 import type { ParamField } from '../../core/model/paramForm';
-import { describeParams, isFieldVisible } from '../../core/model/paramForm';
+import { describeParams } from '../../core/model/paramForm';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { RuleViolation } from '../../core/rules/rule';
 import type { OffsetRange } from '../../core/rules/placement';
-import { findAllowedOffsetRange, findAllowedParamRange, measureOffsetReach, SNAP_STEP_MM } from '../../core/rules/placement';
-import { activeDomain, translate } from '../activeDomain';
+import { measureOffsetReach, SNAP_STEP_MM } from '../../core/rules/placement';
+import { translate } from '../activeDomain';
+import { OFFSET_KEY } from '../rules/ruleRanges';
+import type { KnownRanges } from '../rules/useRuleRanges';
+import { useRuleRanges } from '../rules/useRuleRanges';
 import { useDesignStore } from '../state/designStore';
 import { AddToInstance } from './AddToInstance';
 import { NumberInput, ParamForm } from './ParamForm';
@@ -26,8 +29,9 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
   const { setParam, removeChild, moveAlongSocket } = useDesignStore();
   const offsetId = useId();
   const bodyId = useId();
-  const offsetRange = useOffsetRange(entry, isRemovable && isOpen);
-  const paramFields = useParamFieldsWithinRules(entry, isOpen);
+  const knownRanges = useRuleRanges(entry, isOpen, isRemovable);
+  const offsetRange = describeOffsetRange(entry, isRemovable, knownRanges[OFFSET_KEY]);
+  const paramFields = useParamFieldsWithinRules(entry, knownRanges);
   const { instance, objectType, socket, parentId } = entry;
   return (
     <section className="panel-section" data-instance-id={instance.id}>
@@ -59,7 +63,7 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
                 onChange={(u) => moveAlongSocket(instance.id, u)}
               />
               {/* Fältets min och max visar hur långt den kan flyttas; texten behövs bara när det inte går alls. */}
-              {offsetRange.min === offsetRange.max ? <p className="field-hint">{uiStrings.noRoomToMove}</p> : null}
+              {knownRanges[OFFSET_KEY] && offsetRange.min === offsetRange.max ? <p className="field-hint">{uiStrings.noRoomToMove}</p> : null}
             </>
           ) : null}
           <ParamForm fields={paramFields} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} />
@@ -76,14 +80,16 @@ function offsetField(range: OffsetRange) {
   return { kind: 'number', key: 'u', meta: { labelKey: 'u', unit: 'mm', step: SNAP_STEP_MM }, min: range.min, max: range.max, defaultValue: 0 } as const;
 }
 
-/** Bara objekt som sitter på ett annat objekt flyttas längs väggen; de andra behöver inget intervall. */
-function useOffsetRange(entry: PlacedInstance, isMovable: boolean): OffsetRange {
-  const design = useDesignStore((state) => state.design);
+/**
+ * Hur långt objektet kan flyttas längs väggen. Tills gränserna är räknade
+ * gäller hela kopplingspunkten; läget snäpper ändå till där objektet ryms.
+ */
+function describeOffsetRange(entry: PlacedInstance, isMovable: boolean, known: OffsetRange | undefined): OffsetRange {
   const u = entry.instance.attachment?.u ?? 0;
-  return useMemo(() => {
-    if (!isMovable || !entry.socket) return { min: u, max: u };
-    return findAllowedOffsetRange(design, activeDomain, { instanceId: entry.instance.id, currentU: u, maxReachMm: measureOffsetReach(entry) });
-  }, [design, entry, isMovable, u]);
+  if (!isMovable || !entry.socket) return { min: u, max: u };
+  if (known) return known;
+  const reach = measureOffsetReach(entry);
+  return { min: -reach, max: reach };
 }
 
 export function ViolationList({ violations }: { violations: RuleViolation[] }) {
@@ -102,28 +108,14 @@ export function ViolationList({ violations }: { violations: RuleViolation[] }) {
 /**
  * Formulärets fält med min och max för talen satta så långt de går utan att
  * något i huset bryter mot reglerna, t.ex. att väggen inte blir kortare än
- * tillbyggnaden på den. Pilarna i fältet stannar då vid gränsen.
+ * tillbyggnaden på den. Pilarna i fältet stannar då vid gränsen. Gränserna
+ * räknas vid sidan av (`useRuleRanges`); tills de finns gäller schemats.
  */
-function useParamFieldsWithinRules(entry: PlacedInstance, isOpen: boolean): ParamField[] {
-  const design = useDesignStore((state) => state.design);
-  const { instance, objectType, params } = entry;
-  return useMemo(() => {
-    const fields = describeParams(objectType.params);
-    if (!isOpen) return fields;
-    return fields.map((field) => {
-      const current = params[field.key];
-      if (field.kind !== 'number' || typeof current !== 'number' || field.min === undefined || field.max === undefined) return field;
-      // Dolda fält, t.ex. kantens höjd när taket inte är platt, behöver inga gränser.
-      if (!isFieldVisible(field, params, fields)) return field;
-      const range = findAllowedParamRange(design, activeDomain, {
-        instanceId: instance.id,
-        param: field.key,
-        current,
-        step: field.meta.step ?? 1,
-        min: field.min,
-        max: field.max,
-      });
-      return { ...field, ...range };
-    });
-  }, [design, instance.id, isOpen, objectType.params, params]);
+function useParamFieldsWithinRules(entry: PlacedInstance, knownRanges: KnownRanges): ParamField[] {
+  const { objectType } = entry;
+  const fields = useMemo(() => describeParams(objectType.params), [objectType.params]);
+  return useMemo(
+    () => fields.map((field) => (field.kind === 'number' && knownRanges[field.key] ? { ...field, ...knownRanges[field.key] } : field)),
+    [fields, knownRanges],
+  );
 }

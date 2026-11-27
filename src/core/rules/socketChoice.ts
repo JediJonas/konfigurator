@@ -3,9 +3,7 @@ import type { Domain } from '../model/domain';
 import { findInstance, updateInstance } from '../model/instanceTree';
 import type { ObjectType, Socket } from '../model/objectType';
 import { placeInstances } from '../pipeline/placeInstances';
-import { listViolations } from './evaluateDesign';
-
-const ignoreLabel = (key: string) => key;
+import { listViolationKeysRemembered } from './ruleCheck';
 
 /**
  * Kopplingspunkterna på samma del som `socket`, i förälderns ordning, som
@@ -62,11 +60,8 @@ function tryPlace(design: Design, domain: Domain) {
 }
 
 function hasErrorsFor(design: Design, domain: Domain, instanceId: string): boolean {
-  try {
-    return listViolations(design, domain, ignoreLabel).some((violation) => violation.instanceId === instanceId && violation.level === 'error');
-  } catch {
-    return true;
-  }
+  const violations = listViolationKeysRemembered(design, domain);
+  return !violations || violations.some((violation) => violation.instanceId === instanceId && violation.level === 'error');
 }
 
 /** Objektet och barnen som sitter direkt på det, vars kopplingspunkt kan behöva bytas när objektets mått ändras. */
