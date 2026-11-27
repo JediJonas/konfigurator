@@ -38,6 +38,11 @@ export interface Socket {
   ownerPartId?: string;
   /** Fälten i objektets parametrar som ändrar punktens del, t.ex. väggens längd och höjd. Panelen visar dem vid delen. */
   partParams?: PartParam[];
+  /**
+   * Fältgruppen som punkten hör till i panelen, t.ex. taket för ett takfall.
+   * Det som sitter i punkten visas då under gruppen och inte som en egen del.
+   */
+  paramGroupKey?: string;
 }
 
 /**

@@ -8,6 +8,8 @@ export const uiStrings = {
   showConfiguration: 'Visa konfiguration',
   hideConfiguration: 'Dölj konfiguration',
   addObject: (label: string) => `Lägg till ${label.toLowerCase()}`,
+  addObjectAt: (addLabel: string, place: string) => `${addLabel} på ${place.toLowerCase()}`,
+  objectAt: (label: string, place: string) => `${label} · ${place.toLowerCase()}`,
   cannotAdd: 'Det finns ingen plats här, inte ens för den minsta storleken. Välj en annan vägg eller gör väggen större.',
   attachedTo: (place: string) => `Sitter på ${place}`,
   socketName: (instanceId: string, socket: string) => `${instanceId} · ${socket.toLowerCase()}`,

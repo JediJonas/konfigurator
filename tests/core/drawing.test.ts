@@ -106,6 +106,13 @@ describe('sidindelning', () => {
     expect(layoutPartPages(groups, a4)).toHaveLength(1);
   });
 
+  it('ger en smal del lika mycket plats på hyllan som dess etikett, så att etiketterna inte går in i varandra', () => {
+    const groups = groupIdenticalParts([rectanglePart('a', 15, 40), rectanglePart('b', 16, 30)]);
+    const [page] = layoutPartPages(groups, a4, () => 50);
+    const [first, second] = page?.shapes ?? [];
+    expect((second?.labelAt?.x ?? 0) - (first?.labelAt?.x ?? 0)).toBeGreaterThanOrEqual(50);
+  });
+
   it('vrider en lång del så att den ryms på en sida', () => {
     const pages = layoutPartPages(groupIdenticalParts([rectanglePart('a', 250, 100)]), a4);
     expect(pages).toHaveLength(1);

@@ -20,10 +20,32 @@ export function listPanelWalls(entry: PlacedInstance, nested: readonly PlacedIns
   const walls: PanelWall[] = [];
   for (const socket of entry.sockets) {
     const ownerPartId = socket.ownerPartId;
-    if (!ownerPartId || walls.some((wall) => wall.ownerPartId === ownerPartId)) continue;
+    // Punkter som hör till en fältgrupp, t.ex. takfallen, visas under gruppen (`listGroupSockets`).
+    if (!ownerPartId || socket.paramGroupKey || walls.some((wall) => wall.ownerPartId === ownerPartId)) continue;
     walls.push({ socket, ownerPartId, nested: nested.filter((child) => child.socket?.ownerPartId === ownerPartId) });
   }
   return walls.sort((a, b) => a.socket.labelKey.localeCompare(b.socket.labelKey, undefined, { numeric: true }));
+}
+
+/** Kopplingspunkterna i en fältgrupp och objekten som sitter i dem, t.ex. takfallen och takkuporna under Tak. */
+export interface PanelGroupSockets {
+  sockets: Socket[];
+  nested: PlacedInstance[];
+}
+
+/** Objektets kopplingspunkter som hör till fältgruppen, i samma ordning som väggarna, och det som sitter i dem. */
+export function listGroupSockets(entry: PlacedInstance, nested: readonly PlacedInstance[], groupKey: string): PanelGroupSockets {
+  const sockets = entry.sockets.filter((socket) => socket.paramGroupKey === groupKey);
+  const ids = new Set(sockets.map((socket) => socket.id));
+  return {
+    sockets: [...sockets].sort((a, b) => a.labelKey.localeCompare(b.labelKey, undefined, { numeric: true })),
+    nested: nested.filter((child) => child.socket?.paramGroupKey === groupKey && ids.has(child.socket.id)),
+  };
+}
+
+/** Fältgruppen som objektet sitter under i panelen, t.ex. Tak för en takkupa. Saknas för det som sitter på en vägg. */
+export function groupKeyOfPlace(entry: PlacedInstance): string | undefined {
+  return entry.socket?.paramGroupKey;
 }
 
 /** Delen som en kopplingspunkt på objektet hör till, t.ex. väggen man tryckte på i 3D-vyn. */

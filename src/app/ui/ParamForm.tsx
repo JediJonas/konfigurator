@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useId } from 'react';
 import type { ParamField } from '../../core/model/paramForm';
 import { isFieldVisible } from '../../core/model/paramForm';
@@ -13,6 +14,8 @@ interface ParamFormProps {
   openGroupKey?: string;
   /** Anges den styr panelen vilken grupp som är utfälld; annars fäller varje grupp ut sig själv. */
   onToggleGroup?: (groupKey: string) => void;
+  /** Mer innehåll sist i en grupp, t.ex. takkuporna under Tak. */
+  renderGroupExtra?: (groupKey: string) => ReactNode;
 }
 
 /**
@@ -21,7 +24,7 @@ interface ParamFormProps {
  * är hopfälld från början, eftersom de sällan ändras (ägarens val). Fält som
  * bara gäller vissa val, t.ex. kantens höjd på ett platt tak, visas bara då.
  */
-export function ParamForm({ fields, values, onChange, openGroupKey, onToggleGroup }: ParamFormProps) {
+export function ParamForm({ fields, values, onChange, openGroupKey, onToggleGroup, renderGroupExtra }: ParamFormProps) {
   const visible = fields.filter((field) => isFieldVisible(field, values, fields));
   return (
     <div className="param-form">
@@ -35,6 +38,7 @@ export function ParamForm({ fields, values, onChange, openGroupKey, onToggleGrou
             onToggle={onToggleGroup ? () => onToggleGroup(group.groupKey ?? '') : undefined}
           >
             {group.fields.map((field) => renderInput(field, values, onChange))}
+            {renderGroupExtra?.(group.groupKey)}
           </FieldGroup>
         ) : (
           group.fields.map((field) => renderInput(field, values, onChange))

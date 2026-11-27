@@ -5,7 +5,7 @@ import type { PartGroup } from '../layout/partGroups';
 import type { PaperFormat } from '../layout/paper';
 import { coreStrings } from '../text/strings.sv';
 import { renderFooter } from './pageFurniture';
-import { CUT_LINE_MM, line, polygonPath, SMALL_TEXT_SIZE_MM, svgDocument, text, THIN_LINE_MM } from './svgElements';
+import { CUT_LINE_MM, estimateTextWidth, line, polygonPath, SMALL_TEXT_SIZE_MM, svgDocument, text, TEXT_SIZE_MM, THIN_LINE_MM } from './svgElements';
 
 export type ResolveLabel = (key: string) => string;
 /** Delens namn på ritningen, se `describeGroup`. */
@@ -45,13 +45,24 @@ function renderShape(shape: PlacedShape, index: number, nameGroup: NameGroup): s
   ].join('');
 }
 
-function partTitle(shape: PlacedShape, nameGroup: NameGroup): string {
+function partTitle(shape: Pick<PlacedShape, 'group'>, nameGroup: NameGroup): string {
   return `${shape.group.number}. ${nameGroup(shape.group)}`;
 }
 
-function partDetails(shape: PlacedShape): string {
+function partDetails(shape: Pick<PlacedShape, 'group' | 'outline'>): string {
   const bounds = boundsOf(shape.outline);
   return [coreStrings.cutCount(shape.group.count, shape.group.mirroredCount), coreStrings.dimensions(boundsWidth(bounds), boundsHeight(bounds))].join(', ');
+}
+
+/**
+ * Hur bred delens etikett blir på sidan, så att en smal del, t.ex. en
+ * fönsterlucka, får plats för sitt namn utan att det går in i grannens.
+ */
+export function measureLabelWidth(group: PartGroup, nameGroup: NameGroup): number {
+  return Math.max(
+    estimateTextWidth(partTitle({ group }, nameGroup), TEXT_SIZE_MM, true),
+    estimateTextWidth(partDetails({ group, outline: group.outline }), SMALL_TEXT_SIZE_MM),
+  );
 }
 
 function renderLabel(shape: PlacedShape, at: Vec2, nameGroup: NameGroup): string {
