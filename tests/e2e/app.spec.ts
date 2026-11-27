@@ -115,6 +115,16 @@ test('öppnar fönstret när man trycker på det i 3D-vyn', async ({ page }) => 
   await expect(page.getByLabel('Höjd över golvet')).toBeVisible();
 });
 
+test('fäller ut takets fält när man trycker på taket i 3D-vyn', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await expect(page.getByLabel('Taktyp')).toBeHidden();
+  await page.waitForTimeout(800);
+  await page.mouse.click(500, 300);
+  await expect(page.getByRole('button', { name: 'Tak', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByLabel('Taktyp')).toBeVisible();
+});
+
 test('ställer en sektion bredvid huset när den blir högre än väggen', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');

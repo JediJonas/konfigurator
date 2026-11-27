@@ -18,6 +18,7 @@ export function useOpenInstance(instanceIds: string[], focus: PanelFocus | undef
     setOpenId(findAddedId(known.instanceIds, instanceIds) ?? (focusKey !== known.focusKey ? focusedId : undefined) ?? openId);
   }
   return {
+    openId,
     isOpen: (instanceId: string) => openId === instanceId,
     toggle: (instanceId: string) => setOpenId((current) => (current === instanceId ? undefined : instanceId)),
   };

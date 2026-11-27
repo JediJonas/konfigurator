@@ -3,15 +3,20 @@ import type { ThreeEvent } from '@react-three/fiber';
 import { BufferGeometry, DoubleSide, Float32BufferAttribute } from 'three';
 import type { PickArea } from './pickAreas';
 import { triangulatePlanarRegion } from './pickAreas';
-import { TAP_MAX_MOVEMENT_PX } from './PartMesh';
+import { SELECTED_COLOR, TAP_MAX_MOVEMENT_PX } from './PartMesh';
 
 interface PickAreaMeshProps {
   area: PickArea;
+  /** Ett valt fönster visas med hålet fyllt i markeringens färg. */
+  isSelected: boolean;
   onSelect: (instanceId: string) => void;
 }
 
+/** Så täckt hålet är när fönstret är valt; man ser fortfarande in genom det. */
+const SELECTED_OPACITY = 0.6;
+
 /** En osynlig yta över t.ex. ett fönsterhål, så att man kan trycka på fönstret. */
-export function PickAreaMesh({ area, onSelect }: PickAreaMeshProps) {
+export function PickAreaMesh({ area, isSelected, onSelect }: PickAreaMeshProps) {
   const geometry = useMemo(() => buildGeometry(area), [area]);
   function handleClick(event: ThreeEvent<MouseEvent>) {
     if (event.delta > TAP_MAX_MOVEMENT_PX) return;
@@ -20,8 +25,15 @@ export function PickAreaMesh({ area, onSelect }: PickAreaMeshProps) {
   }
   return (
     <mesh geometry={geometry} onClick={handleClick}>
-      {/* Ritas inte, men träffas när man trycker. */}
-      <meshBasicMaterial side={DoubleSide} colorWrite={false} depthWrite={false} transparent opacity={0} />
+      {/* Ritas bara när fönstret är valt, men träffas alltid när man trycker. */}
+      <meshBasicMaterial
+        side={DoubleSide}
+        color={SELECTED_COLOR}
+        colorWrite={isSelected}
+        depthWrite={false}
+        transparent
+        opacity={isSelected ? SELECTED_OPACITY : 0}
+      />
     </mesh>
   );
 }

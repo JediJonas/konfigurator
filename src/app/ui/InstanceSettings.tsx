@@ -26,12 +26,14 @@ interface InstanceSettingsProps {
   onToggle: () => void;
   /** Rubriknivå: 2 för sektioner, 3 för objekt som är samlade under en sektion. */
   headingLevel?: 2 | 3;
+  /** Fältgruppen som ska fällas ut, t.ex. taket man tryckte på i 3D-vyn. */
+  revealedGroup?: { groupKey: string; revealKey: string };
   /** Objekten som är samlade under det här, t.ex. sektionens fönster. */
   children?: ReactNode;
 }
 
 /** Ett objekts inställningar: läge i kopplingspunkten, parametrar och det reglerna säger om det. */
-export function InstanceSettings({ entry, violations, isRemovable, isOpen, onToggle, headingLevel = 2, children }: InstanceSettingsProps) {
+export function InstanceSettings({ entry, violations, isRemovable, isOpen, onToggle, headingLevel = 2, revealedGroup, children }: InstanceSettingsProps) {
   const { setParam, removeChild, moveAlongSocket } = useDesignStore();
   const offsetId = useId();
   const bodyId = useId();
@@ -73,7 +75,7 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
               {knownRanges[OFFSET_KEY] && offsetRange.min === offsetRange.max ? <p className="field-hint">{uiStrings.noRoomToMove}</p> : null}
             </>
           ) : null}
-          <ParamForm fields={paramFields} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} />
+          <ParamForm fields={paramFields} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} revealedGroup={revealedGroup} />
           <AddToInstance entry={entry} />
         </div>
       ) : null}

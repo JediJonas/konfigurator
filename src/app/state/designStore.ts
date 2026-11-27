@@ -7,6 +7,14 @@ import { setParamWithinRules } from '../../core/rules/paramAdjustment';
 import { proposeChild, snapAttachmentOffset } from '../../core/rules/placement';
 import { activeDomain } from '../activeDomain';
 
+/** Objektet eller fältgruppen som öppnades med ett tryck i 3D-vyn. */
+export interface FocusedInstance {
+  instanceId: string;
+  /** Fältgruppen som ska fällas ut, t.ex. taket. */
+  groupKey?: string;
+  count: number;
+}
+
 /** En kopplingspunkt på ett visst objekt, t.ex. högra långväggen på S1. */
 export interface SocketRef {
   instanceId: string;
@@ -19,17 +27,21 @@ interface DesignState {
   /** Kopplingspunkten som är vald i 3D-vyn eller i panelen. */
   selectedSocket?: SocketRef;
   /**
-   * Objektet man tryckte på i 3D-vyn när det inte har någon kopplingspunkt, t.ex. ett fönster.
-   * Räknaren ökar vid varje tryck, så att objektet öppnas igen om man har stängt det.
+   * Objektet man tryckte på i 3D-vyn när det inte har någon kopplingspunkt, t.ex. ett fönster,
+   * eller fältgruppen man tryckte på, t.ex. en sektions tak. Räknaren ökar vid varje tryck,
+   * så att objektet och gruppen öppnas igen om man har stängt dem.
    */
-  focusedInstance?: { instanceId: string; count: number };
+  focusedInstance?: FocusedInstance;
+  /** Objektet som är öppet i panelen; det visas markerat i 3D-vyn när det är ett fönster eller en dörr. */
+  openInstanceId?: string;
   /** Sätter ett fält. Gör ett nytt val, t.ex. taktypen, att en ärvd lutning inte går flyttas lutningen till närmaste som går. */
   setParam: (instanceId: string, key: string, value: unknown) => void;
   setThickness: (thickness: number) => void;
   setPaper: (paper: PaperFormat['id']) => void;
   selectSocket: (socket: SocketRef | undefined) => void;
   /** Öppnar ett objekt i panelen, t.ex. fönstret man tryckte på. Väljer bort vald kopplingspunkt. */
-  focusInstance: (instanceId: string) => void;
+  focusInstance: (instanceId: string, groupKey?: string) => void;
+  setOpenInstanceId: (instanceId: string | undefined) => void;
   /** Lägger till ett objekt som snäpper mitt i kopplingspunkten. Gör inget om reglerna inte tillåter det. */
   addChild: (request: ChildRequest) => void;
   removeChild: (instanceId: string) => void;
@@ -52,8 +64,9 @@ export const useDesignStore = create<DesignState>((set) => ({
   setThickness: (thickness) => set((state) => ({ design: { ...state.design, material: { ...state.design.material, thickness } } })),
   setPaper: (paper) => set({ paper }),
   selectSocket: (selectedSocket) => set({ selectedSocket, focusedInstance: undefined }),
-  focusInstance: (instanceId) =>
-    set((state) => ({ selectedSocket: undefined, focusedInstance: { instanceId, count: (state.focusedInstance?.count ?? 0) + 1 } })),
+  focusInstance: (instanceId, groupKey) =>
+    set((state) => ({ selectedSocket: undefined, focusedInstance: { instanceId, groupKey, count: (state.focusedInstance?.count ?? 0) + 1 } })),
+  setOpenInstanceId: (openInstanceId) => set({ openInstanceId }),
   addChild: (request) =>
     set((state) => {
       const proposal = proposeChild(state.design, activeDomain, request);

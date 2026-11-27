@@ -10,6 +10,7 @@ import type { FitView } from '../three/DesignView';
 import type { CaptureOverview } from '../three/OverviewCapture';
 import { ViewportProbe } from '../device/ViewportProbe';
 import { listPickAreas } from '../three/pickAreas';
+import { describeHighlight } from './selectionHighlight';
 import { findLeafInstanceOf, findSocketOwnedBy } from './socketSelection';
 import { SettingsPanel } from './SettingsPanel';
 import { uiStrings } from './strings.sv';
@@ -23,6 +24,8 @@ export function App() {
   const selectedSocket = useDesignStore((state) => state.selectedSocket);
   const selectSocket = useDesignStore((state) => state.selectSocket);
   const focusInstance = useDesignStore((state) => state.focusInstance);
+  const focusedInstance = useDesignStore((state) => state.focusedInstance);
+  const openInstanceId = useDesignStore((state) => state.openInstanceId);
   const hasMovedView = useSeenHints((state) => state.seen.view);
   const markHintSeen = useSeenHints((state) => state.markHintSeen);
   const captureRef = useRef<CaptureOverview>(null);
@@ -40,9 +43,10 @@ export function App() {
   if (!result.error && evaluation.parts !== lastGoodParts) setLastGoodParts(evaluation.parts);
   const pickAreas = useMemo(() => listPickAreas(evaluation.placed), [evaluation.placed]);
   const material = activeDomain.materials.find((candidate) => candidate.id === design.material.id);
-  const selectedPartId = evaluation.placed
-    .find((entry) => entry.instance.id === selectedSocket?.instanceId)
-    ?.sockets.find((socket) => socket.id === selectedSocket?.socketId)?.ownerPartId;
+  const highlight = useMemo(
+    () => describeHighlight(evaluation.placed, evaluation.parts, { selectedSocket, focusedInstance, openInstanceId }),
+    [evaluation, selectedSocket, focusedInstance, openInstanceId],
+  );
 
   return (
     <div className="app">
@@ -57,11 +61,14 @@ export function App() {
             color={material?.color ?? '#a8652f'}
             captureRef={captureRef}
             fitRef={fitRef}
-            selectedPartId={selectedPartId}
+            highlight={highlight}
             onSelectPart={(partId) => {
               // En fönsterlucka eller ett dörrblad öppnar sitt fönster eller sin dörr.
               const leafId = partId ? findLeafInstanceOf(evaluation.placed, evaluation.parts, partId) : undefined;
               if (leafId) return focusInstance(leafId);
+              // Taket öppnar takets fält på sektionen det hör till.
+              const part = evaluation.parts.find((candidate) => candidate.id === partId);
+              if (part?.paramGroupKey) return focusInstance(part.sourceInstanceId, part.paramGroupKey);
               const socket = findSocketOwnedBy(evaluation.placed, partId);
               selectSocket(socket);
               if (socket) markHintSeen('addFromView');

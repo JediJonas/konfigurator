@@ -10,7 +10,9 @@ export const SLOPED_ROOFS: readonly RoofType[] = ['gable', 'shed', 'hip', 'mansa
 /** Tak med gavlar eller sidor där takutsprånget vid gaveln gäller. */
 const ROOFS_WITH_GABLE_OVERHANG: readonly RoofType[] = ['gable', 'shed', 'mansard'];
 
-const roofField = { groupKey: 'group.roof', isInherited: true } as const;
+/** Fältgruppen för taket; takets delar pekar på den. */
+export const ROOF_GROUP_KEY = 'group.roof';
+const roofField = { groupKey: ROOF_GROUP_KEY, isInherited: true } as const;
 
 export const sectionParams = z.object({
   width: z.number().min(60).max(400).default(140).meta({ labelKey: 'param.width', unit: 'mm', step: 5 }),
