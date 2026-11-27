@@ -15,6 +15,8 @@ describe('markeringen i 3D-vyn', () => {
     const roofIds = parts.filter((part) => part.paramGroupKey === 'group.roof').map((part) => part.id);
     expect(roofIds).toEqual(expect.arrayContaining(['S1/roof-left', 'S1/roof-right', 'S2/roof-left', 'S2/roof-right']));
     expect(roofIds.some((id) => id.includes('side'))).toBe(false);
+    const wallIds = parts.filter((part) => part.paramGroupKey === 'group.dimensions').map((part) => part.id);
+    expect(wallIds).toEqual(expect.arrayContaining(['S1/side-left', 'S1/gable-front', 'S2/side-right']));
   });
 
   it('markerar taket på sektionen man tryckte på så länge den är öppen', () => {

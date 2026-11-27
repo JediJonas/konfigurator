@@ -19,6 +19,8 @@ export interface FocusedInstance {
 export interface SocketRef {
   instanceId: string;
   socketId: string;
+  /** Fältgruppen som fälls ut när väggen väljs i 3D-vyn, t.ex. måtten. */
+  groupKey?: string;
 }
 
 interface DesignState {

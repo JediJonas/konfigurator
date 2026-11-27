@@ -28,7 +28,7 @@ interface InstanceSettingsProps {
   headingLevel?: 2 | 3;
   /** Fältgruppen som ska fällas ut, t.ex. taket man tryckte på i 3D-vyn. */
   revealedGroup?: { groupKey: string; revealKey: string };
-  /** Objekten som är samlade under det här, t.ex. sektionens fönster. */
+  /** Objekten som är samlade under det här, t.ex. sektionens fönster. De syns när objektet är utfällt. */
   children?: ReactNode;
 }
 
@@ -76,12 +76,12 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
             </>
           ) : null}
           <ParamForm fields={paramFields} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} revealedGroup={revealedGroup} />
+          {children}
           <AddToInstance entry={entry} />
         </div>
       ) : null}
       {/* Felen syns även när sektionen är stängd, så att inget som stoppar ritningen göms. */}
       <ViolationList violations={violations} />
-      {children}
     </section>
   );
 }
@@ -107,7 +107,7 @@ export function ViolationList({ violations }: { violations: RuleViolation[] }) {
   return (
     <ul className="violations" role="alert">
       {violations.map((violation) => (
-        <li key={violation.message} className={`violation violation-${violation.level}`}>
+        <li key={`${violation.instanceId}/${violation.message}`} className={`violation violation-${violation.level}`}>
           <strong>{violation.level === 'error' ? uiStrings.cannotBuild : uiStrings.warning}</strong> {violation.message}
         </li>
       ))}
