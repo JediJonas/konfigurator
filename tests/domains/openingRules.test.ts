@@ -4,7 +4,7 @@ import { addChildInstance } from '../../src/core/model/instanceTree';
 import { evaluateDesign } from '../../src/core/rules/evaluateDesign';
 import { findAllowedParamRange, proposeChild } from '../../src/core/rules/placement';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
-import { designWithExtensions, extension, HOST_PARAMS } from './extensionFixtures';
+import { designWithExtensions, extension, EXTENSION_PARAMS, HOST_PARAMS } from './extensionFixtures';
 import { beside, BLOCK_PARAMS, houseWithTower, TOWER_PARAMS } from './neighborFixtures';
 import { doorOn, windowOn } from './openingFixtures';
 
@@ -95,6 +95,24 @@ describe('förslag för fönster och dörrar', () => {
     const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'side-left', objectTypeId: 'gb.window' });
     expect(proposal.violations).toEqual([]);
     expect(proposal.instance.params).toEqual(style);
+  });
+
+  it('ger det första fönstret på en tillbyggnad samma värden som fönstren på huset, men tillbyggnadens egna fönster går före', () => {
+    const style = { width: 25, height: 35, sillHeight: 20, shape: 'arch', mullions: 'cross', hasShutters: false };
+    const host = windowOn('side-left', style, 0, 'F1');
+    const tallExtension = extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 80, depth: 100 });
+    const firstOnExtension = proposeChild(designWithExtensions(host, tallExtension), gingerbreadDomain, {
+      parentId: 'S2',
+      socketId: 'side-right',
+      objectTypeId: 'gb.window',
+    });
+    expect(firstOnExtension.violations).toEqual([]);
+    expect(firstOnExtension.instance.params).toEqual(style);
+
+    const own = { ...style, width: 20, shape: 'rect' };
+    const withOwn = designWithExtensions(host, { ...tallExtension, children: [windowOn('side-right', own, 0, 'F2')] });
+    const second = proposeChild(withOwn, gingerbreadDomain, { parentId: 'S2', socketId: 'side-left', objectTypeId: 'gb.window' });
+    expect(second.instance.params).toEqual(own);
   });
 
   it('behåller förra fönstrets form, spröjs och luckor när storleken inte ryms', () => {

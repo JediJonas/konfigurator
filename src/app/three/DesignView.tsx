@@ -8,6 +8,8 @@ import type { Polygon } from '../../core/geometry/polygon';
 import type { Part } from '../../core/model/part';
 import { listInsideFloors } from './insideFloor';
 import { PartMesh } from './PartMesh';
+import type { PickArea } from './pickAreas';
+import { PickAreaMesh } from './PickAreaMesh';
 import { lightPositionForView } from './viewerLight';
 import { cameraPositionOutsideParts, prepareClearanceParts } from './cameraClearance';
 import type { ClearancePart } from './cameraClearance';
@@ -27,6 +29,10 @@ interface DesignViewProps {
   selectedPartId?: string;
   /** Anropas när man trycker på en del, eller på tomma ytan (utan id). */
   onSelectPart: (partId: string | undefined) => void;
+  /** Ytor utan egen del som öppnar ett objekt, t.ex. fönsterhål. */
+  pickAreas: PickArea[];
+  /** Anropas när man trycker på en sådan yta. */
+  onSelectInstance: (instanceId: string) => void;
   /** Anropas när man själv vrider, zoomar eller flyttar vyn, inte när vyn centreras. */
   onUserMoveView: () => void;
 }
@@ -45,7 +51,7 @@ const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 /** Närmaste avstånd till vyns mittpunkt. Husets egna väggar och tak stoppar zoomen långt innan dess. */
 const MIN_ORBIT_DISTANCE_MM = 20;
 
-export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, onSelectPart, onUserMoveView }: DesignViewProps) {
+export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, onSelectPart, pickAreas, onSelectInstance, onUserMoveView }: DesignViewProps) {
   const partsRef = useRef<Group>(null);
   // Sant mellan att man tar tag i vyn och släpper. Ett tryck utan rörelse ändrar inte kameran och räknas inte.
   const isUserHoldingViewRef = useRef(false);
@@ -85,6 +91,9 @@ export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, o
           ))}
         </group>
       </Bounds>
+      {pickAreas.map((area, index) => (
+        <PickAreaMesh key={`${area.instanceId}/${index}`} area={area} onSelect={onSelectInstance} />
+      ))}
       <OverviewCapture partsRef={partsRef} captureRef={captureRef} />
       <CameraClearance parts={parts} />
       <OrbitControls

@@ -1,6 +1,6 @@
 import type { Design, Instance } from '../model/design';
 import type { Domain } from '../model/domain';
-import { addChildInstance, nextInstanceId, updateInstance } from '../model/instanceTree';
+import { addChildInstance, listAncestorsFrom, nextInstanceId, updateInstance } from '../model/instanceTree';
 import { pickInheritedParams } from '../model/paramForm';
 import { findObjectType, placeInstances } from '../pipeline/placeInstances';
 import type { MaxCountPerSocketRule, RuleViolation } from './rule';
@@ -68,7 +68,7 @@ interface SocketProposalRequest {
 
 function proposeInSocket(design: Design, domain: Domain, request: SocketProposalRequest): ChildProposal {
   const { parent, socket, objectType, resolveLabel } = request;
-  const source = findInheritanceSource(parent.instance, objectType.id);
+  const source = findInheritanceSource(design.root, parent.instance.id, objectType.id);
   const inherited = source ? pickInheritedParams(objectType.params, source.params) : {};
   // Objekttypen lägger själv de ärvda värdena på sina förslag, och får byta ut ett ärvt värde som inte går här.
   const candidates = objectType.paramCandidates?.(socket, { thickness: design.material.thickness, socket }, inherited) ?? [{ ...inherited }];
@@ -103,12 +103,20 @@ function proposeInSocket(design: Design, domain: Domain, request: SocketProposal
 
 /**
  * Objektet som ett nytt objekt ärver fält från: föräldern när den är av samma typ,
- * t.ex. taket till en tillbyggnad, annars det senast skapade syskonet av samma typ,
- * t.ex. ett fönster tidigare på samma sektion.
+ * t.ex. taket till en tillbyggnad, annars det senast skapade objektet av samma typ
+ * på föräldern, och finns inget där på närmaste förälder uppåt som har ett.
+ * Så får ett fönster samma mått som förra fönstret på sektionen, och det första
+ * fönstret på en tillbyggnad samma mått som fönstren på huset.
  */
-export function findInheritanceSource(parent: Instance, objectTypeId: string): Instance | undefined {
+export function findInheritanceSource(root: Instance, parentId: string, objectTypeId: string): Instance | undefined {
+  const [parent, ...ancestors] = listAncestorsFrom(root, parentId);
+  if (!parent) return undefined;
   if (parent.type === objectTypeId) return parent;
-  return [...parent.children].reverse().find((child) => child.type === objectTypeId);
+  for (const holder of [parent, ...ancestors]) {
+    const latest = [...holder.children].reverse().find((child) => child.type === objectTypeId);
+    if (latest) return latest;
+  }
+  return undefined;
 }
 
 /** Regeln om högsta antal som redan är nådd i kopplingspunkten, t.ex. en dörr per vägg. */

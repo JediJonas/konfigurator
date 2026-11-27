@@ -29,6 +29,16 @@ export function findInstance(root: Instance, instanceId: string): Instance | und
   return undefined;
 }
 
+/** Objektet och dess föräldrar upp till roten, närmast först. Tomt om objektet inte finns. */
+export function listAncestorsFrom(root: Instance, instanceId: string): Instance[] {
+  if (root.id === instanceId) return [root];
+  for (const child of root.children) {
+    const path = listAncestorsFrom(child, instanceId);
+    if (path.length > 0) return [...path, root];
+  }
+  return [];
+}
+
 /** Nästa lediga id med prefixet, t.ex. S3 när S1 och S2 finns. */
 export function nextInstanceId(root: Instance, prefix: string): string {
   const ids = new Set([root, ...listInstances(root)].map((instance) => instance.id));

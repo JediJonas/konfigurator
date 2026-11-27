@@ -80,6 +80,24 @@ test('sätter fönster och dörr i väggen och har kvar dem när sidan laddas om
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Dörr D1' })).toBeVisible();
+  // Fönster och dörrar ligger samlade under sektionen de sitter på.
+  const houseSection = page.locator('[data-instance-id="S1"]');
+  await expect(houseSection.getByRole('heading', { level: 3, name: 'Fönster F1' })).toBeVisible();
+  await expect(houseSection.getByRole('heading', { level: 3, name: 'Dörr D1' })).toBeVisible();
+});
+
+test('öppnar fönstret när man trycker på det i 3D-vyn', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
+  await page.getByRole('button', { name: 'Lägg till fönster' }).click();
+  // Fönstret stängs, och vyn hinner rita innan man trycker mitt i fönsterhålet.
+  await page.getByRole('button', { name: 'Fönster F1' }).click();
+  await expect(page.getByLabel('Höjd över golvet')).toBeHidden();
+  await page.waitForTimeout(800);
+  await page.mouse.click(590, 520);
+  await expect(page.getByRole('button', { name: 'Fönster F1' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByLabel('Höjd över golvet')).toBeVisible();
 });
 
 test('ställer en sektion bredvid huset när den blir högre än väggen', async ({ page }) => {
