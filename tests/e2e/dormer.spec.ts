@@ -15,6 +15,8 @@ test('lägger en takkupa på taket och visar den under Tak', async ({ page }) =>
 
   // Fältet ger bara lägen där kupan har 15 mm helt tak mot takfoten.
   const eaveDistance = page.getByLabel(/^Avstånd från takfoten/);
+  // Gränserna räknas vid sidan av; vänta tills de är kända, annars gäller schemats.
+  await expect(eaveDistance).toHaveAttribute('min', '15', { timeout: 15_000 });
   await eaveDistance.fill('0');
   await eaveDistance.blur();
   await expect(eaveDistance).toHaveValue('15');
