@@ -5,6 +5,7 @@ import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { RuleViolation } from '../../core/rules/rule';
 import type { OffsetRange } from '../../core/rules/placement';
 import { measureOffsetReach, SNAP_STEP_MM } from '../../core/rules/placement';
+import { fromShownOffset, toShownOffset, toShownOffsetRange } from './shownOffset';
 import { translate } from '../activeDomain';
 import { OFFSET_KEY } from '../rules/ruleRanges';
 import type { KnownRanges } from '../rules/useRuleRanges';
@@ -83,7 +84,7 @@ export function OffsetInput({ entry, knownRanges }: { entry: PlacedInstance; kno
   return (
     <>
       <p className="instance-place">{uiStrings.attachedTo(uiStrings.socketName(parentId, translate(socket.labelKey)))}</p>
-      <NumberInput id={offsetId} label={uiStrings.offsetAlongSocket} field={offsetField(offsetRange)} value={instance.attachment?.u ?? 0} onChange={(u) => moveAlongSocket(instance.id, u)} />
+      <NumberInput id={offsetId} label={uiStrings.offsetAlongSocket} field={offsetField(toShownOffsetRange(offsetRange))} value={toShownOffset(instance.attachment?.u ?? 0)} onChange={(shown) => moveAlongSocket(instance.id, fromShownOffset(shown))} />
       {/* Fältets min och max visar hur långt det kan flyttas; texten behövs bara när det inte går alls. */}
       {knownRanges[OFFSET_KEY] && offsetRange.min === offsetRange.max ? <p className="field-hint">{uiStrings.noRoomToMove}</p> : null}
     </>
