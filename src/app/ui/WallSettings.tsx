@@ -24,7 +24,7 @@ interface WallSettingsProps {
 
 /**
  * En vägg med egen rubrik under sektionen: väggens mått, fönstren och dörrarna
- * på den och "Bygg till" (ägarens val). Stängd visar den bara felen för det som sitter på den.
+ * på den och knapparna för att bygga till (ägarens val). Stängd visar den bara felen för det som sitter på den.
  */
 export function WallSettings({ entry, wall, fields, violations, isOpen, onToggle, isNestedOpen, onToggleNested }: WallSettingsProps) {
   const { setParam } = useDesignStore();

@@ -13,7 +13,7 @@ interface AddToWallProps {
   wall: Socket;
 }
 
-/** "Bygg till" på en vägg: en knapp per objekttyp som kan fästa där, t.ex. sektion, fönster och dörr. */
+/** Knapparna för att bygga till en vägg, en per objekttyp som kan fästa där, t.ex. + Sektion, + Fönster och + Dörr. Utan rubrik (ägarens val). */
 export function AddToWall({ entry, wall }: AddToWallProps) {
   const { design, addChild } = useDesignStore();
   const idPrefix = useId();
@@ -24,7 +24,6 @@ export function AddToWall({ entry, wall }: AddToWallProps) {
   const blocked = proposals.filter(({ proposal }) => proposal.violations.length > 0);
   return (
     <div className="add-to-wall">
-      <h4>{uiStrings.addTitle}</h4>
       <div className="add-buttons">
         {proposals.map(({ objectType, proposal }) => {
           const canAdd = proposal.violations.length === 0;
