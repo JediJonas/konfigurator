@@ -12,13 +12,19 @@ export function useOpenInstance(instanceIds: string[], focus: PanelFocus | undef
   const idsKey = instanceIds.join(' ');
   const [openId, setOpenId] = useState<string | undefined>(instanceIds.at(-1));
   const [known, setKnown] = useState({ instanceIds, idsKey, focusKey });
+  // Ett nytt objekt varje gång, så att ett id som tas bort och läggs till igen också räknas.
+  const [added, setAdded] = useState<{ instanceId: string }>();
   // Justeras direkt under ritningen i stället för i en effekt, så att panelen inte blinkar.
   if (idsKey !== known.idsKey || focusKey !== known.focusKey) {
     setKnown({ instanceIds, idsKey, focusKey });
-    setOpenId(findAddedId(known.instanceIds, instanceIds) ?? (focusKey !== known.focusKey ? focusedId : undefined) ?? openId);
+    const newId = findAddedId(known.instanceIds, instanceIds);
+    if (newId) setAdded({ instanceId: newId });
+    setOpenId(newId ?? (focusKey !== known.focusKey ? focusedId : undefined) ?? openId);
   }
   return {
     openId,
+    /** Det senast tillagda objektet, så att panelen kan rulla fram till det. */
+    added,
     isOpen: (instanceId: string) => openId === instanceId,
     /** Öppnar objektet, eller inget när id saknas. */
     open: (instanceId: string | undefined) => setOpenId(instanceId),
