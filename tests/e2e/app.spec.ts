@@ -300,6 +300,18 @@ test.describe('pekskärm', () => {
     // Ett tryck utan att dra vrider inte vyn, så den hjälptexten står kvar.
     await expect(page.getByText(VIEW_HINT)).toBeVisible();
   });
+  test('rullar panelen till ett nytt fönster och en ny sektion', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Visa konfiguration' }).click();
+    await openWall(page, 'Vägg 2');
+    await page.getByRole('button', { name: 'Lägg till fönster' }).click();
+    await expect.poll(() => measureHeadingGap(page, /^Fönster/)).toBeLessThanOrEqual(HEADING_GAP_PX);
+    await openWall(page, 'Vägg 2');
+    await page.getByRole('button', { name: 'Lägg till sektion' }).click();
+    await expect.poll(() => measureHeadingGap(page, /^Sektion S2/)).toBeLessThanOrEqual(HEADING_GAP_PX);
+    await expect(page.getByRole('button', { name: 'Dölj konfiguration' })).toBeInViewport();
+  });
+
   test('rullar panelen så att dörren man trycker på står överst', async ({ page }) => {
     await page.goto('/');
     const view = page.locator('.viewport canvas');
@@ -402,6 +414,13 @@ function stepButton(page: Page, fieldLabel: string, name: 'Öka' | 'Minska') {
 }
 
 /** Fäller ut en vägg på den öppna sektionen, t.ex. "Vägg 1". */
+/** Hur långt rubriken står från panelens överkant, i px. */
+async function measureHeadingGap(page: Page, name: RegExp) {
+  const heading = page.getByRole('button', { name });
+  const [headingTop, contentTop] = await Promise.all([heading.evaluate((element) => element.getBoundingClientRect().top), page.locator('.panel-content').evaluate((element) => element.getBoundingClientRect().top)]);
+  return Math.abs(Math.round(headingTop - contentTop));
+}
+
 async function openWall(page: Page, name: string) {
   const wall = page.getByRole('button', { name, exact: true });
   if ((await wall.getAttribute('aria-expanded')) !== 'true') await wall.click();

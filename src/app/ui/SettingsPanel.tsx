@@ -81,6 +81,13 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
     const heading = group ?? section;
     if (heading) scrollHeadingToTop(heading);
   }, [focusKey, focusedInstanceId, focusedGroupKey]);
+  // Ett nytt objekt, t.ex. en sektion eller ett fönster, öppnas och rullas fram så att rubriken står överst.
+  const added = openInstance.added;
+  useEffect(() => {
+    if (!added) return;
+    const section = contentRef.current?.querySelector(`[data-instance-id="${CSS.escape(added.instanceId)}"]`);
+    if (section) scrollHeadingToTop(section);
+  }, [added]);
 
   /** Fäller ut en vägg eller taket och markerar det i 3D-vyn, eller fäller ihop det. En sak i taget. */
   function togglePart(entry: PlacedInstance, part: OpenPart) {
