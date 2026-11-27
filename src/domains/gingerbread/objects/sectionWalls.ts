@@ -9,6 +9,7 @@ import { buttJoint } from '../joints';
 import type { RoofContext } from './roof/roofLayout';
 import { buildRoofLayout } from './roof/roofLayout';
 import type { SectionParams } from './sectionParams';
+import { isRoofTurned } from './sectionParams';
 import type { PartDraft, UprightLine } from './uprightPart';
 import { rectangle, uprightTransform } from './uprightPart';
 
@@ -31,12 +32,14 @@ export interface WallSide extends UprightLine {
 export function listWallSides(params: SectionParams, isExtension: boolean): WallSide[] {
   const x = params.width / 2;
   const z = params.depth / 2;
+  // Med vridet tak står gavlarna på långsidorna, och ritningen kallar väggarna efter det.
+  const [sideLabel, gableLabel] = isRoofTurned(params) ? ['part.gable', 'part.sideWall'] : ['part.sideWall', 'part.gable'];
   const sides: WallSide[] = [
-    { id: 'side-right', labelKey: 'part.sideWall', pair: 'side', outerStart: vec2(x, z), outerEnd: vec2(x, -z) },
-    { id: 'side-left', labelKey: 'part.sideWall', pair: 'side', outerStart: vec2(-x, -z), outerEnd: vec2(-x, z) },
-    { id: 'gable-front', labelKey: 'part.gable', pair: 'gable', outerStart: vec2(-x, z), outerEnd: vec2(x, z) },
+    { id: 'side-right', labelKey: sideLabel, pair: 'side', outerStart: vec2(x, z), outerEnd: vec2(x, -z) },
+    { id: 'side-left', labelKey: sideLabel, pair: 'side', outerStart: vec2(-x, -z), outerEnd: vec2(-x, z) },
+    { id: 'gable-front', labelKey: gableLabel, pair: 'gable', outerStart: vec2(-x, z), outerEnd: vec2(x, z) },
   ];
-  if (!isExtension) sides.push({ id: 'gable-back', labelKey: 'part.gable', pair: 'gable', outerStart: vec2(x, -z), outerEnd: vec2(-x, -z) });
+  if (!isExtension) sides.push({ id: 'gable-back', labelKey: gableLabel, pair: 'gable', outerStart: vec2(x, -z), outerEnd: vec2(-x, -z) });
   return sides;
 }
 

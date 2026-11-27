@@ -49,7 +49,11 @@ export function listExtensionCandidates(socket: Socket, context: BuildContext, i
   const cornerHeight = measureCornerHeight(socket);
   const shareHeight = cornerHeight * EXTENSION_WALL_SHARE;
   const preferredHeight = shareHeight >= SECTION_MIN_WALL_HEIGHT_MM ? shareHeight : cornerHeight - EXTENSION_STEP_DOWN_MM;
-  const roof = inherited.roof && !EXTENSION_ROOF_TYPES.includes(inherited.roof) ? { roof: 'gable' as const } : {};
+  const roof = {
+    ...(inherited.roof && !EXTENSION_ROOF_TYPES.includes(inherited.roof) ? { roof: 'gable' as const } : {}),
+    // En ny tillbyggnad får nocken in mot värden och en vinkelränna, även när värdens tak är vridet.
+    isRoofTurned: false,
+  };
   const propose = (isPitchFitted: boolean) =>
     fittingWidths.flatMap((width) => {
       // Taket ärvs från föräldern, så att den högsta vägghöjden räknas med samma tak som tillbyggnaden får.
