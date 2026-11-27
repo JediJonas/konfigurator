@@ -1,7 +1,6 @@
 import { convexHull } from '../../../core/geometry/hull';
 import { transformPoint } from '../../../core/geometry/matrix';
 import type { Polygon } from '../../../core/geometry/polygon';
-import type { Bounds2 } from '../../../core/geometry/polygon';
 import { boundsOf, signedArea } from '../../../core/geometry/polygon';
 import { subtractRegions } from '../../../core/geometry/clipping';
 import type { Mm, Vec2, Vec3 } from '../../../core/geometry/vector';
@@ -39,15 +38,15 @@ export type HostRoofNotch =
  * Urtag i en takskiva på värden där tillbyggnadens tak går igenom den, t.ex.
  * där tillbyggnadens tak går in under värdens takutsprång till väggen
  * (ägarens val: hellre ta bort från förälderns tak än från barnets). Urtaget
- * är en rektangel i skivans plan som omsluter allt tillbyggnadens tak tar av
- * skivan och går ut till skivans kant mot tillbyggnaden, t.ex. takfoten.
+ * följer det tillbyggnadens tak tar av skivan, med sneda kanter där taket
+ * lutar, och går ut till skivans kant mot tillbyggnaden, t.ex. takfoten.
  * `isSharedCorner` säger om ett hörn på värdens takskivor delas med en
  * annan skiva, t.ex. mansardtakets brytlinje, som urtaget inte får öppna sig mot.
  */
 export function notchHostRoof(hostRoof: Part, extensionRoofs: readonly Part[], outward: Vec3, isSharedCorner: (point: Vec3) => boolean): HostRoofNotch {
   const overlap = extensionRoofs.flatMap((roof) => listOverlapRegions(hostRoof, roof)).flat();
   if (overlap.length === 0) return { kind: 'unchanged' };
-  const { notch, edge } = extendToEdgeFacing(hostRoof, boundsOf(overlap), outward);
+  const { notch, edge } = extendToEdgeFacing(hostRoof, overlap, outward);
   const sharedOnEdge = edge.filter((point) => isSharedCorner(transformPoint(hostRoof.transform, vec3(point.x, point.y, 0))));
   if (sharedOnEdge.length >= 2) return { kind: 'blocked' };
   const pieces = subtractRegions(hostRoof, [notch]);
@@ -84,25 +83,23 @@ function describeBody(roof: Part, depth: Mm): WorldHalfSpace[] {
 }
 
 /**
- * Rektangeln runt överlappet, förlängd ut över skivans kant åt det håll
- * tillbyggnaden sitter, och konturens hörn på den kanten.
+ * Överlappet förlängt rakt ut över skivans kant åt det håll tillbyggnaden
+ * sitter, som ett konvext område, och konturens hörn på den kanten. Sidorna
+ * följer tillbyggnadens takfall, så urtaget ligger kloss an mot taket och
+ * blir snett där taket lutar.
  */
-function extendToEdgeFacing(hostRoof: Part, overlap: Bounds2, outward: Vec3): { notch: Vec2[]; edge: Vec2[] } {
+function extendToEdgeFacing(hostRoof: Part, overlap: readonly Vec2[], outward: Vec3): { notch: Vec2[]; edge: Vec2[] } {
   const axes = describeAxes(hostRoof);
   const outline = boundsOf(hostRoof.outline);
   const towardX = dot3(outward, axes.alongX);
   const towardY = dot3(outward, axes.alongY);
-  let { minX, maxX, minY, maxY } = overlap;
   const isAlongY = Math.abs(towardY) >= Math.abs(towardX);
   const isTowardMin = (isAlongY ? towardY : towardX) < 0;
   const edgeValue = isAlongY ? (isTowardMin ? outline.minY : outline.maxY) : isTowardMin ? outline.minX : outline.maxX;
-  const margin = isTowardMin ? -NOTCH_MARGIN_MM : NOTCH_MARGIN_MM;
-  if (isAlongY && isTowardMin) minY = edgeValue + margin;
-  else if (isAlongY) maxY = edgeValue + margin;
-  else if (isTowardMin) minX = edgeValue + margin;
-  else maxX = edgeValue + margin;
+  const beyondEdge = edgeValue + (isTowardMin ? -NOTCH_MARGIN_MM : NOTCH_MARGIN_MM);
+  const atEdge = overlap.map((point) => (isAlongY ? vec2(point.x, beyondEdge) : vec2(beyondEdge, point.y)));
   const edge = hostRoof.outline.filter((point) => Math.abs((isAlongY ? point.y : point.x) - edgeValue) < EDGE_TOLERANCE_MM);
-  return { notch: [vec2(minX, minY), vec2(maxX, minY), vec2(maxX, maxY), vec2(minX, maxY)], edge };
+  return { notch: [...convexHull([...overlap, ...atEdge])], edge };
 }
 
 function describeAxes(part: Part): PartAxes {
