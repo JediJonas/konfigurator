@@ -16,6 +16,7 @@ import type { OpenPart } from './SectionSettings';
 import { SectionSettings } from './SectionSettings';
 import { findOwnerPartId } from './panelWalls';
 import { isLeafInstance } from './socketSelection';
+import { scrollHeadingToTop } from './scrollToHeading';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { FocusedInstance, SocketRef } from '../state/designStore';
 import { StartOver } from './StartOver';
@@ -75,9 +76,10 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   useEffect(() => {
     if (!focusKey || !focusedInstanceId) return;
     const section = contentRef.current?.querySelector(`[data-instance-id="${CSS.escape(focusedInstanceId)}"]`);
-    // Trycker man på en vägg eller taket rullar panelen fram till den.
+    // Trycker man på en vägg, taket, ett fönster eller en dörr rullar panelen så att rubriken står överst.
     const group = focusedGroupKey ? section?.querySelector(`[data-group-key="${CSS.escape(focusedGroupKey)}"]`) : undefined;
-    (group ?? section)?.scrollIntoView({ block: 'nearest' });
+    const heading = group ?? section;
+    if (heading) scrollHeadingToTop(heading);
   }, [focusKey, focusedInstanceId, focusedGroupKey]);
 
   /** Fäller ut en vägg eller taket och markerar det i 3D-vyn, eller fäller ihop det. En sak i taget. */
