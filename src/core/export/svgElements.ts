@@ -7,6 +7,18 @@ export const THIN_LINE_MM = 0.2;
 export const TEXT_SIZE_MM = 3.5;
 export const SMALL_TEXT_SIZE_MM = 2.8;
 
+/**
+ * Ungefär hur bred en bokstav är i Helvetica i förhållande till textens
+ * storlek, med lite marginal. Används för att ge texter plats på sidan.
+ */
+const AVERAGE_CHAR_WIDTH = 0.56;
+const AVERAGE_BOLD_CHAR_WIDTH = 0.6;
+
+/** Uppskattad bredd på en rad text i mm, utan att mäta typsnittet. */
+export function estimateTextWidth(content: string, size: Mm, isBold = false): Mm {
+  return content.length * size * (isBold ? AVERAGE_BOLD_CHAR_WIDTH : AVERAGE_CHAR_WIDTH);
+}
+
 export function escapeXml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

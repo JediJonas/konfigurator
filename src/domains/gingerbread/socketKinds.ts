@@ -6,3 +6,5 @@ export const WALL_SURFACE = 'wall-surface';
  * väggen. Den får vara högre och bredare än väggen, till skillnad från en tillbyggnad.
  */
 export const WALL_BESIDE = 'wall-beside';
+/** Ovansidan av ett takfall med lutning, t.ex. för en takkupa. */
+export const ROOF_SURFACE = 'roof-surface';

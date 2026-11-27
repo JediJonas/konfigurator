@@ -14,7 +14,7 @@ import { useDesignStore } from '../state/designStore';
 import { FieldGroup } from './FieldGroup';
 import type { OpenPart } from './SectionSettings';
 import { SectionSettings } from './SectionSettings';
-import { findOwnerPartId } from './panelWalls';
+import { findOwnerPartId, groupKeyOfPlace } from './panelWalls';
 import { isLeafInstance } from './socketSelection';
 import { scrollHeadingToTop } from './scrollToHeading';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
@@ -67,10 +67,8 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
     const focusedPart = describeFocusedPart(evaluation.placed, selectedSocket, focusedInstance);
     if (focusedPart) setStoredPart(focusedPart);
   }
-  // Ett öppet fönster eller en öppen dörr håller sin vägg utfälld.
-  const openPart = openLeaf?.parentId
-    ? { instanceId: openLeaf.parentId, part: { wallPartId: openLeaf.socket?.ownerPartId } }
-    : storedPart;
+  // Ett öppet fönster eller en öppen dörr håller sin vägg utfälld, och en öppen takkupa taket.
+  const openPart = openLeaf?.parentId ? { instanceId: openLeaf.parentId, part: placeOf(openLeaf) } : storedPart;
   const focusedInstanceId = focus?.instanceId;
   const focusedGroupKey = selectedSocket ? findOwnerPartId(evaluation.placed.find((entry) => entry.instance.id === selectedSocket.instanceId), selectedSocket.socketId) : focusedInstance?.groupKey;
   useEffect(() => {
@@ -104,7 +102,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   function toggleNested(child: PlacedInstance) {
     if (!openInstance.isOpen(child.instance.id)) return openInstance.open(child.instance.id);
     if (child.parentId) openInstance.open(child.parentId);
-    setStoredPart({ instanceId: child.parentId, part: { wallPartId: child.socket?.ownerPartId } });
+    setStoredPart({ instanceId: child.parentId, part: placeOf(child) });
   }
 
   async function handleDownload() {
@@ -209,5 +207,11 @@ function describeFocusedPart(placed: readonly PlacedInstance[], selectedSocket: 
   if (!focusedInstance) return undefined;
   if (focusedInstance.groupKey) return { instanceId: focusedInstance.instanceId, part: { groupKey: focusedInstance.groupKey } };
   const leaf = placed.find((candidate) => candidate.instance.id === focusedInstance.instanceId);
-  return leaf && isLeafInstance(leaf) ? { instanceId: leaf.parentId, part: { wallPartId: leaf.socket?.ownerPartId } } : undefined;
+  return leaf && isLeafInstance(leaf) ? { instanceId: leaf.parentId, part: placeOf(leaf) } : undefined;
+}
+
+/** Det som fälls ut runt ett objekt utan egna kopplingspunkter: väggen det sitter på, eller gruppen, t.ex. taket för en takkupa. */
+function placeOf(leaf: PlacedInstance): OpenPart {
+  const groupKey = groupKeyOfPlace(leaf);
+  return groupKey ? { groupKey } : { wallPartId: leaf.socket?.ownerPartId };
 }

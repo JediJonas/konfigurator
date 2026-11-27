@@ -15,6 +15,8 @@ import { isExtension, isNeighbor, listRoofCorners, roofContext } from './section
 import type { SectionParams } from './sectionParams';
 import type { WallSide } from './sectionWalls';
 import { listWallSides, profileAlong, wallSupport, wallTopProfile } from './sectionWalls';
+import { wallNumberOf } from './wallNumbers';
+import { buildRoofSurfaceSockets } from './roof/roofSockets';
 
 /**
  * Öppningen går en bit under golvet, så att den skär rent genom väggens
@@ -32,8 +34,6 @@ const MIN_CONTACT_THICKNESSES = 1;
 /** Stort nog att rymma vilken öppning som helst innan den klipps till. */
 const OPENING_WORK_AREA_MM = 2000;
 
-/** Väggarna numreras runt huset med början på framgaveln (ägarens val): Vägg 1, Vägg 2 … */
-const WALL_NUMBER_ORDER = ['gable-front', 'side-right', 'gable-back', 'side-left'];
 /**
  * Fältet som ändrar väggens längd, med namnet Längd på alla väggar (ägarens
  * val): långväggens längd är sektionens längd och gavelns är sektionens
@@ -47,8 +47,7 @@ const WALL_PARAMS: Record<WallSide['pair'], (PartParam & { key: keyof SectionPar
 
 /** "socket.wall1" för den första väggen runt huset bland de väggar sektionen har. En tillbyggnad saknar bakre gavel. */
 function wallLabelKey(sideId: string, sides: readonly WallSide[]): string {
-  const numbered = WALL_NUMBER_ORDER.filter((id) => sides.some((side) => side.id === id));
-  return `socket.wall${numbered.indexOf(sideId) + 1}`;
+  return `socket.wall${wallNumberOf(sideId, sides)}`;
 }
 
 /**
@@ -59,6 +58,8 @@ function wallLabelKey(sideId: string, sides: readonly WallSide[]): string {
  * så att den kan vara lika bred som väggen) och under väggens överkant. Taket får gå högre, upp till
  * husets tak sett rakt mot väggen, eftersom vinkelrännan lägger det ovanpå.
  *
+ * Takfallen med lutning har varsin punkt för takkupor (`roof/roofSockets.ts`).
+ *
  * Varje sektion har också en punkt per vägg för en sektion bredvid
  * (`WALL_BESIDE`). Den har samma ram och yta, men det är bara grannens mitt
  * som behöver ligga på väggen. Även en tillbyggnad har dem, så att t.ex. ett
@@ -66,7 +67,11 @@ function wallLabelKey(sideId: string, sides: readonly WallSide[]): string {
  */
 export function buildSectionSockets(instance: Instance, params: SectionParams, context: BuildContext): Socket[] {
   const surfaces = buildWallSurfaceSockets(instance, params, context);
-  return [...surfaces, ...surfaces.map((socket) => ({ ...socket, id: `${BESIDE_SOCKET_PREFIX}${socket.id}`, kind: WALL_BESIDE, topBounds: undefined }))];
+  return [
+    ...surfaces,
+    ...surfaces.map((socket) => ({ ...socket, id: `${BESIDE_SOCKET_PREFIX}${socket.id}`, kind: WALL_BESIDE, topBounds: undefined })),
+    ...buildRoofSurfaceSockets(instance, params, context),
+  ];
 }
 
 /** Början på id:t för punkterna där en sektion kan stå bredvid, t.ex. "beside-side-right". */

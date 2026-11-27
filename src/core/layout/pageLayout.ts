@@ -39,6 +39,8 @@ export interface PartsPage {
 
 interface Piece {
   group: PartGroup;
+  /** Bredden delen tar på hyllan: delen eller dess etikett, det som är bredast. */
+  slotWidth?: Mm;
   outline: Polygon;
   holes: Polygon[];
   isRotated: boolean;
@@ -46,10 +48,17 @@ interface Piece {
   height: Mm;
 }
 
-/** Fördelar delarna på sidor: små delar packas i hyllor, stora delas upp i bitar med överlappning. */
-export function layoutPartPages(groups: readonly PartGroup[], paper: PaperFormat): PartsPage[] {
+/** Hur bred en dels etikett blir, i mm. */
+export type MeasureLabel = (group: PartGroup) => Mm;
+
+/**
+ * Fördelar delarna på sidor: små delar packas i hyllor, stora delas upp i
+ * bitar med överlappning. En smal del får lika mycket plats på hyllan som sin
+ * etikett, så att etiketterna inte går in i varandra.
+ */
+export function layoutPartPages(groups: readonly PartGroup[], paper: PaperFormat, measureLabel: MeasureLabel = () => 0): PartsPage[] {
   const area = drawableArea(paper);
-  const pieces = groups.map((group) => orientPiece(group, area));
+  const pieces = groups.map((group) => orientPiece(group, area)).map((piece) => ({ ...piece, slotWidth: Math.min(area.width, Math.max(piece.width, measureLabel(piece.group))) }));
   const fitting = pieces.filter((piece) => fitsOnPage(piece, area));
   const oversized = pieces.filter((piece) => !fitsOnPage(piece, area));
   return [...packOnShelves(fitting, area), ...oversized.flatMap((piece) => tilePiece(piece, area))];
@@ -90,7 +99,8 @@ function packOnShelves(pieces: Piece[], area: Rect): PartsPage[] {
   const sorted = [...pieces].sort((a, b) => b.height - a.height);
   for (const piece of sorted) {
     const itemHeight = piece.height + LABEL_BLOCK_MM;
-    if (cursor.x > 0 && cursor.x + piece.width > area.width) {
+    const slotWidth = piece.slotWidth ?? piece.width;
+    if (cursor.x > 0 && cursor.x + slotWidth > area.width) {
       cursor = { x: 0, y: cursor.y + shelfHeight + PART_SPACING_MM };
       shelfHeight = 0;
     }
@@ -102,7 +112,7 @@ function packOnShelves(pieces: Piece[], area: Rect): PartsPage[] {
     }
     const origin = { x: area.x + cursor.x, y: area.y + cursor.y };
     page.shapes.push(placePiece(piece, { x: origin.x, y: origin.y + LABEL_BLOCK_MM }, origin));
-    cursor = { x: cursor.x + piece.width + PART_SPACING_MM, y: cursor.y };
+    cursor = { x: cursor.x + slotWidth + PART_SPACING_MM, y: cursor.y };
     shelfHeight = Math.max(shelfHeight, itemHeight);
   }
   if (page.shapes.length > 0) pages.push(page);

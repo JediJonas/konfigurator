@@ -26,7 +26,7 @@ const EAVE_TOLERANCE_MM = 0.01;
 const MEETING_CORNER_MM = 0.01;
 
 /** En takyta på värden som en skiva: undersidans plan, normal uppåt och tjocklek. */
-interface HostRoofSlab {
+export interface HostRoofSlab {
   underside: Vec3;
   normal: Vec3;
   thickness: Mm;
@@ -95,12 +95,12 @@ function partNormal(part: Part): Vec3 {
   return subtract3(transformPoint(part.transform, vec3(0, 0, 1)), origin);
 }
 
-function isUpright(part: Part): boolean {
+export function isUpright(part: Part): boolean {
   return Math.abs(partNormal(part).y) < UPRIGHT_NORMAL_Y;
 }
 
 /** Värdens lutande takytor och takskivor som de byggdes, före samverkan. */
-function describeHostRoof(host: PlacedInstance): HostRoofSlab[] {
+export function describeHostRoof(host: PlacedInstance): HostRoofSlab[] {
   return host.parts
     .filter((part) => ROOF_PART_PREFIXES.some((prefix) => part.id.slice(part.id.indexOf('/') + 1).startsWith(prefix)) && !isUpright(part))
     .map((part) => {
@@ -141,7 +141,7 @@ function describeSlabEnds(part: Part, underside: readonly Vec3[]): WorldHalfSpac
 }
 
 /** Värdens väggar sett uppifrån, ytterkanten. */
-function hostWallPlan(host: PlacedInstance): Polygon {
+export function hostWallPlan(host: PlacedInstance): Polygon {
   const halfWidth = Number(host.params.width) / 2;
   const halfDepth = Number(host.params.depth) / 2;
   const corners = [vec3(-halfWidth, 0, -halfDepth), vec3(halfWidth, 0, -halfDepth), vec3(halfWidth, 0, halfDepth), vec3(-halfWidth, 0, halfDepth)];
@@ -183,7 +183,7 @@ function slopesDownOutward(surface: { normal: Vec3 }, outward: Vec3): boolean {
  * nederkant som genom takytan, så att taket antingen ligger ovanpå eller går
  * hela vägen in under utsprånget, aldrig båda.
  */
-function roofRegions(part: Part, slabs: readonly HostRoofSlab[], walls: Polygon, outward: Vec3): Vec2[][] {
+export function roofRegions(part: Part, slabs: readonly HostRoofSlab[], walls: Polygon, outward: Vec3): Vec2[][] {
   const top = part.thickness;
   const crossing = (slab: HostRoofSlab): WorldHalfSpace =>
     slopesDownOutward(slab, outward) ? { normal: vec3(0, -1, 0), offset: -slab.lowestUnderside, depth: top } : aboveUndersideOf(slab, top);
@@ -229,7 +229,7 @@ function insideHostWhenRising(part: Part, socket: Socket): Vec2[][] {
  * före den, men när en tillbyggnad är för hög ska det förlängda taket inte
  * sticka ut genom hela huset medan felet visas.
  */
-function beyondHost(part: Part, walls: Polygon, outward: Vec3): Vec2[] {
+export function beyondHost(part: Part, walls: Polygon, outward: Vec3): Vec2[] {
   const far = Math.min(...walls.map((corner) => corner.x * outward.x + corner.y * outward.z));
   return regionOnPart(part, [{ normal: outward, offset: far, depth: 0 }]);
 }

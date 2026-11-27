@@ -6,7 +6,8 @@ import type { SocketRef } from '../state/designStore';
 export function findSocketOwnedBy(placed: readonly PlacedInstance[], partId: string | undefined): SocketRef | undefined {
   if (!partId) return undefined;
   for (const entry of placed) {
-    const socket = entry.sockets.find((candidate) => candidate.ownerPartId === partId);
+    // Takfallen hör till takets fältgrupp, som öppnas i stället för en vägg.
+    const socket = entry.sockets.find((candidate) => candidate.ownerPartId === partId && !candidate.paramGroupKey);
     if (socket) return { instanceId: entry.instance.id, socketId: socket.id };
   }
   return undefined;

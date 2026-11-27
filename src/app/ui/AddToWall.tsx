@@ -11,10 +11,12 @@ interface AddToWallProps {
   entry: PlacedInstance;
   /** Väggens första kopplingspunkt; förslaget väljer den punkt på väggen där objektet ryms. */
   wall: Socket;
+  /** Skrivs efter objektets namn på knappen när en rubrik inte redan säger var objektet hamnar, t.ex. vilket takfall. */
+  placeLabel?: string;
 }
 
 /** Knapparna för att bygga till en vägg, en per objekttyp som kan fästa där, t.ex. + Sektion, + Fönster och + Dörr. Utan rubrik (ägarens val). */
-export function AddToWall({ entry, wall }: AddToWallProps) {
+export function AddToWall({ entry, wall, placeLabel }: AddToWallProps) {
   const { addChild } = useDesignStore();
   const idPrefix = useId();
   const instanceId = entry.instance.id;
@@ -36,25 +38,30 @@ export function AddToWall({ entry, wall }: AddToWallProps) {
               type="button"
               className="secondary-button add-button"
               disabled={!canAdd}
-              aria-label={addLabel(objectType.id, objectType.labelKey)}
+              aria-label={placeLabel ? uiStrings.addObjectAt(addLabel(objectType.id, objectType.labelKey), placeLabel) : addLabel(objectType.id, objectType.labelKey)}
               aria-describedby={canAdd ? undefined : `${idPrefix}-${objectType.id}`}
               onClick={() => addChild({ parentId: instanceId, socketId: wall.id, objectTypeId: objectType.id })}
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18">
                 <path d="M5 12h14M12 5v14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
               </svg>
-              {translate(objectType.labelKey)}
+              {placeLabel ? uiStrings.objectAt(translate(objectType.labelKey), placeLabel) : translate(objectType.labelKey)}
             </button>
           );
         })}
       </div>
       {blocked.map(({ objectType, blockingMessage }) => (
         <p key={objectType.id} className="field-hint" id={`${idPrefix}-${objectType.id}`}>
-          {translate(objectType.labelKey)}: {blockingMessage ?? uiStrings.cannotAdd}
+          {placeLabel ? uiStrings.objectAt(translate(objectType.labelKey), placeLabel) : translate(objectType.labelKey)}: {blockingMessage ?? noRoomMessage(wall)}
         </p>
       ))}
     </div>
   );
+}
+
+/** Varför inget ryms, med domänens egen text för sorten av kopplingspunkt när den finns, t.ex. ett takfall. */
+function noRoomMessage(wall: Socket): string {
+  return activeDomain.strings[`cannotAdd.${wall.kind}`] ?? uiStrings.cannotAdd;
 }
 
 /** Domänen kan ge en egen text, t.ex. "Lägg till sektion". */
