@@ -66,6 +66,18 @@ function differenceOnGrid(shape: { outline: Polygon; holes: readonly Polygon[] }
   }));
 }
 
+/**
+ * Lägger till ett område till en form, t.ex. en vägg som förlängs. Blir det
+ * flera bitar, för att området inte når fram till formen, ges formen tillbaka som den var.
+ */
+export function addRegion(shape: { outline: Polygon; holes: readonly Polygon[] }, region: Polygon): ShapeWithHoles {
+  const union = polygonClipping.union([toRing(shape.outline), ...shape.holes.map(toRing)], [toRing(region)]);
+  const [only] = union;
+  if (!only || union.length > 1) return { outline: [...shape.outline], holes: shape.holes.map((hole) => [...hole]) };
+  const [outline, ...holes] = only;
+  return { outline: orient(fromRing(outline ?? []), true), holes: holes.map((hole) => orient(fromRing(hole), false)) };
+}
+
 /** Arean där två former överlappar, i mm². */
 export function overlapArea(a: Polygon, b: Polygon): number {
   const overlap = polygonClipping.intersection([toRing(a)], [toRing(b)]);

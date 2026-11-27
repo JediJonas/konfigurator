@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { overlapArea, subtractRegion, subtractRegions } from '../../src/core/geometry/clipping';
+import { addRegion, overlapArea, subtractRegion, subtractRegions } from '../../src/core/geometry/clipping';
 import { convexHull, isPointInPolygon } from '../../src/core/geometry/hull';
 import { signedArea } from '../../src/core/geometry/polygon';
 import { vec2 } from '../../src/core/geometry/vector';
@@ -64,5 +64,19 @@ describe('borttagning av flera områden', () => {
     const pieces = subtractRegions(wall, [square(-1, -1, 11), square(90, 40, 20), [vec2(50, 0), vec2(60, 0)]]);
     expect(pieces).toHaveLength(1);
     expect(signedArea(pieces[0]?.outline ?? [])).toBeCloseTo(100 * 50 - 10 * 10 - 10 * 10);
+  });
+});
+
+describe('addRegion', () => {
+  it('förlänger en rektangel med ett område som möter den', () => {
+    const shape = { outline: [vec2(0, 0), vec2(10, 0), vec2(10, 5), vec2(0, 5)], holes: [] };
+    const extended = addRegion(shape, [vec2(10, 0), vec2(14, 0), vec2(14, 5), vec2(10, 5)]);
+    expect(extended.outline).toHaveLength(4);
+    expect(Math.max(...extended.outline.map((point) => point.x))).toBeCloseTo(14);
+  });
+
+  it('ger tillbaka formen när området inte når fram', () => {
+    const shape = { outline: [vec2(0, 0), vec2(10, 0), vec2(10, 5), vec2(0, 5)], holes: [] };
+    expect(addRegion(shape, [vec2(20, 0), vec2(24, 0), vec2(24, 5), vec2(20, 5)]).outline).toEqual(shape.outline);
   });
 });

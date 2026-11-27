@@ -57,6 +57,20 @@ test('bygger till huset och laddar ner ritningen', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toHaveCount(0);
 });
 
+test('ställer ett torn bredvid huset', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  // Varje vägg visas en gång, med en knapp för tillbyggnad och en för sektion bredvid.
+  await expect(page.getByLabel('Vägg', { exact: true }).locator('option')).toHaveCount(4);
+  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
+  await page.getByRole('button', { name: 'Lägg till sektion bredvid' }).click();
+  await expect(page.getByRole('heading', { name: 'Sektion S2' })).toBeVisible();
+  await expect(page.getByText('Sitter på S1 · långvägg höger')).toBeVisible();
+  // Tornet blir högre än husets vägg, vilket en tillbyggnad inte får bli.
+  await expect(page.getByLabel('Vägghöjd')).toHaveValue('160');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
 test('visar takets mått först när man fäller ut Tak', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByLabel('Taklutning')).toHaveCount(0);

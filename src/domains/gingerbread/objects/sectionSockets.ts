@@ -10,8 +10,8 @@ import { dot3, subtract3, vec2, vec3 } from '../../../core/geometry/vector';
 import type { Instance } from '../../../core/model/design';
 import type { Modifier } from '../../../core/model/modifier';
 import type { BuildContext, Socket } from '../../../core/model/objectType';
-import { WALL_SURFACE } from '../socketKinds';
-import { isExtension, listRoofCorners, roofContext } from './sectionGeometry';
+import { WALL_BESIDE, WALL_SURFACE } from '../socketKinds';
+import { isExtension, isNeighbor, listRoofCorners, roofContext } from './sectionGeometry';
 import type { SectionParams } from './sectionParams';
 import { listWallSides, profileAlong, wallSupport, wallTopProfile } from './sectionWalls';
 
@@ -43,8 +43,21 @@ const SOCKET_LABEL_KEYS: Record<string, string> = {
  * Tillbyggnadens väggar ska rymmas inom väggen, hörn till hörn (ägarens val,
  * så att den kan vara lika bred som väggen) och under väggens överkant. Taket får gå högre, upp till
  * husets tak sett rakt mot väggen, eftersom vinkelrännan lägger det ovanpå.
+ *
+ * En sektion som står på fatet har också en punkt per vägg för en sektion
+ * bredvid (`WALL_BESIDE`). Den har samma ram och yta, men det är bara
+ * grannens mitt som behöver ligga på väggen.
  */
 export function buildSectionSockets(instance: Instance, params: SectionParams, context: BuildContext): Socket[] {
+  const surfaces = buildWallSurfaceSockets(instance, params, context);
+  if (isExtension(context)) return surfaces;
+  return [...surfaces, ...surfaces.map((socket) => ({ ...socket, id: `${BESIDE_SOCKET_PREFIX}${socket.id}`, kind: WALL_BESIDE, topBounds: undefined }))];
+}
+
+/** Början på id:t för punkterna där en sektion kan stå bredvid, t.ex. "beside-side-right". */
+const BESIDE_SOCKET_PREFIX = 'beside-';
+
+function buildWallSurfaceSockets(instance: Instance, params: SectionParams, context: BuildContext): Socket[] {
   const roofCorners = listRoofCorners(params, context);
   return listWallSides(params, isExtension(context)).map((side) => {
     const start = vec3(side.outerStart.x, 0, side.outerStart.y);
@@ -94,11 +107,11 @@ function interpolateTop(points: readonly Vec2[], u: Mm): Mm {
 }
 
 /**
- * En tillbyggnad står upprätt med bakre änden mot väggen och framgaveln utåt:
- * eget y uppåt (u × normal), eget z utåt (normal) och eget x mot −u.
+ * En tillbyggnad, och en sektion bredvid, står upprätt med bakre änden mot
+ * väggen och framgaveln utåt: eget y uppåt (u × normal), eget z utåt (normal) och eget x mot −u.
  */
-export function extensionMountMatrix(params: SectionParams, context: BuildContext): Matrix4 {
-  if (!isExtension(context)) return identityMatrix();
+export function wallMountMatrix(params: SectionParams, context: BuildContext): Matrix4 {
+  if (!isExtension(context) && !isNeighbor(context)) return identityMatrix();
   return basisMatrix(vec3(-1, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0), vec3(0, params.depth / 2, 0));
 }
 
@@ -149,9 +162,11 @@ function hostTopHalfPlanes(socket: Socket, offset: Mm): HalfPlane[] {
 /**
  * Tillbyggnadens väggar sett mot värdens vägg: långväggarnas bakre ände, där
  * de möter värden. Taket prövas för sig, se `sectionSocketTopOutline`. På
- * fatet: golvytan med takutsprången.
+ * fatet: golvytan med takutsprången. Bredvid en vägg: bara mitten av den
+ * bakre gaveln, så att sektionen får vara större än väggen men står mot den.
  */
 export function sectionSocketOutline(params: SectionParams, context: BuildContext): Vec3[] {
+  if (isNeighbor(context)) return [vec3(0, 0, -params.depth / 2)];
   if (!isExtension(context)) return sectionFootprint(params, context).map((point) => vec3(point.x, 0, point.y));
   const backZ = -params.depth / 2;
   const [right, left] = listWallSides(params, true);
@@ -180,7 +195,20 @@ export function sectionSocketTopOutline(params: SectionParams, context: BuildCon
   return withinWalls.map((point) => vec3(point.x, point.y, -params.depth / 2));
 }
 
-/** Golvytan med takutsprången, så att två sektioners tak inte går in i varandra. */
+/**
+ * Ytan på marken som ingen annan sektion får ta. En tillbyggnad räknar med
+ * takutsprången, så att två tillbyggnaders tak inte går in i varandra. En
+ * sektion som står på fatet räknar bara väggarna, så att sektioner kan stå
+ * vägg i vägg; deras tak prövas av samverkan (`interactions/neighbors.ts`).
+ */
+export function sectionBodyFootprint(params: SectionParams, context: BuildContext): Polygon {
+  if (isExtension(context)) return sectionFootprint(params, context);
+  const halfWidth = params.width / 2;
+  const halfDepth = params.depth / 2;
+  return [vec2(-halfWidth, -halfDepth), vec2(halfWidth, -halfDepth), vec2(halfWidth, halfDepth), vec2(-halfWidth, halfDepth)];
+}
+
+/** Golvytan med takutsprången. */
 export function sectionFootprint(params: SectionParams, context: BuildContext): Polygon {
   const halfWidth = params.width / 2;
   const halfDepth = params.depth / 2;

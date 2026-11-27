@@ -1,13 +1,14 @@
 import type { Rule } from '../../core/rules/rule';
 import { EXTENSION_ROOF_TYPES } from './objects/roof/extensionRoofs';
 import { SECTION_TYPE_ID } from './objects/section';
-import { GROUND, WALL_SURFACE } from './socketKinds';
+import { GROUND, WALL_BESIDE, WALL_SURFACE } from './socketKinds';
 
 /** Kopplingsreglerna för pepparkakshus, SPEC.md avsnitt 5. */
 export const gingerbreadRules: Rule[] = [
   // Ägarens beslut: fri vinkel i modellen, men bara räta vinklar tills vidare.
   { kind: 'allowedRotations', level: 'error', objectType: SECTION_TYPE_ID, socketKind: GROUND, degrees: [0, 90, 180, 270], messageKey: 'rule.rightAnglesOnly' },
   { kind: 'allowedRotations', level: 'error', objectType: SECTION_TYPE_ID, socketKind: WALL_SURFACE, degrees: [0], messageKey: 'rule.extensionUpright' },
+  { kind: 'allowedRotations', level: 'error', objectType: SECTION_TYPE_ID, socketKind: WALL_BESIDE, degrees: [0], messageKey: 'rule.neighborUpright' },
   { kind: 'withinSocketBounds', level: 'error', objectType: SECTION_TYPE_ID, messageKey: 'rule.extensionFitsWall' },
   { kind: 'allowedParamValues', level: 'error', objectType: SECTION_TYPE_ID, socketKind: WALL_SURFACE, param: 'roof', values: EXTENSION_ROOF_TYPES, messageKey: 'rule.noSpireOnExtension' },
   { kind: 'noOverlap', level: 'error', objectType: SECTION_TYPE_ID, messageKey: 'rule.sectionsOverlap' },
