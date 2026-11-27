@@ -42,9 +42,24 @@ describe('vinkelränna mot en hög tillbyggnad på långväggen', () => {
     expect(errorsFor(design)).toEqual([]);
   });
 
-  it('lämnar huvudhusets tak helt (snickarmetoden)', () => {
+  it('tar bara ett rektangulärt urtag vid takfoten ur huvudhusets tak (ägarens val)', () => {
     const alone = buildParts(designWithExtensions(), gingerbreadDomain);
-    for (const id of ['S1/roof-right', 'S1/roof-left']) expect(partById(parts, id)).toEqual(partById(alone, id));
+    expect(partById(parts, 'S1/roof-left')).toEqual(partById(alone, 'S1/roof-left'));
+    const notched = partById(parts, 'S1/roof-right').outline;
+    // Fyra hörn för takfallet och fyra för urtaget, som öppnar sig mot takfoten (y = 0).
+    expect(notched).toHaveLength(8);
+    const notchCorners = notched.filter((corner) => !partById(alone, 'S1/roof-right').outline.some((other) => Math.hypot(other.x - corner.x, other.y - corner.y) < 1e-6));
+    expect(notchCorners.filter((corner) => Math.abs(corner.y) < 1e-6)).toHaveLength(2);
+    const [left, right] = [...new Set(notchCorners.map((corner) => corner.x.toFixed(6)))];
+    expect(left).toBeDefined();
+    expect(right).toBeDefined();
+  });
+
+  it('låter tillbyggnadens tak gå hela vägen in till väggen under huvudhusets takutsprång', () => {
+    // Inga hörn mellan takdelens yttre gavel (x = 0) och väggen (x = djup + utsprång): inget hack.
+    const wallX = EXTENSION_PARAMS.depth + EXTENSION_PARAMS.gableOverhang;
+    const between = partById(parts, 'S2/roof-right').outline.filter((corner) => corner.x > 1e-6 && corner.x < wallX - 1e-6);
+    expect(between).toEqual([]);
   });
 
   it('lägger tillbyggnadens tak på huvudtakets ovansida längs rännan', () => {
