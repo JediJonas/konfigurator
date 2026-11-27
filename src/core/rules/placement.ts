@@ -68,8 +68,8 @@ interface SocketProposalRequest {
 
 function proposeInSocket(design: Design, domain: Domain, request: SocketProposalRequest): ChildProposal {
   const { parent, socket, objectType, resolveLabel } = request;
-  // Fält som ärvs, t.ex. taket, tas från föräldern när den är av samma typ.
-  const inherited = parent.instance.type === objectType.id ? pickInheritedParams(objectType.params, parent.instance.params) : {};
+  const source = findInheritanceSource(parent.instance, objectType.id);
+  const inherited = source ? pickInheritedParams(objectType.params, source.params) : {};
   // Objekttypen lägger själv de ärvda värdena på sina förslag, och får byta ut ett ärvt värde som inte går här.
   const candidates = objectType.paramCandidates?.(socket, { thickness: design.material.thickness, socket }, inherited) ?? [{ ...inherited }];
   const id = nextInstanceId(design.root, objectType.instanceIdPrefix);
@@ -99,6 +99,16 @@ function proposeInSocket(design: Design, domain: Domain, request: SocketProposal
   }
   if (!centered) throw new Error(`Objekttypen "${objectType.id}" har inga förslag på parametrar.`);
   return centered;
+}
+
+/**
+ * Objektet som ett nytt objekt ärver fält från: föräldern när den är av samma typ,
+ * t.ex. taket till en tillbyggnad, annars det senast skapade syskonet av samma typ,
+ * t.ex. ett fönster tidigare på samma sektion.
+ */
+export function findInheritanceSource(parent: Instance, objectTypeId: string): Instance | undefined {
+  if (parent.type === objectTypeId) return parent;
+  return [...parent.children].reverse().find((child) => child.type === objectTypeId);
 }
 
 /** Regeln om högsta antal som redan är nådd i kopplingspunkten, t.ex. en dörr per vägg. */

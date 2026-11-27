@@ -43,7 +43,7 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 - En ny tillbyggnad tar högst 60 % av väggens längd, så att det finns plats att flytta den. Fältet för läget går bara att ändra så långt den kan flyttas.
 - En ny tillbyggnad föreslås 60 % av väggens längd (ägarens val). Är 60 % smalare än minsta bredden föreslås minsta bredden, om väggen rymmer den. Vägghöjden föreslås 60 % av väggens höjd i hörnet, och 10 mm under den när 60 % är lägre än minsta höjden (ägarens val), så att tillbyggnader på varandras gavlar trappas ner. Ryms det inte räknas högsta vägghöjden ut direkt ur kopplingspunktens överkant och tak (`bounds`, `topBounds`) och tillbyggnadens kontur (`extensionProposal.ts`). En tornspira ärvs inte av en tillbyggnad; den får sadeltak.
 
-- Fält i parameterschemat kan ha `groupKey` (visas under en egen rubrik, hopfälld från början), `isInherited` (ett nytt objekt av samma typ får förälderns värde) och `visibleWhen` (visas bara för vissa värden på ett annat fält). Taket (taktyp, lutningar, takutsprången och kantens höjd) är en sådan grupp och ärvs nedåt (ägarens val). Panelen visar bara fälten för vald taktyp.
+- Fält i parameterschemat kan ha `groupKey` (visas under en egen rubrik, hopfälld från början), `isInherited` (ett nytt objekt får förälderns värde när föräldern är av samma typ, annars värdet från det senast skapade syskonet av samma typ) och `visibleWhen` (visas bara för vissa värden på ett annat fält). Taket (taktyp, lutningar, takutsprången och kantens höjd) är en sådan grupp och ärvs nedåt (ägarens val). Panelen visar bara fälten för vald taktyp.
 
 ## Tak och vinkelrännor (fas 3)
 
@@ -72,11 +72,11 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 ## Fönster och dörrar (fas 4)
 
 - Fönster (`gb.window`) och dörr (`gb.door`) fäster i väggytan (`wall-surface`) och sitter i väggens plan (`objects/openings/`). Läget längs väggen är kopplingspunktens u; fönstrets höjd över golvet är en parameter.
-- Fönstret är ett hål i väggen, rakt eller med rundbåge. Med spröjs (kors) skärs fyra rutor och spröjsen blir kvar av väggen. Fönsterluckor är två egna delar, varsin halva av fönstret uppslagen mot väggens utsida.
+- Fönstret är ett hål i väggen, rakt eller med rundbåge. Med spröjs (kors) skärs fyra rutor och spröjsen blir kvar av väggen. Spröjs är av från början (ägarens val). Fönsterluckor är två egna delar, varsin halva av fönstret uppslagen mot väggens utsida.
 - Dörren är en öppning från golvet och ett dörrblad med samma form, som står på glänt utåt runt gångjärnet i öppningens kant.
 - Regeln `onSolidPart` (`core/rules/surfaceRules.ts`) läser objekttypens `surfaceAreas`: minst 15 mm hel vägg runt öppningen (`OPENING_MARGIN_MM`, SPEC avsnitt 5) och vägg bakom luckorna. Den prövas på de färdiga delarna, så ett hål där en tillbyggnad eller en sektion bredvid möter väggen räknas, och en vägg som saknas ger fel. Två objekts täckta ytor (öppning och luckor) får inte överlappa. `maxCountPerSocket`: en dörr per vägg.
 - `listViolations` räknar med samverkan som har `affectsSurfaces` (gemensamma väggar) när designen har sådana objekt; vinkelrännorna hoppas över där eftersom de är dyra.
-- Förslag: storleken räknas från väggens höjd vid hörnen. Fönster och dörrar behåller hellre storleken och flyttas från mitten (`prefersSizeOverCenter`), så att ett andra fönster blir lika stort som det första. Ett förslag får inte ge nya fel på andra objekt, t.ex. en tillbyggnad över ett fönster.
+- Förslag: storleken räknas från väggens höjd vid hörnen. Fönster och dörrar behåller hellre storleken och flyttas från mitten (`prefersSizeOverCenter`), så att ett andra fönster blir lika stort som det första. Ett nytt fönster ärver alla värden från det senast skapade fönstret på samma sektion, även på en annan vägg (ägarens val). Ryms inte storleken behålls form, spröjs och luckor och storleken räknas från väggen. Ett förslag får inte ge nya fel på andra objekt, t.ex. en tillbyggnad över ett fönster.
 
 ## Lagring
 

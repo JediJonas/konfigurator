@@ -17,24 +17,24 @@ const MIN_WINDOW_SIZE_MM = 15;
 const MIN_SILL_HEIGHT_MM = 5;
 
 export const windowParams = z.object({
-  width: z.number().min(MIN_WINDOW_SIZE_MM).max(200).default(30).meta({ labelKey: 'param.openingWidth', unit: 'mm', step: 5 }),
-  height: z.number().min(MIN_WINDOW_SIZE_MM).max(250).default(40).meta({ labelKey: 'param.openingHeight', unit: 'mm', step: 5 }),
-  sillHeight: z.number().min(MIN_SILL_HEIGHT_MM).max(300).default(30).meta({ labelKey: 'param.sillHeight', unit: 'mm', step: 5 }),
+  width: z.number().min(MIN_WINDOW_SIZE_MM).max(200).default(30).meta({ labelKey: 'param.openingWidth', unit: 'mm', step: 5, isInherited: true }),
+  height: z.number().min(MIN_WINDOW_SIZE_MM).max(250).default(40).meta({ labelKey: 'param.openingHeight', unit: 'mm', step: 5, isInherited: true }),
+  sillHeight: z.number().min(MIN_SILL_HEIGHT_MM).max(300).default(30).meta({ labelKey: 'param.sillHeight', unit: 'mm', step: 5, isInherited: true }),
   shape: z
     .enum(OPENING_SHAPES)
     .default('rect')
-    .meta({ labelKey: 'param.openingShape', optionLabelKeys: Object.fromEntries(OPENING_SHAPES.map((shape) => [shape, `shape.${shape}`])) }),
+    .meta({ labelKey: 'param.openingShape', isInherited: true, optionLabelKeys: Object.fromEntries(OPENING_SHAPES.map((shape) => [shape, `shape.${shape}`])) }),
   mullions: z
     .enum(MULLION_STYLES)
-    .default('cross')
-    .meta({ labelKey: 'param.mullions', optionLabelKeys: Object.fromEntries(MULLION_STYLES.map((style) => [style, `mullions.${style}`])) }),
-  hasShutters: z.boolean().default(false).meta({ labelKey: 'param.hasShutters' }),
+    .default('none')
+    .meta({ labelKey: 'param.mullions', isInherited: true, optionLabelKeys: Object.fromEntries(MULLION_STYLES.map((style) => [style, `mullions.${style}`])) }),
+  hasShutters: z.boolean().default(false).meta({ labelKey: 'param.hasShutters', isInherited: true }),
 });
 
 export type WindowParams = z.infer<typeof windowParams>;
 
-/** Fönster smalare än så får inga spröjs i förslagen, så att rutorna inte blir för små. */
-const MIN_WIDTH_WITH_MULLIONS_MM = 25;
+/** Fälten som ärvs även när förra fönstrets storlek inte ryms. */
+const STYLE_KEYS = ['shape', 'mullions', 'hasShutters'] as const;
 /** Förslagens storlekar i förhållande till den största, från störst till minst. */
 const PROPOSAL_SCALES = [1, 0.8, 0.6, 0.45];
 /** Det största förslaget är så högt i förhållande till väggens höjd vid hörnen. */
@@ -59,7 +59,7 @@ export const windowType: ObjectType<WindowParams> = {
   socketOutline: (params) => wallRectangle(-params.width / 2, params.sillHeight, params.width / 2, params.sillHeight + params.height),
   surfaceAreas: (params, context) => describeWindowSurface(params, targetWallId(context)),
   prefersSizeOverCenter: true,
-  paramCandidates: (socket) => listWindowCandidates(eaveHeightOf(socket)),
+  paramCandidates: (socket, _context, inherited) => listWindowCandidates(eaveHeightOf(socket), inherited),
 };
 
 function sizeOf(params: WindowParams): OpeningSize {
@@ -104,14 +104,18 @@ function buildShutters(instanceId: string, params: WindowParams, thickness: Mm):
 }
 
 /**
- * Förslag från väggens höjd vid hörnen: ett fönster ungefär mitt på väggen,
- * med spröjs när det är brett nog. Regeln om hel vägg runt fönstret väljer bland dem.
+ * Förslag från väggens höjd vid hörnen: ett fönster ungefär mitt på väggen, utan spröjs.
+ * Finns det redan ett fönster på sektionen prövas dess värden först, och de mindre
+ * förslagen får samma form, spröjs och luckor. Regeln om hel vägg runt fönstret väljer bland dem.
  */
-function listWindowCandidates(eaveHeight: Mm): Record<string, unknown>[] {
-  return PROPOSAL_SCALES.map((scale) => {
+function listWindowCandidates(eaveHeight: Mm, inherited: Record<string, unknown>): Record<string, unknown>[] {
+  const scaled = PROPOSAL_SCALES.map((scale) => {
     const height = roundToStep(eaveHeight * PROPOSED_HEIGHT_SHARE * scale, MIN_WINDOW_SIZE_MM);
     const width = roundToStep(height * PROPOSED_WIDTH_PER_HEIGHT, MIN_WINDOW_SIZE_MM);
     const sillHeight = roundToStep((eaveHeight - height) / 2, MIN_SILL_HEIGHT_MM);
-    return { width, height, sillHeight, shape: 'rect', mullions: width >= MIN_WIDTH_WITH_MULLIONS_MM ? 'cross' : 'none', hasShutters: false };
+    return { width, height, sillHeight, shape: 'rect', mullions: 'none', hasShutters: false };
   });
+  if (Object.keys(inherited).length === 0) return scaled;
+  const style = Object.fromEntries(STYLE_KEYS.filter((key) => key in inherited).map((key) => [key, inherited[key]]));
+  return [{ ...scaled[0], ...inherited }, ...scaled.map((candidate) => ({ ...candidate, ...style }))];
 }

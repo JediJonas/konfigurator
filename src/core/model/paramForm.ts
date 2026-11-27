@@ -12,7 +12,10 @@ export interface ParamMeta {
   optionLabelKeys?: Record<string, string>;
   /** Fält med samma grupp visas tillsammans under en rubrik som är hopfälld från början. Nyckel i domänens texter. */
   groupKey?: string;
-  /** Ett nytt objekt av samma typ får förälderns värde, så att t.ex. taket ärvs nedåt. */
+  /**
+   * Ett nytt objekt får värdet från föräldern när den är av samma typ, så att t.ex. taket
+   * ärvs nedåt, annars från det senast skapade syskonet av samma typ, t.ex. förra fönstret.
+   */
   isInherited?: boolean;
   /**
    * Fältet visas bara när andra fält har något av de angivna värdena, t.ex.
@@ -28,10 +31,10 @@ export type ParamField =
 
 export type ParamSchema = z.ZodObject;
 
-/** Förälderns värden för de fält som ärvs, när föräldern är av samma objekttyp. */
-export function pickInheritedParams(schema: ParamSchema, parentParams: Record<string, unknown>): Record<string, unknown> {
-  const inheritedKeys = describeParams(schema).filter((field) => field.meta.isInherited && parentParams[field.key] !== undefined);
-  return Object.fromEntries(inheritedKeys.map((field) => [field.key, parentParams[field.key]]));
+/** Värdena för de fält som ärvs, från föräldern eller syskonet som ärvs från. */
+export function pickInheritedParams(schema: ParamSchema, sourceParams: Record<string, unknown>): Record<string, unknown> {
+  const inheritedKeys = describeParams(schema).filter((field) => field.meta.isInherited && sourceParams[field.key] !== undefined);
+  return Object.fromEntries(inheritedKeys.map((field) => [field.key, sourceParams[field.key]]));
 }
 
 /** Om fältet ska visas med de här värdena på de andra fälten. */
