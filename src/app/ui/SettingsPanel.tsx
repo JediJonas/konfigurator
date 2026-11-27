@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { groupPanelEntries } from './panelEntries';
 import { useOpenInstance } from './useOpenInstance';
 import type { RefObject } from 'react';
 import { buildDrawingPages } from '../../core/export/drawingDocument';
@@ -24,7 +25,7 @@ interface SettingsPanelProps {
 const THICKNESS_FIELD = { kind: 'number', key: 'thickness', meta: { labelKey: 'thickness', unit: 'mm', step: 0.5 }, min: 2, max: 10, defaultValue: 4 } as const;
 
 export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPanelProps) {
-  const { design, paper, setThickness, setPaper, selectSocket, selectedSocket } = useDesignStore();
+  const { design, paper, setThickness, setPaper, selectSocket, selectedSocket, focusedInstance } = useDesignStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [pdfState, setPdfState] = useState<'idle' | 'working' | 'failed'>('idle');
   const contentId = useId();
@@ -33,16 +34,23 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   const rootId = design.root.id;
   const canDownload = !error && !hasErrors(evaluation.violations);
   const instanceEntries = evaluation.placed.filter((entry) => entry.parentId !== undefined);
-  const openInstance = useOpenInstance(instanceEntries.map((entry) => entry.instance.id), selectedSocket);
+  const panelEntries = groupPanelEntries(evaluation.placed);
+  // Varje nytt val av vägg räknas, även på samma objekt, och varje tryck på ett fönster.
+  const focus = selectedSocket
+    ? { instanceId: selectedSocket.instanceId, key: `${selectedSocket.instanceId}/${selectedSocket.socketId}` }
+    : focusedInstance
+      ? { instanceId: focusedInstance.instanceId, key: `${focusedInstance.instanceId}#${focusedInstance.count}` }
+      : undefined;
+  const openInstance = useOpenInstance(instanceEntries.map((entry) => entry.instance.id), focus);
   const contentRef = useRef<HTMLDivElement>(null);
-  // Trycker man på en vägg fälls arket upp i mobilen, så att måtten för den delen syns.
-  const focusKey = selectedSocket ? `${selectedSocket.instanceId}/${selectedSocket.socketId}` : undefined;
+  // Trycker man på en vägg eller ett fönster fälls arket upp i mobilen, så att måtten syns.
+  const focusKey = focus?.key;
   const [knownFocusKey, setKnownFocusKey] = useState(focusKey);
   if (focusKey !== knownFocusKey) {
     setKnownFocusKey(focusKey);
     if (focusKey) setIsExpanded(true);
   }
-  const focusedInstanceId = selectedSocket?.instanceId;
+  const focusedInstanceId = focus?.instanceId;
   useEffect(() => {
     if (!focusKey || !focusedInstanceId) return;
     const section = contentRef.current?.querySelector(`[data-instance-id="${CSS.escape(focusedInstanceId)}"]`);
@@ -70,7 +78,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
         {isExpanded ? uiStrings.hideConfiguration : uiStrings.showConfiguration}
       </button>
       <div className="panel-content" id={contentId} ref={contentRef}>
-        {instanceEntries.map((entry) => (
+        {panelEntries.map(({ entry, nested }) => (
           <InstanceSettings
             key={entry.instance.id}
             entry={entry}
@@ -78,7 +86,24 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
             isOpen={openInstance.isOpen(entry.instance.id)}
             onToggle={() => openInstance.toggle(entry.instance.id)}
             violations={evaluation.violations.filter((violation) => violation.instanceId === entry.instance.id)}
-          />
+          >
+            {nested.length > 0 ? (
+              // Fönster och dörrar samlas under sektionen de sitter på, och syns även när sektionen är stängd.
+              <div className="nested-instances">
+                {nested.map((child) => (
+                  <InstanceSettings
+                    key={child.instance.id}
+                    entry={child}
+                    headingLevel={3}
+                    isRemovable
+                    isOpen={openInstance.isOpen(child.instance.id)}
+                    onToggle={() => openInstance.toggle(child.instance.id)}
+                    violations={evaluation.violations.filter((violation) => violation.instanceId === child.instance.id)}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </InstanceSettings>
         ))}
         {/* Ändras sällan, så sektionen är hopfälld från början som takets grupp. */}
         <section className="panel-section">

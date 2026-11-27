@@ -4,7 +4,7 @@ import { addChildInstance } from '../../src/core/model/instanceTree';
 import { evaluateDesign } from '../../src/core/rules/evaluateDesign';
 import { findAllowedParamRange, proposeChild } from '../../src/core/rules/placement';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
-import { designWithExtensions, extension, HOST_PARAMS } from './extensionFixtures';
+import { designWithExtensions, extension, EXTENSION_PARAMS, HOST_PARAMS } from './extensionFixtures';
 import { beside, BLOCK_PARAMS, houseWithTower, TOWER_PARAMS } from './neighborFixtures';
 import { doorOn, windowOn } from './openingFixtures';
 
@@ -82,6 +82,45 @@ describe('förslag för fönster och dörrar', () => {
     expect(second.violations).toEqual([]);
     expect(second.instance.params).toEqual(first.instance.params);
     expect(Math.abs(second.instance.attachment?.u ?? 0)).toBeGreaterThan(0);
+  });
+
+  it('föreslår ett första fönster utan spröjs', () => {
+    const proposal = proposeChild(designWithExtensions(), gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: 'gb.window' });
+    expect(proposal.instance.params.mullions).toBe('none');
+  });
+
+  it('ger ett nytt fönster samma värden som det senast skapade på sektionen, även på en annan vägg', () => {
+    const style = { width: 35, height: 45, sillHeight: 25, shape: 'arch', mullions: 'cross', hasShutters: true };
+    const design = designWithExtensions(windowOn('side-right', { width: 20, height: 20 }, -60, 'F1'), windowOn('side-right', style, 0, 'F2'));
+    const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'side-left', objectTypeId: 'gb.window' });
+    expect(proposal.violations).toEqual([]);
+    expect(proposal.instance.params).toEqual(style);
+  });
+
+  it('ger det första fönstret på en tillbyggnad samma värden som fönstren på huset, men tillbyggnadens egna fönster går före', () => {
+    const style = { width: 25, height: 35, sillHeight: 20, shape: 'arch', mullions: 'cross', hasShutters: false };
+    const host = windowOn('side-left', style, 0, 'F1');
+    const tallExtension = extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 80, depth: 100 });
+    const firstOnExtension = proposeChild(designWithExtensions(host, tallExtension), gingerbreadDomain, {
+      parentId: 'S2',
+      socketId: 'side-right',
+      objectTypeId: 'gb.window',
+    });
+    expect(firstOnExtension.violations).toEqual([]);
+    expect(firstOnExtension.instance.params).toEqual(style);
+
+    const own = { ...style, width: 20, shape: 'rect' };
+    const withOwn = designWithExtensions(host, { ...tallExtension, children: [windowOn('side-right', own, 0, 'F2')] });
+    const second = proposeChild(withOwn, gingerbreadDomain, { parentId: 'S2', socketId: 'side-left', objectTypeId: 'gb.window' });
+    expect(second.instance.params).toEqual(own);
+  });
+
+  it('behåller förra fönstrets form, spröjs och luckor när storleken inte ryms', () => {
+    const design = designWithExtensions(windowOn('side-right', { width: 100, height: 60, sillHeight: 10, shape: 'arch', mullions: 'cross' }));
+    const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: 'gb.window' });
+    expect(proposal.violations).toEqual([]);
+    expect(proposal.instance.params).toMatchObject({ shape: 'arch', mullions: 'cross', hasShutters: false });
+    expect(proposal.instance.params.width).toBeLessThan(100);
   });
 
   it('säger varför en andra dörr inte går att lägga till', () => {

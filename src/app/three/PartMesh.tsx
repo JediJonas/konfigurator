@@ -18,7 +18,7 @@ const SELECTED_COLOR = '#d9a441';
 const INSIDE_SHADE = 0.45;
 const INSIDE_TOLERANCE_MM = 1e-6;
 /** Rör sig pekaren mer än så här i pixlar är det en vridning av vyn, inte ett tryck. */
-const TAP_MAX_MOVEMENT_PX = 6;
+export const TAP_MAX_MOVEMENT_PX = 6;
 
 /** Extruderar delens kontur till materialtjockleken. Alla mått kommer från delen. */
 export function PartMesh({ part, color, isSelected, onSelect }: PartMeshProps) {

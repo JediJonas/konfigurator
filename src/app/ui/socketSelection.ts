@@ -1,3 +1,4 @@
+import type { Part } from '../../core/model/part';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { SocketRef } from '../state/designStore';
 
@@ -9,4 +10,19 @@ export function findSocketOwnedBy(placed: readonly PlacedInstance[], partId: str
     if (socket) return { instanceId: entry.instance.id, socketId: socket.id };
   }
   return undefined;
+}
+
+/**
+ * Objektet som ska öppnas när man trycker på en del som hör till ett objekt utan
+ * egna kopplingspunkter, t.ex. en fönsterlucka eller ett dörrblad.
+ */
+export function findLeafInstanceOf(placed: readonly PlacedInstance[], parts: readonly Part[], partId: string): string | undefined {
+  const sourceId = parts.find((part) => part.id === partId)?.sourceInstanceId;
+  const entry = placed.find((candidate) => candidate.instance.id === sourceId);
+  return entry && isLeafInstance(entry) ? entry.instance.id : undefined;
+}
+
+/** Ett objekt som sitter på ett annat och inte bär något själv, t.ex. ett fönster. */
+export function isLeafInstance(entry: PlacedInstance): boolean {
+  return entry.parentId !== undefined && entry.sockets.length === 0;
 }

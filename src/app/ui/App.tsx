@@ -9,7 +9,8 @@ import { DesignView } from '../three/DesignView';
 import type { FitView } from '../three/DesignView';
 import type { CaptureOverview } from '../three/OverviewCapture';
 import { ViewportProbe } from '../device/ViewportProbe';
-import { findSocketOwnedBy } from './socketSelection';
+import { listPickAreas } from '../three/pickAreas';
+import { findLeafInstanceOf, findSocketOwnedBy } from './socketSelection';
 import { SettingsPanel } from './SettingsPanel';
 import { uiStrings } from './strings.sv';
 
@@ -21,6 +22,7 @@ export function App() {
   const design = useDesignStore((state) => state.design);
   const selectedSocket = useDesignStore((state) => state.selectedSocket);
   const selectSocket = useDesignStore((state) => state.selectSocket);
+  const focusInstance = useDesignStore((state) => state.focusInstance);
   const hasMovedView = useSeenHints((state) => state.seen.view);
   const markHintSeen = useSeenHints((state) => state.markHintSeen);
   const captureRef = useRef<CaptureOverview>(null);
@@ -36,6 +38,7 @@ export function App() {
   const { evaluation } = result;
   // Vid ett ogiltigt värde visas senaste giltiga huset i stället för ett tomt fat.
   if (!result.error && evaluation.parts !== lastGoodParts) setLastGoodParts(evaluation.parts);
+  const pickAreas = useMemo(() => listPickAreas(evaluation.placed), [evaluation.placed]);
   const material = activeDomain.materials.find((candidate) => candidate.id === design.material.id);
   const selectedPartId = evaluation.placed
     .find((entry) => entry.instance.id === selectedSocket?.instanceId)
@@ -56,10 +59,15 @@ export function App() {
             fitRef={fitRef}
             selectedPartId={selectedPartId}
             onSelectPart={(partId) => {
+              // En fönsterlucka eller ett dörrblad öppnar sitt fönster eller sin dörr.
+              const leafId = partId ? findLeafInstanceOf(evaluation.placed, evaluation.parts, partId) : undefined;
+              if (leafId) return focusInstance(leafId);
               const socket = findSocketOwnedBy(evaluation.placed, partId);
               selectSocket(socket);
               if (socket) markHintSeen('addFromView');
             }}
+            pickAreas={result.error ? [] : pickAreas}
+            onSelectInstance={focusInstance}
             onUserMoveView={() => markHintSeen('view')}
           />
           {hasMovedView ? null : <p className="viewport-hint">{uiStrings.viewHint}</p>}

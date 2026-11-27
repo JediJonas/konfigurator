@@ -155,9 +155,21 @@ body {
   margin-top: 1.25rem;
 }
 
-.panel-section h2 {
+.panel-section h2,
+.panel-section h3 {
   margin: 0 0 0.5rem;
   font-size: 1rem;
+}
+
+/* Fönster och dörrar under sektionen de sitter på, indragna med en linje. */
+.nested-instances {
+  margin-top: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--color-border);
+}
+
+.nested-instances .panel-section + .panel-section {
+  margin-top: 0.75rem;
 }
 
 .instance-id {

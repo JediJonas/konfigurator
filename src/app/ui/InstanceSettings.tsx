@@ -1,4 +1,5 @@
 import { useId, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import type { ParamField } from '../../core/model/paramForm';
 import { describeParams } from '../../core/model/paramForm';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
@@ -23,10 +24,14 @@ interface InstanceSettingsProps {
   /** Öppen visar läge och parametrar; stängd bara rubriken och det reglerna säger. */
   isOpen: boolean;
   onToggle: () => void;
+  /** Rubriknivå: 2 för sektioner, 3 för objekt som är samlade under en sektion. */
+  headingLevel?: 2 | 3;
+  /** Objekten som är samlade under det här, t.ex. sektionens fönster. */
+  children?: ReactNode;
 }
 
 /** Ett objekts inställningar: läge i kopplingspunkten, parametrar och det reglerna säger om det. */
-export function InstanceSettings({ entry, violations, isRemovable, isOpen, onToggle }: InstanceSettingsProps) {
+export function InstanceSettings({ entry, violations, isRemovable, isOpen, onToggle, headingLevel = 2, children }: InstanceSettingsProps) {
   const { setParam, removeChild, moveAlongSocket } = useDesignStore();
   const offsetId = useId();
   const bodyId = useId();
@@ -34,17 +39,18 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
   const offsetRange = describeOffsetRange(entry, isRemovable, knownRanges[OFFSET_KEY]);
   const paramFields = useParamFieldsWithinRules(entry, knownRanges);
   const { instance, objectType, socket, parentId } = entry;
+  const Heading = headingLevel === 2 ? 'h2' : 'h3';
   return (
     <section className="panel-section" data-instance-id={instance.id}>
       <div className="instance-heading">
-        <h2>
+        <Heading>
           <button type="button" className="disclosure" aria-expanded={isOpen} aria-controls={bodyId} onClick={onToggle}>
             <svg className="disclosure-icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
               <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             {translate(objectType.labelKey)} <span className="instance-id">{instance.id}</span>
           </button>
-        </h2>
+        </Heading>
         {isRemovable ? (
           <button type="button" className="secondary-button" aria-label={uiStrings.remove(instance.id)} onClick={() => removeChild(instance.id)}>
             {uiStrings.removeLabel}
@@ -73,6 +79,7 @@ export function InstanceSettings({ entry, violations, isRemovable, isOpen, onTog
       ) : null}
       {/* Felen syns även när sektionen är stängd, så att inget som stoppar ritningen göms. */}
       <ViolationList violations={violations} />
+      {children}
     </section>
   );
 }
