@@ -35,4 +35,9 @@ export interface Domain {
   jointStyles: JointStyle[];
   presets: Preset[];
   strings: Record<string, string>;
+  /**
+   * Gör om parametrarna i en design från en äldre `domainVersion` till dagens.
+   * Körs efter `migrateDesign`; varje höjning av domänens version får ett steg här.
+   */
+  migrateParams?: (design: Design) => Design;
 }

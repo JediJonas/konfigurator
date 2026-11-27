@@ -18,7 +18,8 @@ export async function loadSavedDesign(store: ProjectStore, domain: Domain): Prom
   try {
     const latest = (await store.list()).find((meta) => meta.domain === domain.id);
     if (!latest) return undefined;
-    const design = migrateDesign((await store.load(latest.id)).design);
+    const stored = migrateDesign((await store.load(latest.id)).design);
+    const design = domain.migrateParams?.(stored) ?? stored;
     evaluateDesign(design, domain, (key) => key);
     return design;
   } catch {
