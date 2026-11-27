@@ -6,6 +6,7 @@ import { findObjectType, placeInstances } from '../pipeline/placeInstances';
 import type { MaxCountPerSocketRule, RuleViolation } from './rule';
 import { listViolations } from './evaluateDesign';
 import { attachInFittingSockets, listAffectedInstanceIds, listAlternativeSockets } from './socketChoice';
+import { hasAnyErrorRemembered, listViolationKeysRemembered } from './ruleCheck';
 import type { PlacedInstance } from '../pipeline/placeInstances';
 import type { ObjectType, Socket } from '../model/objectType';
 import { coreStrings } from '../text/strings.sv';
@@ -157,16 +158,24 @@ interface ChangedInstance {
  */
 function findErrorsFor(design: Design, domain: Domain, changed: ChangedInstance, resolveLabel: (key: string) => string): RuleViolation[] {
   const { instanceId, before } = changed;
+  const isCaused = (violation: RuleViolation) => violation.level === 'error' && (violation.instanceId === instanceId || !before.has(errorKey(violation)));
+  if (resolveLabel === ignoreLabel) {
+    const violations = listViolationKeysRemembered(design, domain);
+    if (!violations) return [{ level: 'error', instanceId, message: coreStrings.noSizeFits }];
+    return violations.filter(isCaused);
+  }
   try {
-    return listViolations(design, domain, resolveLabel).filter(
-      (violation) => violation.level === 'error' && (violation.instanceId === instanceId || !before.has(errorKey(violation))),
-    );
+    return listViolations(design, domain, resolveLabel).filter(isCaused);
   } catch (error) {
     return [{ level: 'error', instanceId, message: error instanceof Error ? error.message : String(error) }];
   }
 }
 
 function listErrorKeys(design: Design, domain: Domain, resolveLabel = ignoreLabel): Set<string> {
+  if (resolveLabel === ignoreLabel) {
+    const violations = listViolationKeysRemembered(design, domain) ?? [];
+    return new Set(violations.filter((violation) => violation.level === 'error').map(errorKey));
+  }
   try {
     return new Set(listViolations(design, domain, resolveLabel).filter((violation) => violation.level === 'error').map(errorKey));
   } catch {
@@ -276,9 +285,5 @@ export function findAllowedParamRange(design: Design, domain: Domain, request: P
 }
 
 function hasAnyError(design: Design, domain: Domain): boolean {
-  try {
-    return listViolations(design, domain, ignoreLabel).some((violation) => violation.level === 'error');
-  } catch {
-    return true;
-  }
+  return hasAnyErrorRemembered(design, domain);
 }
