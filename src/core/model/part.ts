@@ -33,6 +33,11 @@ export interface Part {
    * insida eller takets undersida. 3D-vyn ritar den sidan mörkare, som i skugga.
    */
   hasInsideAtZero?: boolean;
+  /**
+   * Fältgruppen i objektets parametrar som styr delen, t.ex. taket. Trycker man
+   * på delen i 3D-vyn öppnas den gruppen.
+   */
+  paramGroupKey?: string;
 }
 
 /**

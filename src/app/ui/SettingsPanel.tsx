@@ -25,7 +25,7 @@ interface SettingsPanelProps {
 const THICKNESS_FIELD = { kind: 'number', key: 'thickness', meta: { labelKey: 'thickness', unit: 'mm', step: 0.5 }, min: 2, max: 10, defaultValue: 4 } as const;
 
 export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPanelProps) {
-  const { design, paper, setThickness, setPaper, selectSocket, selectedSocket, focusedInstance } = useDesignStore();
+  const { design, paper, setThickness, setPaper, selectSocket, selectedSocket, focusedInstance, setOpenInstanceId } = useDesignStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [pdfState, setPdfState] = useState<'idle' | 'working' | 'failed'>('idle');
   const contentId = useId();
@@ -42,6 +42,13 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
       ? { instanceId: focusedInstance.instanceId, key: `${focusedInstance.instanceId}#${focusedInstance.count}` }
       : undefined;
   const openInstance = useOpenInstance(instanceEntries.map((entry) => entry.instance.id), focus);
+  const openInstanceId = openInstance.openId;
+  // 3D-vyn markerar fönstret eller dörren som är öppen i panelen.
+  useEffect(() => setOpenInstanceId(openInstanceId), [openInstanceId, setOpenInstanceId]);
+  const revealedGroup =
+    focusedInstance?.groupKey !== undefined
+      ? { instanceId: focusedInstance.instanceId, groupKey: focusedInstance.groupKey, revealKey: String(focusedInstance.count) }
+      : undefined;
   const contentRef = useRef<HTMLDivElement>(null);
   // Trycker man på en vägg eller ett fönster fälls arket upp i mobilen, så att måtten syns.
   const focusKey = focus?.key;
@@ -51,11 +58,14 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
     if (focusKey) setIsExpanded(true);
   }
   const focusedInstanceId = focus?.instanceId;
+  const focusedGroupKey = selectedSocket ? undefined : focusedInstance?.groupKey;
   useEffect(() => {
     if (!focusKey || !focusedInstanceId) return;
     const section = contentRef.current?.querySelector(`[data-instance-id="${CSS.escape(focusedInstanceId)}"]`);
-    section?.scrollIntoView({ block: 'nearest' });
-  }, [focusKey, focusedInstanceId]);
+    // Trycker man på taket rullar panelen fram till takets fält.
+    const group = focusedGroupKey ? section?.querySelector(`[data-group-key="${CSS.escape(focusedGroupKey)}"]`) : undefined;
+    (group ?? section)?.scrollIntoView({ block: 'nearest' });
+  }, [focusKey, focusedInstanceId, focusedGroupKey]);
 
   async function handleDownload() {
     setPdfState('working');
@@ -86,6 +96,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
             isOpen={openInstance.isOpen(entry.instance.id)}
             onToggle={() => openInstance.toggle(entry.instance.id)}
             violations={evaluation.violations.filter((violation) => violation.instanceId === entry.instance.id)}
+            revealedGroup={revealedGroup?.instanceId === entry.instance.id ? revealedGroup : undefined}
           >
             {nested.length > 0 ? (
               // Fönster och dörrar samlas under sektionen de sitter på, och syns även när sektionen är stängd.

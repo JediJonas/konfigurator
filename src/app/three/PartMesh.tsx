@@ -13,7 +13,7 @@ interface PartMeshProps {
 }
 
 /** Färgen på en vald vägg, så att man ser var en tillbyggnad hamnar. */
-const SELECTED_COLOR = '#d9a441';
+export const SELECTED_COLOR = '#d9a441';
 /** Så ljus insidan av väggar och tak är jämfört med utsidan, så att det ser mörkt ut inne i huset. */
 const INSIDE_SHADE = 0.45;
 const INSIDE_TOLERANCE_MM = 1e-6;

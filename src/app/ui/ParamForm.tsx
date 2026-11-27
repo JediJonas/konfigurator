@@ -9,6 +9,8 @@ interface ParamFormProps {
   fields: ParamField[];
   values: Record<string, unknown>;
   onChange: (key: string, value: unknown) => void;
+  /** Gruppen som ska fällas ut och nyckeln för trycket som bad om det. */
+  revealedGroup?: { groupKey: string; revealKey: string };
 }
 
 /**
@@ -17,13 +19,18 @@ interface ParamFormProps {
  * är hopfälld från början, eftersom de sällan ändras (ägarens val). Fält som
  * bara gäller vissa val, t.ex. kantens höjd på ett platt tak, visas bara då.
  */
-export function ParamForm({ fields, values, onChange }: ParamFormProps) {
+export function ParamForm({ fields, values, onChange, revealedGroup }: ParamFormProps) {
   const visible = fields.filter((field) => isFieldVisible(field, values, fields));
   return (
     <div className="param-form">
       {groupFields(visible).map((group) =>
         group.groupKey ? (
-          <FieldGroup key={group.groupKey} label={translate(group.groupKey)}>
+          <FieldGroup
+            key={group.groupKey}
+            label={translate(group.groupKey)}
+            groupKey={group.groupKey}
+            revealKey={revealedGroup?.groupKey === group.groupKey ? revealedGroup.revealKey : undefined}
+          >
             {group.fields.map((field) => renderInput(field, values, onChange))}
           </FieldGroup>
         ) : (

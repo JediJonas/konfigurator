@@ -10,6 +10,7 @@ import { listInsideFloors } from './insideFloor';
 import { PartMesh } from './PartMesh';
 import type { PickArea } from './pickAreas';
 import { PickAreaMesh } from './PickAreaMesh';
+import type { SelectionHighlight } from '../ui/selectionHighlight';
 import { lightPositionForView } from './viewerLight';
 import { cameraPositionOutsideParts, prepareClearanceParts } from './cameraClearance';
 import type { ClearancePart } from './cameraClearance';
@@ -25,8 +26,8 @@ interface DesignViewProps {
   captureRef: RefObject<CaptureOverview | null>;
   /** Fylls med en funktion som centrerar huset och anpassar zoomen. */
   fitRef: RefObject<FitView | null>;
-  /** Delen vars kopplingspunkt är vald; den visas i en annan färg. */
-  selectedPartId?: string;
+  /** Det som är valt, t.ex. en vägg, ett tak eller ett fönster; det visas i en annan färg. */
+  highlight: SelectionHighlight;
   /** Anropas när man trycker på en del, eller på tomma ytan (utan id). */
   onSelectPart: (partId: string | undefined) => void;
   /** Ytor utan egen del som öppnar ett objekt, t.ex. fönsterhål. */
@@ -51,7 +52,7 @@ const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 /** Närmaste avstånd till vyns mittpunkt. Husets egna väggar och tak stoppar zoomen långt innan dess. */
 const MIN_ORBIT_DISTANCE_MM = 20;
 
-export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, onSelectPart, pickAreas, onSelectInstance, onUserMoveView }: DesignViewProps) {
+export function DesignView({ parts, color, captureRef, fitRef, highlight, onSelectPart, pickAreas, onSelectInstance, onUserMoveView }: DesignViewProps) {
   const partsRef = useRef<Group>(null);
   // Sant mellan att man tar tag i vyn och släpper. Ett tryck utan rörelse ändrar inte kameran och räknas inte.
   const isUserHoldingViewRef = useRef(false);
@@ -87,12 +88,12 @@ export function DesignView({ parts, color, captureRef, fitRef, selectedPartId, o
         <CameraFitting parts={parts} fitRef={fitRef} />
         <group ref={partsRef}>
           {parts.map((part) => (
-            <PartMesh key={part.id} part={part} color={color} isSelected={part.id === selectedPartId} onSelect={onSelectPart} />
+            <PartMesh key={part.id} part={part} color={color} isSelected={highlight.partIds.has(part.id)} onSelect={onSelectPart} />
           ))}
         </group>
       </Bounds>
       {pickAreas.map((area, index) => (
-        <PickAreaMesh key={`${area.instanceId}/${index}`} area={area} onSelect={onSelectInstance} />
+        <PickAreaMesh key={`${area.instanceId}/${index}`} area={area} isSelected={area.instanceId === highlight.pickInstanceId} onSelect={onSelectInstance} />
       ))}
       <OverviewCapture partsRef={partsRef} captureRef={captureRef} />
       <CameraClearance parts={parts} />
