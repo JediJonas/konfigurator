@@ -6,6 +6,7 @@ import { findObjectType, placeInstances } from '../pipeline/placeInstances';
 import type { RuleViolation } from './rule';
 import { listViolations } from './evaluateDesign';
 import { attachInFittingSockets, listAffectedInstanceIds, listAlternativeSockets } from './socketChoice';
+import { hasAnyErrorRemembered, listViolationKeysRemembered } from './ruleCheck';
 import type { PlacedInstance } from '../pipeline/placeInstances';
 import type { ObjectType, Socket } from '../model/objectType';
 import { coreStrings } from '../text/strings.sv';
@@ -125,6 +126,11 @@ function withOffset(design: Design, instanceId: string, u: number): Design {
 }
 
 function findErrorsFor(design: Design, domain: Domain, instanceId: string, resolveLabel: (key: string) => string): RuleViolation[] {
+  if (resolveLabel === ignoreLabel) {
+    const violations = listViolationKeysRemembered(design, domain);
+    if (!violations) return [{ level: 'error', instanceId, message: coreStrings.noSizeFits }];
+    return violations.filter((violation) => violation.instanceId === instanceId && violation.level === 'error');
+  }
   try {
     return listViolations(design, domain, resolveLabel).filter((violation) => violation.instanceId === instanceId && violation.level === 'error');
   } catch (error) {
@@ -228,9 +234,5 @@ export function findAllowedParamRange(design: Design, domain: Domain, request: P
 }
 
 function hasAnyError(design: Design, domain: Domain): boolean {
-  try {
-    return listViolations(design, domain, ignoreLabel).some((violation) => violation.level === 'error');
-  } catch {
-    return true;
-  }
+  return hasAnyErrorRemembered(design, domain);
 }

@@ -4,13 +4,12 @@ import { findInstance, updateInstance } from '../model/instanceTree';
 import type { ParamField } from '../model/paramForm';
 import { describeParams, isFieldVisible } from '../model/paramForm';
 import { findObjectType } from '../pipeline/placeInstances';
-import { listViolations } from './evaluateDesign';
+import { hasAnyErrorRemembered } from './ruleCheck';
 import { attachInFittingSockets, listAffectedInstanceIds } from './socketChoice';
 
 /** Steget i sökningen när fältet inte anger något. */
 const DEFAULT_SEARCH_STEP = 1;
 
-const ignoreLabel = (key: string) => key;
 
 export interface ParamChange {
   instanceId: string;
@@ -84,9 +83,5 @@ function withParam(design: Design, change: ParamChange): Design {
 }
 
 function hasAnyError(design: Design, domain: Domain): boolean {
-  try {
-    return listViolations(design, domain, ignoreLabel).some((violation) => violation.level === 'error');
-  } catch {
-    return true;
-  }
+  return hasAnyErrorRemembered(design, domain);
 }
