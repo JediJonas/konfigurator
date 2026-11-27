@@ -7,23 +7,23 @@ import { measureOffsetReach } from '../../core/rules/placement';
 import { activeDomain } from '../activeDomain';
 import { useDesignStore } from '../state/designStore';
 import type { RangeRequest, RangeResult } from './ruleRanges';
-import { computeRanges } from './ruleRanges';
+import { computeRanges, createLatestRequests } from './ruleRanges';
 
 type ResultListener = (result: RangeResult) => void;
 
-/** Räknaren delas av alla fält, så att bara en begäran räknas åt gången. */
+/** Räknaren delas av alla fält; för varje objekt räknas bara den senaste begäran klart. */
 let worker: Worker | undefined;
 const listeners = new Set<ResultListener>();
 let nextRequestId = 1;
-let latestRequestId = 0;
+const latest = createLatestRequests();
 
 function sendRequest(request: Omit<RangeRequest, 'id'>): number {
   const id = nextRequestId++;
-  latestRequestId = id;
   const full = { ...request, id };
+  latest.mark(full);
   if (typeof Worker === 'undefined') {
     // Utan räknare vid sidan av, t.ex. i en äldre webbläsare, räknas gränserna direkt.
-    void computeRanges(full, activeDomain, notify, async () => id !== latestRequestId);
+    void computeRanges(full, activeDomain, notify, async () => latest.isOutdated(full));
     return id;
   }
   worker ??= createWorker();
