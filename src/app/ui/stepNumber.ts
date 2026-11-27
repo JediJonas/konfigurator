@@ -1,3 +1,5 @@
+import type { ValueGap } from '../../core/model/paramForm';
+
 /** Hur långt − och + flyttar ett måttfält. */
 export type StepDirection = -1 | 1;
 
@@ -5,6 +7,8 @@ export interface StepLimits {
   min?: number;
   max?: number;
   step?: number;
+  /** Glapp där inget går att bygga; − och + hoppar över dem. */
+  gaps?: readonly ValueGap[];
 }
 
 const DEFAULT_STEP = 1;
@@ -15,13 +19,21 @@ const STEP_PRECISION_DECIMALS = 6;
  * Nästa värde när man trycker − eller +: närmaste steg på rutnätet åt det
  * hållet, inom fältets gränser. Ett värde mellan två steg, t.ex. 143 med
  * steget 5, går till 140 eller 145 i stället för 138 eller 148, så att man
- * snabbt kommer tillbaka till jämna mått.
+ * snabbt kommer tillbaka till jämna mått. Hamnar steget i ett glapp går det
+ * till glappets andra ände, så att man bara får värden som går att bygga.
  */
 export function stepNumber(value: number, direction: StepDirection, limits: StepLimits): number {
   const step = limits.step ?? DEFAULT_STEP;
   const stepsFromZero = roundToPrecision(value / step);
   const nextStep = direction > 0 ? Math.floor(stepsFromZero) + 1 : Math.ceil(stepsFromZero) - 1;
-  return clampToLimits(roundToPrecision(nextStep * step), limits);
+  const next = roundToPrecision(nextStep * step);
+  const gap = findGap(next, limits.gaps);
+  return clampToLimits(gap ? (direction > 0 ? gap.before : gap.after) : next, limits);
+}
+
+/** Glappet som värdet ligger i, eller inget när värdet går att bygga. */
+export function findGap(value: number, gaps: readonly ValueGap[] = []): ValueGap | undefined {
+  return gaps.find((gap) => value > gap.after && value < gap.before);
 }
 
 /** Om knappen åt det hållet gör något, så att den kan visas avstängd vid gränsen. */

@@ -24,8 +24,18 @@ export interface ParamMeta {
   visibleWhen?: Record<string, readonly string[]>;
 }
 
+/**
+ * Ett glapp i ett talfält: värdena strikt mellan `after` och `before` går
+ * inte, men båda ändarna gör det. T.ex. en tillbyggnad som blir för bred för
+ * väggen men ännu inte kan stå bredvid den.
+ */
+export interface ValueGap {
+  after: number;
+  before: number;
+}
+
 export type ParamField =
-  | { kind: 'number'; key: string; meta: ParamMeta; min?: number; max?: number; defaultValue: number }
+  | { kind: 'number'; key: string; meta: ParamMeta; min?: number; max?: number; gaps?: readonly ValueGap[]; defaultValue: number }
   | { kind: 'boolean'; key: string; meta: ParamMeta; defaultValue: boolean }
   | { kind: 'choice'; key: string; meta: ParamMeta; options: string[]; defaultValue: string };
 

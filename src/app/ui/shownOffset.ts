@@ -16,5 +16,6 @@ export function fromShownOffset(shown: number): number {
 
 /** Gränserna för u som gränser för fältet. */
 export function toShownOffsetRange(range: OffsetRange): OffsetRange {
-  return { min: toShownOffset(range.max), max: toShownOffset(range.min) };
+  const gaps = range.gaps.map((gap) => ({ after: toShownOffset(gap.before), before: toShownOffset(gap.after) })).reverse();
+  return { min: toShownOffset(range.max), max: toShownOffset(range.min), gaps };
 }

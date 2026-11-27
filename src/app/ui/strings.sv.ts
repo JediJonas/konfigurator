@@ -27,6 +27,7 @@ export const uiStrings = {
   decrease: 'Minska',
   increase: 'Öka',
   outOfRange: (min?: number, max?: number) => `Välj ett värde mellan ${min ?? '–'} och ${max ?? '–'}.`,
+  inGap: (after: number, before: number) => `Mellan ${after} och ${before} går det inte att bygga. Välj ${after} eller ${before}.`,
   pdfFileName: 'ritning.pdf',
   projectName: 'Mitt hus',
   startOver: 'Börja om',

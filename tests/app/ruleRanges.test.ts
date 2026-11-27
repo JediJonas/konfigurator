@@ -20,7 +20,7 @@ describe('fältens gränser vid sidan av', () => {
     const results: RangeResult[] = [];
     await computeRanges(request, gingerbreadDomain, (result) => results.push(result), async () => false);
     expect(results.map((result) => result.key)).toEqual([OFFSET_KEY, 'wallHeight', 'width']);
-    expect(results[0]?.range).toEqual({ min: -125, max: 125 });
+    expect(results[0]?.range).toEqual({ min: -125, max: 125, gaps: [] });
   });
 
   it('slutar när en ny begäran tar över', async () => {
