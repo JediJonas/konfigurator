@@ -28,6 +28,8 @@ export const uiStrings = {
   creatingPdf: 'Skapar PDF …',
   pdfFailed: 'Det gick inte att skapa PDF:en. Försök igen.',
   invalidDesign: 'Huset går inte att bygga med de här måtten:',
+  decrease: 'Minska',
+  increase: 'Öka',
   outOfRange: (min?: number, max?: number) => `Välj ett värde mellan ${min ?? '–'} och ${max ?? '–'}.`,
   pdfFileName: 'ritning.pdf',
   projectName: 'Mitt hus',

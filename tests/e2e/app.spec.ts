@@ -3,6 +3,8 @@ import type { Page } from '@playwright/test';
 
 /** Luft mellan sista knappen och skärmens nederkant på pekskärm, se CLAUDE.md. */
 const BOTTOM_GAP_PX = 16;
+/** Minsta tryckyta, 44 pt, se CLAUDE.md. */
+const TAP_SIZE_PX = 44;
 const VIEW_HINT = 'Dra för att vrida, nyp eller scrolla för att zooma.';
 const WALL_HINT = 'Tryck på en vägg i 3D-vyn eller välj den här.';
 
@@ -23,6 +25,19 @@ test('ändrar huset när ett mått ändras', async ({ page }) => {
   await expect(page.getByText('Välj ett värde mellan 60 och 400.')).toBeVisible();
   await width.fill('200');
   await expect(width).toHaveAttribute('aria-invalid', 'false');
+});
+
+test('ändrar ett mått med − och +', async ({ page }) => {
+  await page.goto('/');
+  const width = page.getByLabel('Gavelbredd');
+  const start = Number(await width.inputValue());
+  await stepButton(page, 'Gavelbredd', 'Öka').click();
+  await expect(width).toHaveValue(String(start + 5));
+  await stepButton(page, 'Gavelbredd', 'Minska').click();
+  await stepButton(page, 'Gavelbredd', 'Minska').click();
+  await expect(width).toHaveValue(String(start - 5));
+  await width.fill('400');
+  await expect(stepButton(page, 'Gavelbredd', 'Öka')).toBeDisabled();
 });
 
 test('bygger till huset och laddar ner ritningen', async ({ page }) => {
@@ -160,6 +175,19 @@ test.describe('pekskärm', () => {
     expect(bottom).toBeCloseTo((await page.evaluate(() => window.innerHeight)) - BOTTOM_GAP_PX, 0);
   });
 
+  test('visar − och + lika stora som en tryckyta', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Visa konfiguration' }).click();
+    const width = page.getByLabel('Gavelbredd');
+    const start = Number(await width.inputValue());
+    const increase = stepButton(page, 'Gavelbredd', 'Öka');
+    const box = await increase.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(TAP_SIZE_PX);
+    expect(box?.height).toBeGreaterThanOrEqual(TAP_SIZE_PX);
+    await increase.tap();
+    await expect(width).toHaveValue(String(start + 5));
+  });
+
   test('fäller upp arket med konfigurationen när man trycker på en vägg', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByLabel('Gavelbredd')).toBeHidden();
@@ -258,4 +286,9 @@ function countHousePixels(page: Page): Promise<number> {
     }
     return count;
   });
+}
+
+/** Knappen − eller + bredvid ett måttfält. */
+function stepButton(page: Page, fieldLabel: string, name: 'Öka' | 'Minska') {
+  return page.getByLabel(fieldLabel).locator('..').getByRole('button', { name });
 }

@@ -195,6 +195,51 @@ body {
   font-size: 1rem;
 }
 
+.stepper {
+  display: grid;
+  grid-template-columns: var(--tap-size) minmax(0, 1fr) var(--tap-size);
+  gap: 0.375rem;
+}
+
+.stepper input {
+  min-width: 0;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  /* Webbläsarens egna pilar göms: − och + gör samma sak, likadant på dator och pekskärm. */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.stepper input::-webkit-inner-spin-button,
+.stepper input::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.step-button {
+  display: grid;
+  place-items: center;
+  min-height: var(--tap-size);
+  padding: 0;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-accent);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.step-button:hover:not(:disabled) {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.step-button:disabled {
+  border-color: var(--color-border);
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
+
 .field input[aria-invalid='true'] {
   border-color: var(--color-error);
 }

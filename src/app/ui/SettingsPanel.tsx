@@ -12,7 +12,7 @@ import { createDrawingRequest } from '../export/drawingRequest';
 import { useDesignStore } from '../state/designStore';
 import { FieldGroup } from './FieldGroup';
 import { InstanceSettings } from './InstanceSettings';
-import { NumberInput } from './ParamForm';
+import { NumberInput } from './NumberInput';
 import { uiStrings } from './strings.sv';
 
 interface SettingsPanelProps {

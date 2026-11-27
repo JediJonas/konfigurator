@@ -1,9 +1,9 @@
-import { useId, useState } from 'react';
+import { useId } from 'react';
 import type { ParamField } from '../../core/model/paramForm';
 import { isFieldVisible } from '../../core/model/paramForm';
 import { translate } from '../activeDomain';
 import { FieldGroup } from './FieldGroup';
-import { uiStrings } from './strings.sv';
+import { NumberInput } from './NumberInput';
 
 interface ParamFormProps {
   fields: ParamField[];
@@ -87,59 +87,4 @@ function ParamInput({ field, value, onChange }: ParamInputProps) {
     );
   }
   return <NumberInput id={id} label={label} field={field} value={Number(value)} onChange={onChange} />;
-}
-
-interface NumberInputProps {
-  id: string;
-  label: string;
-  field: Extract<ParamField, { kind: 'number' }>;
-  value: number;
-  onChange: (value: number) => void;
-}
-
-/**
- * Behåller det man skriver lokalt och skickar bara giltiga värden vidare, så
- * att man kan sudda och skriva om ett tal utan att huset hoppar under tiden.
- */
-export function NumberInput({ id, label, field, value, onChange }: NumberInputProps) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const errorId = `${id}-error`;
-  const text = draft ?? String(value);
-  const parsed = Number(text.replace(',', '.'));
-  const isValid = text.trim() !== '' && Number.isFinite(parsed) && isInRange(parsed, field);
-
-  return (
-    <div className="field">
-      <label htmlFor={id}>
-        {label}
-        {field.meta.unit ? <span className="unit"> ({field.meta.unit})</span> : null}
-      </label>
-      <input
-        id={id}
-        type="number"
-        inputMode="decimal"
-        min={field.min}
-        max={field.max}
-        step={field.meta.step ?? 1}
-        value={text}
-        aria-invalid={!isValid}
-        aria-describedby={isValid ? undefined : errorId}
-        onChange={(event) => {
-          setDraft(event.target.value);
-          const next = Number(event.target.value.replace(',', '.'));
-          if (event.target.value.trim() !== '' && Number.isFinite(next) && isInRange(next, field)) onChange(next);
-        }}
-        onBlur={() => setDraft(null)}
-      />
-      {isValid ? null : (
-        <p className="field-error" id={errorId}>
-          {uiStrings.outOfRange(field.min, field.max)}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function isInRange(value: number, field: { min?: number; max?: number }): boolean {
-  return (field.min === undefined || value >= field.min) && (field.max === undefined || value <= field.max);
 }
