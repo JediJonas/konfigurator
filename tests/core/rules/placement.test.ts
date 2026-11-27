@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { findInstance } from '../../../src/core/model/instanceTree';
 import { setParamWithinRules } from '../../../src/core/rules/paramAdjustment';
-import { findAllowedOffsetRange, findAllowedParamRange, proposeChild, snapAttachmentOffset } from '../../../src/core/rules/placement';
+import { findAllowedOffsetRange, findAllowedParamRange, measureOffsetReach, proposeChild, snapAttachmentOffset } from '../../../src/core/rules/placement';
+import { placeInstances } from '../../../src/core/pipeline/placeInstances';
 import { gingerbreadDomain } from '../../../src/domains/gingerbread';
 import { SECTION_TYPE_ID } from '../../../src/domains/gingerbread/objects/section';
 import { designWithExtensions, extension, EXTENSION_PARAMS, HOST_PARAMS } from '../../domains/extensionFixtures';
@@ -38,22 +39,27 @@ describe('nya objekt i en kopplingspunkt', () => {
     expect(attachmentAt(23)).toMatchObject({ u: 25, socketId: 'side-right' });
     // Väggen är 180 mm och tillbyggnaden 80 mm. Från hörn till hörn går det till ±50 mm.
     expect(attachmentAt(50)).toMatchObject({ u: 50, socketId: 'side-right' });
-    // Längre ut går den förbi hörnet och står bredvid, tills mitten når hörnet vid ±90 mm.
+    // Längre ut går den förbi hörnet och står bredvid, så länge den har minst en tjocklek (4 mm) kontakt med väggen: 90 + 40 − 4 = 126 mm.
     expect(attachmentAt(55)).toMatchObject({ u: 55, socketId: 'beside-side-right' });
-    expect(attachmentAt(200)).toMatchObject({ u: 90, socketId: 'beside-side-right' });
-    expect(attachmentAt(-200)).toMatchObject({ u: -90, socketId: 'beside-side-right' });
+    expect(attachmentAt(200)).toMatchObject({ u: 125, socketId: 'beside-side-right' });
+    expect(attachmentAt(-200)).toMatchObject({ u: -125, socketId: 'beside-side-right' });
   });
 
   it('räknar ut hur långt sektionen kan flyttas, som tillbyggnad eller bredvid', () => {
     const design = designWithExtensions(extension('side-right'));
-    expect(findAllowedOffsetRange(design, gingerbreadDomain, { instanceId: 'S2', currentU: 0, maxReachMm: 90 })).toEqual({ min: -90, max: 90 });
+    const entry = placeInstances(design, gingerbreadDomain).find((candidate) => candidate.instance.id === 'S2');
+    if (!entry) throw new Error('Saknar S2');
+    // Halva väggen och halva sektionen med takutsprången.
+    const reach = measureOffsetReach(entry);
+    expect(reach).toBeGreaterThan(130);
+    expect(findAllowedOffsetRange(design, gingerbreadDomain, { instanceId: 'S2', currentU: 0, maxReachMm: reach })).toEqual({ min: -125, max: 125 });
   });
 
-  it('låter inte huset bli kortare än tillbyggnaden, men lägre, så att den står bredvid', () => {
+  it('låter huset bli kortare och lägre än tillbyggnaden, som då står bredvid', () => {
     const design = designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 60 }));
     const depth = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'depth', current: 180, step: 5, min: 60, max: 400 });
-    // Tillbyggnaden är 80 mm bred och får gå ända ut till hörnen.
-    expect(depth).toEqual({ min: 80, max: 400 });
+    // Blir huset kortare än tillbyggnaden står den bredvid i stället, ända ner till schemats minsta längd.
+    expect(depth).toEqual({ min: 60, max: 400 });
     const wallHeight = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'wallHeight', current: 100, step: 5, min: 40, max: 300 });
     // Blir huset lägre än tillbyggnaden står den bredvid i stället.
     expect(wallHeight.min).toBe(40);

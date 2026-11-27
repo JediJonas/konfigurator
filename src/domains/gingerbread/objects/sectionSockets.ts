@@ -26,6 +26,8 @@ const OPENING_OVERCUT_MM = 1;
  * fästas mot med glasyr, i stället för att bara möta väggens snittyta.
  */
 export const OPENING_INSET_MM = 10;
+/** En sektion bredvid ska ha kontakt med väggen minst så många tjocklekar, så att hörnen står mot något. */
+const MIN_CONTACT_THICKNESSES = 1;
 /** Stort nog att rymma vilken öppning som helst innan den klipps till. */
 const OPENING_WORK_AREA_MM = 2000;
 
@@ -162,11 +164,13 @@ function hostTopHalfPlanes(socket: Socket, offset: Mm): HalfPlane[] {
 /**
  * Tillbyggnadens väggar sett mot värdens vägg: långväggarnas bakre ände, där
  * de möter värden. Taket prövas för sig, se `sectionSocketTopOutline`. På
- * fatet: golvytan med takutsprången. Bredvid en vägg: bara mitten av den
- * bakre gaveln, så att sektionen får vara större än väggen men står mot den.
+ * fatet: golvytan med takutsprången. Bredvid en vägg: bara den punkt på den
+ * bakre gaveln som ligger närmast väggens mitt, minst en tjocklek innanför
+ * gavelns hörn (ägarens val). Sektionen får då vara större än väggen och
+ * flyttas så långt man vill, så länge den har kontakt med väggen.
  */
 export function sectionSocketOutline(params: SectionParams, context: BuildContext): Vec3[] {
-  if (isNeighbor(context)) return [vec3(0, 0, -params.depth / 2)];
+  if (isNeighbor(context)) return [vec3(nearestContactX(params, context), 0, -params.depth / 2)];
   if (!isExtension(context)) return sectionFootprint(params, context).map((point) => vec3(point.x, 0, point.y));
   const backZ = -params.depth / 2;
   const [right, left] = listWallSides(params, true);
@@ -178,6 +182,15 @@ export function sectionSocketOutline(params: SectionParams, context: BuildContex
   };
   const halfWidth = params.width / 2;
   return [vec3(-halfWidth, 0, backZ), vec3(halfWidth, 0, backZ), vec3(halfWidth, heightAtBack(right), backZ), vec3(-halfWidth, heightAtBack(left), backZ)];
+}
+
+/**
+ * Var på den bakre gaveln, i sektionens x, som ligger närmast väggens mitt.
+ * Väggens mitt ligger vid sektionens x = läget (se `hostTopHalfPlanes`).
+ */
+function nearestContactX(params: SectionParams, context: BuildContext): Mm {
+  const reach = Math.max(0, params.width / 2 - context.thickness * MIN_CONTACT_THICKNESSES);
+  return Math.min(reach, Math.max(-reach, context.attachment?.u ?? 0));
 }
 
 /**
