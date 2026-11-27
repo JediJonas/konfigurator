@@ -39,19 +39,19 @@ export function AddToInstance({ entry }: AddToInstanceProps) {
         </select>
         {hasTappedWall ? null : <p className="field-hint">{uiStrings.addHint}</p>}
       </div>
-      {proposals.map(({ objectType, socket, proposal }) => {
-        const reasonId = `${selectId}-${objectType.id}-${socket.kind}`;
+      {proposals.map(({ objectType, proposal }) => {
+        const reasonId = `${selectId}-${objectType.id}`;
         const canAdd = proposal.violations.length === 0;
         return (
-          <div key={`${objectType.id}-${socket.id}`} className="add-object">
+          <div key={objectType.id} className="add-object">
             <button
               type="button"
               className="secondary-button"
               disabled={!canAdd}
               aria-describedby={canAdd ? undefined : reasonId}
-              onClick={() => addChild({ parentId: instanceId, socketId: socket.id, objectTypeId: objectType.id })}
+              onClick={() => addChild({ parentId: instanceId, socketId: selected.id, objectTypeId: objectType.id })}
             >
-              {addLabel(objectType.id, objectType.labelKey, socket.kind)}
+              {addLabel(objectType.id, objectType.labelKey)}
             </button>
             {canAdd ? null : (
               <p className="field-hint" id={reasonId}>
@@ -68,7 +68,8 @@ export function AddToInstance({ entry }: AddToInstanceProps) {
 /**
  * Objektets väggar, den valda väggen och förslaget för varje objekttyp som kan
  * fästa där. En vägg kan ha flera kopplingspunkter, t.ex. för en tillbyggnad
- * och för en sektion bredvid; väggen visas en gång och varje punkt får en knapp.
+ * och för en sektion bredvid. Väggen visas en gång med en knapp per objekttyp,
+ * och förslaget väljer den punkt där objektet ryms.
  */
 function listAddOptions(design: Design, entry: PlacedInstance, selectedSocket: SocketRef | undefined) {
   const instanceId = entry.instance.id;
@@ -78,19 +79,16 @@ function listAddOptions(design: Design, entry: PlacedInstance, selectedSocket: S
   const chosen = attachable.find((socket) => selectedSocket?.instanceId === instanceId && socket.id === selectedSocket.socketId);
   const selected = sockets.find((socket) => chosen && (socket.id === chosen.id || (socket.ownerPartId !== undefined && socket.ownerPartId === chosen.ownerPartId))) ?? sockets[0];
   const onSelectedWall = selected ? attachable.filter((socket) => socket.id === selected.id || (selected.ownerPartId !== undefined && socket.ownerPartId === selected.ownerPartId)) : [];
-  const proposals = onSelectedWall.flatMap((socket) =>
-    activeDomain.objectTypes
-      .filter((objectType) => objectType.attachesTo.includes(socket.kind))
-      .map((objectType) => ({ objectType, socket, proposal: proposeChild(design, activeDomain, { parentId: instanceId, socketId: socket.id, objectTypeId: objectType.id }) })),
-  );
+  const proposals = selected
+    ? activeDomain.objectTypes
+        .filter((objectType) => onSelectedWall.some((socket) => objectType.attachesTo.includes(socket.kind)))
+        .map((objectType) => ({ objectType, proposal: proposeChild(design, activeDomain, { parentId: instanceId, socketId: selected.id, objectTypeId: objectType.id }) }))
+    : [];
   return { sockets, selected, proposals };
 }
 
-/**
- * Domänen kan ge en egen text, t.ex. "Lägg till tillbyggnad" för en sektion
- * på en vägg, och en för en viss sorts kopplingspunkt, t.ex. "Lägg till sektion bredvid".
- */
-function addLabel(objectTypeId: string, labelKey: string, socketKind: string): string {
-  const domainLabel = activeDomain.strings[`add.${objectTypeId}.${socketKind}`] ?? activeDomain.strings[`add.${objectTypeId}`];
+/** Domänen kan ge en egen text, t.ex. "Lägg till sektion". */
+function addLabel(objectTypeId: string, labelKey: string): string {
+  const domainLabel = activeDomain.strings[`add.${objectTypeId}`];
   return domainLabel ?? uiStrings.addObject(translate(labelKey));
 }

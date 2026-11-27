@@ -173,7 +173,7 @@ Delar (platta polygoner i mm + placering i 3D)
 
 ### Objekttyper i första versionen
 - **Sektion:** golvyta, vägghöjd, tak. Kopplingspunkter: fyra väggytor, takytor och väggkanter. Kan fästa på marken eller mot en väggyta på en annan sektion (tillbyggnad). Ger öppning i värdens vägg (`removeRegion`) och har ingen egen vägg mot värden.
-- **Sektion bredvid:** en sektion som står på fatet mot en annan sektions vägg (`wall-beside`) och får vara högre och bredare än väggen, t.ex. ett torn bredvid ett hus eller en borg med höga torn och låga block emellan. Där väggarna står mot varandra behålls den högre väggen och den lägre får ett hål. Tak som når in i den andra sektionen kapas mot dess väggar. Tak som går in i varandra blir ett fel; där passar en tillbyggnad med vinkelränna.
+- **Sektion bredvid:** en sektion som står på fatet mot en annan sektions vägg (`wall-beside`) och får vara högre och bredare än väggen, t.ex. ett torn bredvid ett hus eller en borg med höga torn och låga block emellan. Där väggarna står mot varandra behålls den högre väggen och den lägre får ett hål. Tak som når in i den andra sektionen kapas mot dess väggar. Tak som går in i varandra blir ett fel; där passar en tillbyggnad med vinkelränna. Det finns en knapp, "Lägg till sektion": ryms sektionen på väggen blir den tillbyggnad, annars står den bredvid, och den byter av sig själv när måtten ändras.
 - **Tak** (som parameter på sektionen): sadeltak, pulpettak, valmat tak, mansardtak, platt tak med kant, tornspira (4- eller 8-sidig).
 - **Fönster** (med eller utan spröjs), **fönsterlucka**, **fönsterbläck**, **dörr**, **trappa**, **farstukvist/veranda** med pelare, **takkupa**, **skorsten**, **balkong**, **LED-hål**, **karamellfönster** (markering).
 

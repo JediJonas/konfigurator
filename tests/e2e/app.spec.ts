@@ -29,7 +29,7 @@ test('bygger till huset och laddar ner ritningen', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
   await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Framgavel' });
-  await page.getByRole('button', { name: 'Lägg till tillbyggnad' }).click();
+  await page.getByRole('button', { name: 'Lägg till sektion' }).click();
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toBeVisible();
   await expect(page.getByText('Sitter på S1 · framgavel')).toBeVisible();
   // Bara den nya sektionen är öppen, så att panelen inte blir för lång.
@@ -41,8 +41,6 @@ test('bygger till huset och laddar ner ritningen', async ({ page }) => {
   await expect(mainSection).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByRole('button', { name: 'Sektion S2' })).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByLabel('Gavelbredd')).toHaveCount(1);
-  // Tillbyggnaden på gaveln sätter en gräns för hur smalt huset kan bli.
-  await expect(page.getByLabel('Gavelbredd')).not.toHaveAttribute('min', '60');
   await page.getByRole('button', { name: 'Sektion S2' }).click();
 
   const offset = page.getByLabel('Läge längs väggen (0 = mitten)');
@@ -57,18 +55,21 @@ test('bygger till huset och laddar ner ritningen', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toHaveCount(0);
 });
 
-test('ställer ett torn bredvid huset', async ({ page }) => {
+test('ställer en sektion bredvid huset när den blir högre än väggen', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
-  // Varje vägg visas en gång, med en knapp för tillbyggnad och en för sektion bredvid.
+  // Varje vägg visas en gång, med en knapp.
   await expect(page.getByLabel('Vägg', { exact: true }).locator('option')).toHaveCount(4);
   await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
-  await page.getByRole('button', { name: 'Lägg till sektion bredvid' }).click();
+  await page.getByRole('button', { name: 'Lägg till sektion' }).click();
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toBeVisible();
-  await expect(page.getByText('Sitter på S1 · långvägg höger')).toBeVisible();
-  // Tornet blir högre än husets vägg, vilket en tillbyggnad inte får bli.
-  await expect(page.getByLabel('Vägghöjd')).toHaveValue('160');
+  // Högre än husets vägg blir den ett torn som står bredvid, i stället för ett fel.
+  const wallHeight = page.getByLabel('Vägghöjd');
+  await wallHeight.fill('160');
+  await wallHeight.blur();
+  await expect(wallHeight).toHaveValue('160');
   await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Ladda ner ritning (PDF)' })).toBeEnabled();
 });
 
 test('visar takets mått först när man fäller ut Tak', async ({ page }) => {
@@ -100,23 +101,15 @@ test('visar bara takets fält för vald taktyp', async ({ page }) => {
   await expect(page.getByLabel(/^Taklutning/)).toBeVisible();
 });
 
-test('låter inte måtten gå förbi det som ryms', async ({ page }) => {
+test('stoppar ritningen när taken går in i varandra', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Lägg till tillbyggnad' }).click();
-  await page.getByLabel('Vägghöjd').fill('150');
-  await expect(page.getByText(/Välj ett värde mellan 40 och/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Ladda ner ritning (PDF)' })).toBeEnabled();
-});
-
-test('stoppar ritningen när en tillbyggnad inte ryms', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Lägg till tillbyggnad' }).click();
-  // En tornspira kan bara stå på fatet.
-  await page.getByRole('button', { name: 'Tak', exact: true }).click();
-  await page.getByLabel('Taktyp').selectOption({ label: 'Tornspira, 4 sidor' });
-  await expect(page.getByText(/En tornspira kan bara stå på fatet/)).toBeVisible();
+  await page.getByRole('button', { name: 'Lägg till sektion' }).click();
+  // Lite högre än husets vägg står sektionen bredvid, men taket når upp i husets takutsprång.
+  const wallHeight = page.getByLabel('Vägghöjd');
+  await wallHeight.fill('110');
+  await wallHeight.blur();
+  await expect(page.getByRole('alert')).toContainText('in i varandra');
   await expect(page.getByRole('button', { name: 'Ladda ner ritning (PDF)' })).toBeDisabled();
 });
 

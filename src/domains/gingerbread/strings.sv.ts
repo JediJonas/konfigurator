@@ -37,16 +37,15 @@ export const gingerbreadStrings: Record<string, string> = {
   'socket.sideLeft': 'Långvägg vänster',
   'socket.gableFront': 'Framgavel',
   'socket.gableBack': 'Bakgavel',
-  'add.gb.section': 'Lägg till tillbyggnad',
-  'add.gb.section.wall-beside': 'Lägg till sektion bredvid',
+  'add.gb.section': 'Lägg till sektion',
   'rule.rightAnglesOnly': 'Sektionen kan bara vridas i räta vinklar.',
   'rule.extensionUpright': 'En tillbyggnad står rakt ut från väggen och kan inte vridas.',
   'rule.extensionFitsWall':
-    'Tillbyggnaden ryms inte på väggen. Väggarna ska stå inom husets hörn och vara högst lika höga som väggen, och taket får inte gå över huvudhusets tak. Gör den smalare eller lägre, eller flytta den.',
+    'Sektionen ryms inte på väggen som tillbyggnad, och bredvid väggen skulle taken gå in i varandra. Gör den lägre eller smalare så att den ryms på väggen, gör den så mycket högre att taken går fria från varandra, eller flytta den.',
   'rule.noSpireOnExtension': 'En tornspira kan bara stå på fatet. Välj en annan taktyp för tillbyggnaden.',
   'rule.neighborUpright': 'En sektion bredvid står rakt ut från väggen och kan inte vridas.',
   'rule.roofsMeet':
-    'Taket går in i taket på en sektion bredvid. Gör den ena så mycket högre eller lägre att taken går fria från varandra, eller använd en tillbyggnad, som får en vinkelränna.',
+    'Taket går in i taket på en sektion bredvid. Gör den lägre eller smalare så att den blir en tillbyggnad med vinkelränna, eller så mycket högre eller lägre att taken går fria från varandra.',
   'rule.sectionsOverlap': 'Sektionen går in i en annan sektion. Flytta den eller gör den mindre.',
   'preset.simpleHouse': 'Enkelt hus',
   'drawing.note.joints':

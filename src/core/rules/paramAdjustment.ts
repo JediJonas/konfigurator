@@ -5,6 +5,7 @@ import type { ParamField } from '../model/paramForm';
 import { describeParams, isFieldVisible } from '../model/paramForm';
 import { findObjectType } from '../pipeline/placeInstances';
 import { listViolations } from './evaluateDesign';
+import { attachInFittingSockets, listAffectedInstanceIds } from './socketChoice';
 
 /** Steget i sökningen när fältet inte anger något. */
 const DEFAULT_SEARCH_STEP = 1;
@@ -24,18 +25,21 @@ type NumberField = Extract<ParamField, { kind: 'number' }>;
  * designen bryter mot reglerna med de övriga värdena i samma grupp, t.ex. en
  * ärvd taklutning som är för brant för den nya taktypen, flyttas det första
  * synliga talet i gruppen som kan rätta det till närmaste värde som klarar
- * reglerna. Hade designen redan fel, eller går det inte att rätta, sätts bara
- * valet, så att panelen kan visa felet.
+ * reglerna, utan att objektet byter kopplingspunkt. Går det inte att rätta får
+ * objektet byta kopplingspunkt, t.ex. från tillbyggnad till sektion bredvid.
+ * Hade designen redan fel, eller går inget av det, sätts bara valet, så att
+ * panelen kan visa felet.
  */
 export function setParamWithinRules(design: Design, domain: Domain, change: ParamChange): Design {
   const { instanceId, key, value } = change;
-  const changed = withParam(design, { instanceId, key, value });
+  const plain = withParam(design, { instanceId, key, value });
+  const changed = attachInFittingSockets(plain, domain, listAffectedInstanceIds(plain, instanceId));
   const instance = findInstance(design.root, instanceId);
   if (!instance) return changed;
   const fields = describeParams(findObjectType(domain, instance.type).params);
   const field = fields.find((candidate) => candidate.key === key);
   if (field?.kind !== 'choice' || !field.meta.groupKey) return changed;
-  if (!hasAnyError(changed, domain) || hasAnyError(design, domain)) return changed;
+  if (!hasAnyError(plain, domain) || hasAnyError(design, domain)) return changed;
   const params = { ...instance.params, [key]: value };
   const adjustable = fields.filter(
     (candidate): candidate is NumberField =>
@@ -44,7 +48,7 @@ export function setParamWithinRules(design: Design, domain: Domain, change: Para
   for (const candidate of adjustable) {
     const current = params[candidate.key] ?? candidate.defaultValue;
     if (typeof current !== 'number') continue;
-    const fixed = findNearestValidValue(changed, domain, { instanceId, field: candidate, current });
+    const fixed = findNearestValidValue(plain, domain, { instanceId, field: candidate, current });
     if (fixed) return fixed;
   }
   return changed;
