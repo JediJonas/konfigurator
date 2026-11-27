@@ -5,6 +5,8 @@ import type { Page } from '@playwright/test';
 const BOTTOM_GAP_PX = 16;
 /** Minsta tryckyta, 44 pt, se CLAUDE.md. */
 const TAP_SIZE_PX = 44;
+/** Rubriken står överst i panelen med lite luft ovanför. */
+const HEADING_GAP_PX = 12;
 const VIEW_HINT = 'Dra för att vrida, nyp eller scrolla för att zooma.';
 
 test('laddar ner en ritning som PDF', async ({ page }) => {
@@ -297,6 +299,32 @@ test.describe('pekskärm', () => {
     await expect(page.getByLabel('Vägghöjd')).toBeVisible();
     // Ett tryck utan att dra vrider inte vyn, så den hjälptexten står kvar.
     await expect(page.getByText(VIEW_HINT)).toBeVisible();
+  });
+  test('rullar panelen så att dörren man trycker på står överst', async ({ page }) => {
+    await page.goto('/');
+    const view = page.locator('.viewport canvas');
+    await page.waitForTimeout(1500);
+    const before = await view.boundingBox();
+    if (!before) throw new Error('3D-vyn saknas');
+    await page.touchscreen.tap(before.x + before.width / 2, before.y + before.height * 0.6);
+    await page.getByRole('button', { name: 'Lägg till dörr' }).click();
+    // Dörren sitter mitt på framgaveln. Arket är uppfällt, så 3D-vyn är lägre än nyss.
+    // Panelen står längst ner, så att den måste rulla upp till dörrens rubrik.
+    const content = page.locator('.panel-content');
+    await content.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+    await page.waitForTimeout(500);
+    const after = await view.boundingBox();
+    if (!after) throw new Error('3D-vyn saknas');
+    await page.touchscreen.tap(after.x + after.width * 0.44, after.y + after.height * 0.69);
+    const heading = page.getByRole('button', { name: /^Dörr/ });
+    await expect(heading).toHaveAttribute('aria-expanded', 'true');
+    await expect
+      .poll(async () => {
+        const [headingTop, contentTop] = await Promise.all([heading.evaluate((element) => element.getBoundingClientRect().top), content.evaluate((element) => element.getBoundingClientRect().top)]);
+        return Math.abs(Math.round(headingTop - contentTop));
+      })
+      .toBeLessThanOrEqual(HEADING_GAP_PX);
+    await expect(page.getByRole('button', { name: 'Dölj konfiguration' })).toBeInViewport();
   });
 });
 
