@@ -4,6 +4,7 @@ import { GINGERBREAD_DOUGH } from './materials';
 import { plateType } from './objects/plate';
 import { sectionType } from './objects/section';
 import { simpleHousePreset } from './presets/simpleHouse';
+import { neighborResolver } from './interactions/neighbors';
 import { valleyResolver } from './interactions/valleys';
 import { buttJoint } from './joints';
 import { gingerbreadRules } from './rules';
@@ -14,7 +15,7 @@ export const gingerbreadDomain: Domain = {
   version: GINGERBREAD_DOMAIN_VERSION,
   objectTypes: [plateType, sectionType],
   rules: gingerbreadRules,
-  interactions: [valleyResolver],
+  interactions: [valleyResolver, neighborResolver],
   materials: [GINGERBREAD_DOUGH],
   jointStyles: [buttJoint],
   presets: [simpleHousePreset],

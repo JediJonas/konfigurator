@@ -123,7 +123,7 @@ Reglerna är data i domänpaketet, inte kod i UI:t. Samma regler används för a
 
 | Regeltyp | Exempel (pepparkakshus) |
 |---|---|
-| `attachesTo` | Fönster fäster på `wall-surface`; skorsten på `roof-surface`; sektion på `ground` eller `wall-surface` (som tillbyggnad). |
+| `attachesTo` | Fönster fäster på `wall-surface`; skorsten på `roof-surface`; sektion på `ground`, `wall-surface` (som tillbyggnad) eller `wall-beside` (bredvid en vägg, med gemensam vägg). |
 | `requires` | Trappa kräver en dörr på samma vägg. Fönsterlucka kräver ett fönster som förälder. |
 | `excludes` | Takkupa går inte på platt tak eller tornspira. |
 | `maxCount` | Högst en dörr per vägg. |
@@ -173,6 +173,7 @@ Delar (platta polygoner i mm + placering i 3D)
 
 ### Objekttyper i första versionen
 - **Sektion:** golvyta, vägghöjd, tak. Kopplingspunkter: fyra väggytor, takytor och väggkanter. Kan fästa på marken eller mot en väggyta på en annan sektion (tillbyggnad). Ger öppning i värdens vägg (`removeRegion`) och har ingen egen vägg mot värden.
+- **Sektion bredvid:** en sektion som står på fatet mot en annan sektions vägg (`wall-beside`) och får vara högre och bredare än väggen, t.ex. ett torn bredvid ett hus eller en borg med höga torn och låga block emellan. Där väggarna står mot varandra behålls den högre väggen och den lägre får ett hål. Tak som når in i den andra sektionen kapas mot dess väggar. Tak som går in i varandra blir ett fel; där passar en tillbyggnad med vinkelränna.
 - **Tak** (som parameter på sektionen): sadeltak, pulpettak, valmat tak, mansardtak, platt tak med kant, tornspira (4- eller 8-sidig).
 - **Fönster** (med eller utan spröjs), **fönsterlucka**, **fönsterbläck**, **dörr**, **trappa**, **farstukvist/veranda** med pelare, **takkupa**, **skorsten**, **balkong**, **LED-hål**, **karamellfönster** (markering).
 
@@ -181,6 +182,12 @@ Delar (platta polygoner i mm + placering i 3D)
 - **Snickarmetoden:** huvudhusets tak förblir helt. Tillbyggnadens takytor klipps längs rännan och placeras ovanpå huvudtaket, alltså förskjutna med materialtjockleken.
 - Klarar olika lutningar, olika bredder (rännorna möter huvudtaket under nocken) och lika bredd (korstak med nockar på samma höjd).
 - Asymmetriska takbitar ritas som spegelvända par.
+
+### Samverkan: sektioner bredvid varandra
+- En sektion på fatet och dess tillbyggnader är en byggnad. Mellan byggnader finns inga vinkelrännor.
+- **Gemensam vägg:** där två byggnaders väggar står mot varandra behålls den högre väggen. Den lägre får ett hål så stort som den högre väggen, utom en tjocklek innanför den högres hörn där den lägre väggen fortsätter förbi. Försvinner den lägre väggens hörn förlängs väggen som stod mot den ut till hörnet.
+- Tak, takutsprång och takkanter som når in i en annan byggnads stomme (innanför väggarna och under taket) kapas.
+- Tak från två byggnader som går in i varandra är ett fel.
 
 ### Specialfall
 - **Skorsten:** nederkanten snedskärs mot takplanet den står på.

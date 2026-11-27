@@ -39,19 +39,19 @@ export function AddToInstance({ entry }: AddToInstanceProps) {
         </select>
         {hasTappedWall ? null : <p className="field-hint">{uiStrings.addHint}</p>}
       </div>
-      {proposals.map(({ objectType, proposal }) => {
-        const reasonId = `${selectId}-${objectType.id}`;
+      {proposals.map(({ objectType, socket, proposal }) => {
+        const reasonId = `${selectId}-${objectType.id}-${socket.kind}`;
         const canAdd = proposal.violations.length === 0;
         return (
-          <div key={objectType.id} className="add-object">
+          <div key={`${objectType.id}-${socket.id}`} className="add-object">
             <button
               type="button"
               className="secondary-button"
               disabled={!canAdd}
               aria-describedby={canAdd ? undefined : reasonId}
-              onClick={() => addChild({ parentId: instanceId, socketId: selected.id, objectTypeId: objectType.id })}
+              onClick={() => addChild({ parentId: instanceId, socketId: socket.id, objectTypeId: objectType.id })}
             >
-              {addLabel(objectType.id, objectType.labelKey)}
+              {addLabel(objectType.id, objectType.labelKey, socket.kind)}
             </button>
             {canAdd ? null : (
               <p className="field-hint" id={reasonId}>
@@ -65,22 +65,32 @@ export function AddToInstance({ entry }: AddToInstanceProps) {
   );
 }
 
-/** Objektets väggar, den valda väggen och förslaget för varje objekttyp som kan fästa där. */
+/**
+ * Objektets väggar, den valda väggen och förslaget för varje objekttyp som kan
+ * fästa där. En vägg kan ha flera kopplingspunkter, t.ex. för en tillbyggnad
+ * och för en sektion bredvid; väggen visas en gång och varje punkt får en knapp.
+ */
 function listAddOptions(design: Design, entry: PlacedInstance, selectedSocket: SocketRef | undefined) {
   const instanceId = entry.instance.id;
   const attachableKinds = new Set(activeDomain.objectTypes.flatMap((objectType) => objectType.attachesTo));
-  const sockets = entry.sockets.filter((socket) => attachableKinds.has(socket.kind));
-  const selected = sockets.find((socket) => selectedSocket?.instanceId === instanceId && socket.id === selectedSocket.socketId) ?? sockets[0];
-  const proposals = selected
-    ? activeDomain.objectTypes
-        .filter((objectType) => objectType.attachesTo.includes(selected.kind))
-        .map((objectType) => ({ objectType, proposal: proposeChild(design, activeDomain, { parentId: instanceId, socketId: selected.id, objectTypeId: objectType.id }) }))
-    : [];
+  const attachable = entry.sockets.filter((socket) => attachableKinds.has(socket.kind));
+  const sockets = attachable.filter((socket, index) => !socket.ownerPartId || attachable.findIndex((other) => other.ownerPartId === socket.ownerPartId) === index);
+  const chosen = attachable.find((socket) => selectedSocket?.instanceId === instanceId && socket.id === selectedSocket.socketId);
+  const selected = sockets.find((socket) => chosen && (socket.id === chosen.id || (socket.ownerPartId !== undefined && socket.ownerPartId === chosen.ownerPartId))) ?? sockets[0];
+  const onSelectedWall = selected ? attachable.filter((socket) => socket.id === selected.id || (selected.ownerPartId !== undefined && socket.ownerPartId === selected.ownerPartId)) : [];
+  const proposals = onSelectedWall.flatMap((socket) =>
+    activeDomain.objectTypes
+      .filter((objectType) => objectType.attachesTo.includes(socket.kind))
+      .map((objectType) => ({ objectType, socket, proposal: proposeChild(design, activeDomain, { parentId: instanceId, socketId: socket.id, objectTypeId: objectType.id }) })),
+  );
   return { sockets, selected, proposals };
 }
 
-/** Domänen kan ge en egen text, t.ex. "Lägg till tillbyggnad" för en sektion på en vägg. */
-function addLabel(objectTypeId: string, labelKey: string): string {
-  const domainLabel = activeDomain.strings[`add.${objectTypeId}`];
+/**
+ * Domänen kan ge en egen text, t.ex. "Lägg till tillbyggnad" för en sektion
+ * på en vägg, och en för en viss sorts kopplingspunkt, t.ex. "Lägg till sektion bredvid".
+ */
+function addLabel(objectTypeId: string, labelKey: string, socketKind: string): string {
+  const domainLabel = activeDomain.strings[`add.${objectTypeId}.${socketKind}`] ?? activeDomain.strings[`add.${objectTypeId}`];
   return domainLabel ?? uiStrings.addObject(translate(labelKey));
 }

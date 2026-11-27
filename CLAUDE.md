@@ -53,7 +53,17 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 - **Vinkelrännor, snickarmetoden** (`interactions/valleys.ts`, samverkan i flödet efter påverkan): huvudhusets tak förblir helt. Tillbyggnadens tak förlängs in över värden (`VALLEY_REACH_MM`) och klipps där undersidan möter värdens takovansida. Ligger taket helt under värdens takutsprång går det in till väggen. Tillbyggnadens väggar och takkanter kapas där de skulle gå upp i värdens takutsprång. Går tillbyggnadens takutsprång förbi värdens hörn slutar det förlängda taket vid värdens vägg, så att det inte går in längs huset under eller bredvid värdens tak. En takyta som stiger in mot värden (pulpettak) blir aldrig ränna utan slutar vid värdens vägg, annars skulle den gå upp genom värdens tak. Värdens takskivor räknas med sina ändytor (vinkelräta mot skivan) utom vid takfoten, och skåran där två skivor möts i ett brott räknas som fylld, så att rännan inte får hack vid t.ex. mansardtakets brytlinje. Det fungerar mot alla taktyper.
 - `subtractRegions` tar bort områdena ett i taget, eftersom klippbiblioteket kan tappa hela formen när många områden tas bort på en gång.
 - **Takutsprång vid takfoten** mäts längs lutningen till takfallets ovansida (`roof/eaveFit.ts`), så 0 mm går jäms med väggens utsida. Takfallet står vinkelrätt mot sin yta, så ovansidans kant ligger tjockleken · sin(lutning) längre ut än undersidan. Räcker utsprånget inte till det slutar takfoten ovanpå väggen och taket flyttas in; väggarna behåller sin höjd och går aldrig under den (`wallProfileAlong`).
-- Regelkontrollen i förslag och fält (`listViolations`) räknar inte samverkan, eftersom den bara ändrar delar och aldrig ger fel.
+- Regelkontrollen i förslag och fält (`listViolations`) räknar inte samverkan, eftersom den oftast bara ändrar delar. Möten som samverkan inte kan lösa anger den med `listConflicts`, och de blir fel i samma kontroll.
+
+## Sektioner bredvid varandra
+
+- Ägarens val, t.ex. för en borg med fyra höga torn och låga block emellan, eller ett hus med ett torn som fortsätter upp ovanför taket. En sektion kan stå på fatet bredvid en annan sektions vägg (kopplingspunkten `wall-beside`, "Lägg till sektion bredvid"). Den har alla sina väggar, kan inte vridas och får vara högre och bredare än väggen; bara mitten av dess bakre gavel måste stå på väggen.
+- En sektion på fatet med sina tillbyggnader är en byggnad (`interactions/buildings.ts`). Samverkan mellan byggnader (`interactions/neighbors.ts`) körs efter vinkelrännorna:
+  - **Gemensam vägg** (`sharedWalls.ts`): den högre väggen behålls och den lägre får ett hål så stort som den högre väggen. Hålet slutar en tjocklek innanför den högres hörn där den lägre väggen fortsätter förbi, så att den högres väggar står mot något. Täcks den lägre väggens hörn förlängs väggen som stod mellan ut till hörnet. Blir den lägre väggen flera bitar får bitarna id:n som `S1/side-right~2`.
+  - **Tak mot väggar** (`neighborRoofs.ts`): tak som når in i en annan byggnads stomme (innanför väggarna och under takets undersida) kapas, t.ex. husets takutsprång där tornet står.
+  - **Tak mot tak** är ett fel (`rule.roofsMeet`), prövat efter kapningen. Där passar en tillbyggnad, som får en vinkelränna.
+- Sektioner på fatet får stå vägg i vägg: `noOverlap` räknar bara väggarna för dem, men takutsprången för tillbyggnader.
+- En ny sektion bredvid tar 60 % av väggens längd och är lika djup som bred. Bredvid ett lågt hus blir den ett torn, 1,6 × väggens höjd i hörnet; bredvid ett torn (väggen högre än lång) ett block, 0,6 × höjden, med sadeltak i stället för tornspira. Går den första höjden inte prövas den andra.
 
 ## Ritningen
 

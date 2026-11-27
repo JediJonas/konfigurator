@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const ROOF_TYPES = ['gable', 'shed', 'hip', 'mansard', 'flat', 'spire4', 'spire8'] as const;
 export type RoofType = (typeof ROOF_TYPES)[number];
 
-const SPIRES: readonly RoofType[] = ['spire4', 'spire8'];
+export const SPIRES: readonly RoofType[] = ['spire4', 'spire8'];
 /** Tak med lutning (`roofPitch`). */
 export const SLOPED_ROOFS: readonly RoofType[] = ['gable', 'shed', 'hip', 'mansard'];
 /** Tak med gavlar eller sidor där takutsprånget vid gaveln gäller. */
