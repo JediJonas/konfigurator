@@ -114,7 +114,8 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
                       headingLevel={3}
                       isRemovable
                       isOpen={openInstance.isOpen(child.instance.id)}
-                      onToggle={() => openInstance.toggle(child.instance.id)}
+                      // Stänger man fönstret blir sektionen kvar öppen, med fönstren i listan.
+                      onToggle={() => openInstance.open(openInstance.isOpen(child.instance.id) ? entry.instance.id : child.instance.id)}
                       violations={evaluation.violations.filter((violation) => violation.instanceId === child.instance.id)}
                     />
                   ))}

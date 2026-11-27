@@ -20,6 +20,8 @@ export function useOpenInstance(instanceIds: string[], focus: PanelFocus | undef
   return {
     openId,
     isOpen: (instanceId: string) => openId === instanceId,
+    /** Öppnar objektet, eller inget när id saknas. */
+    open: (instanceId: string | undefined) => setOpenId(instanceId),
     toggle: (instanceId: string) => setOpenId((current) => (current === instanceId ? undefined : instanceId)),
   };
 }

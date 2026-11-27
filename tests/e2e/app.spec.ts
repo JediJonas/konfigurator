@@ -120,8 +120,10 @@ test('öppnar fönstret när man trycker på det i 3D-vyn', async ({ page }) => 
   await page.goto('/');
   await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
   await page.getByRole('button', { name: 'Lägg till fönster' }).click();
-  // Fönstret stängs, och vyn hinner rita innan man trycker mitt i fönsterhålet.
+  // Fönstret stängs men sektionen blir kvar öppen, och vyn hinner rita innan man trycker mitt i fönsterhålet.
   await page.getByRole('button', { name: 'Fönster F1' }).click();
+  await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Fönster F1' })).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByLabel('Höjd över golvet')).toBeHidden();
   await page.waitForTimeout(800);
   await page.mouse.click(590, 520);
