@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { describeParams } from '../../src/core/model/paramForm';
 import { placeInstances } from '../../src/core/pipeline/placeInstances';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
+import { sectionType } from '../../src/domains/gingerbread/objects/section';
 import { groupPanelEntries } from '../../src/app/ui/panelEntries';
-import { findOwnerPartId, listPanelWalls } from '../../src/app/ui/panelWalls';
+import { findOwnerPartId, listPanelWalls, listPartFields } from '../../src/app/ui/panelWalls';
 import { designWithExtensions, extension } from '../domains/extensionFixtures';
 import { doorOn, windowOn } from '../domains/openingFixtures';
 
@@ -33,11 +35,30 @@ describe('väggarna som rubriker i panelen', () => {
     expect(listPanelWalls(added.entry, added.nested).map((wall) => wall.socket.labelKey)).toEqual(['socket.wall1', 'socket.wall2', 'socket.wall3']);
   });
 
-  it('ger väggens mått: långväggen längden och gaveln bredden, båda höjden', () => {
+  it('ger varje vägg Längd: långväggen sektionens längd och gaveln bredden, men inte höjden', () => {
+    if (!house || !added) throw new Error('S1 eller S2 saknas');
+    const fields = describeParams(sectionType.params);
+    const walls = [...listPanelWalls(house.entry, house.nested), ...listPanelWalls(added.entry, added.nested)];
+    const shown = Object.fromEntries(walls.map((wall) => [wall.ownerPartId, listPartFields(fields, wall.socket).map((field) => [field.key, field.meta.labelKey])]));
+    const sideFields = [['depth', 'wall.length']];
+    const gableFields = [['width', 'wall.length']];
+    expect(shown).toEqual({
+      'S1/gable-front': gableFields,
+      'S1/side-right': sideFields,
+      'S1/gable-back': gableFields,
+      'S1/side-left': sideFields,
+      'S2/gable-front': gableFields,
+      'S2/side-right': sideFields,
+      'S2/side-left': sideFields,
+    });
+  });
+
+  it('visar väggens fält utan sektionens grupp', () => {
     if (!house) throw new Error('S1 saknas');
-    const keys = Object.fromEntries(listPanelWalls(house.entry, house.nested).map((wall) => [wall.ownerPartId, wall.socket.paramKeys]));
-    expect(keys['S1/side-right']).toEqual(['depth', 'wallHeight']);
-    expect(keys['S1/gable-front']).toEqual(['width', 'wallHeight']);
+    const [wall] = listPanelWalls(house.entry, house.nested);
+    if (!wall) throw new Error('Vägg 1 saknas');
+    const fields = describeParams(sectionType.params).map((field) => ({ ...field, meta: { ...field.meta, groupKey: 'group.any' } }));
+    expect(listPartFields(fields, wall.socket).map((field) => field.meta.groupKey)).toEqual([undefined]);
   });
 
   it('hittar väggen för både tillbyggnadens och grannens kopplingspunkt', () => {

@@ -1,4 +1,5 @@
 import type { Socket } from '../../core/model/objectType';
+import type { ParamField } from '../../core/model/paramForm';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 
 /** En del med egen rubrik under objektet i panelen, t.ex. en vägg, med det som sitter på den. */
@@ -28,4 +29,15 @@ export function listPanelWalls(entry: PlacedInstance, nested: readonly PlacedIns
 /** Delen som en kopplingspunkt på objektet hör till, t.ex. väggen man tryckte på i 3D-vyn. */
 export function findOwnerPartId(entry: PlacedInstance | undefined, socketId: string): string | undefined {
   return entry?.sockets.find((socket) => socket.id === socketId)?.ownerPartId;
+}
+
+/**
+ * Delens fält, t.ex. väggens Längd och Höjd, med namnet de har vid delen och
+ * utan grupp, eftersom delens rubrik redan samlar dem. Gränserna följer med.
+ */
+export function listPartFields(fields: readonly ParamField[], socket: Socket): ParamField[] {
+  return (socket.partParams ?? []).flatMap(({ key, labelKey }) => {
+    const field = fields.find((candidate) => candidate.key === key);
+    return field ? [{ ...field, meta: { ...field.meta, labelKey, groupKey: undefined } }] : [];
+  });
 }

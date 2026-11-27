@@ -9,7 +9,7 @@ import type { Mm, Vec2, Vec3 } from '../../../core/geometry/vector';
 import { dot3, subtract3, vec2, vec3 } from '../../../core/geometry/vector';
 import type { Instance } from '../../../core/model/design';
 import type { Modifier } from '../../../core/model/modifier';
-import type { BuildContext, Socket } from '../../../core/model/objectType';
+import type { BuildContext, PartParam, Socket } from '../../../core/model/objectType';
 import { WALL_BESIDE, WALL_SURFACE } from '../socketKinds';
 import { isExtension, isNeighbor, listRoofCorners, roofContext } from './sectionGeometry';
 import type { SectionParams } from './sectionParams';
@@ -34,10 +34,15 @@ const OPENING_WORK_AREA_MM = 2000;
 
 /** Väggarna numreras runt huset med början på framgaveln (ägarens val): Vägg 1, Vägg 2 … */
 const WALL_NUMBER_ORDER = ['gable-front', 'side-right', 'gable-back', 'side-left'];
-/** Fälten som ändrar väggen: långväggarna följer längden och gavlarna bredden. Höjden gäller alla. */
-const WALL_PARAM_KEYS: Record<WallSide['pair'], (keyof SectionParams)[]> = {
-  side: ['depth', 'wallHeight'],
-  gable: ['width', 'wallHeight'],
+/**
+ * Fältet som ändrar väggens längd, med namnet Längd på alla väggar (ägarens
+ * val): långväggens längd är sektionens längd och gavelns är sektionens
+ * bredd, så motstående väggar delar längd. Vägghöjden gäller alla väggar och
+ * står därför överst i sektionen, inte på väggarna.
+ */
+const WALL_PARAMS: Record<WallSide['pair'], (PartParam & { key: keyof SectionParams })[]> = {
+  side: [{ key: 'depth', labelKey: 'wall.length' }],
+  gable: [{ key: 'width', labelKey: 'wall.length' }],
 };
 
 /** "socket.wall1" för den första väggen runt huset bland de väggar sektionen har. En tillbyggnad saknar bakre gavel. */
@@ -88,7 +93,7 @@ function buildWallSurfaceSockets(instance: Instance, params: SectionParams, cont
       bounds,
       topBounds: convexHull([...bounds, ...roofInSocket]),
       ownerPartId: `${instance.id}/${side.id}`,
-      paramKeys: WALL_PARAM_KEYS[side.pair],
+      partParams: WALL_PARAMS[side.pair],
     };
   });
 }

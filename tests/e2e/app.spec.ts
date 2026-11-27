@@ -19,24 +19,30 @@ test('laddar ner en ritning som PDF', async ({ page }) => {
   expect(path).toBeTruthy();
 });
 
-test('visar väggens mått först när man fäller ut väggen', async ({ page }) => {
+test('visar vägghöjden överst i sektionen och väggens längd först när man fäller ut väggen', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByLabel(/^Bredd/)).toHaveCount(0);
+  // Vägghöjden gäller alla väggar och står överst i sektionen (ägarens val).
+  await expect(page.getByLabel(/^Vägghöjd/)).toBeVisible();
+  await expect(page.getByLabel(/^Längd/)).toHaveCount(0);
+  // Varje vägg har Längd; gavelns längd är husets bredd.
   await openWall(page, 'Vägg 1');
-  // Gaveln har bredden och långväggen längden; höjden gäller alla väggar.
-  await expect(page.getByLabel(/^Bredd/)).toBeVisible();
-  await expect(page.getByLabel('Vägghöjd')).toBeVisible();
+  const gableLength = page.getByLabel(/^Längd/);
+  await expect(gableLength).toBeVisible();
+  const width = await gableLength.inputValue();
   await openWall(page, 'Vägg 2');
-  await expect(page.getByLabel('Längd')).toBeVisible();
+  await expect(page.getByLabel(/^Längd/)).toHaveCount(1);
+  await expect(page.getByLabel(/^Längd/)).not.toHaveValue(width);
   // En sak öppen i taget: Vägg 1 fälls ihop.
   await expect(page.getByRole('button', { name: 'Vägg 1', exact: true })).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByLabel(/^Bredd/)).toHaveCount(0);
+  // Motstående väggar delar längd.
+  await openWall(page, 'Vägg 3');
+  await expect(page.getByLabel(/^Längd/)).toHaveValue(width);
 });
 
 test('ändrar huset när ett mått ändras', async ({ page }) => {
   await page.goto('/');
   await openWall(page, 'Vägg 1');
-  const width = page.getByLabel(/^Bredd/);
+  const width = page.getByLabel(/^Längd/);
   await width.fill('500');
   await expect(page.getByText('Välj ett värde mellan 60 och 400.')).toBeVisible();
   await width.fill('200');
@@ -46,15 +52,15 @@ test('ändrar huset när ett mått ändras', async ({ page }) => {
 test('ändrar ett mått med − och +', async ({ page }) => {
   await page.goto('/');
   await openWall(page, 'Vägg 1');
-  const width = page.getByLabel(/^Bredd/);
+  const width = page.getByLabel(/^Längd/);
   const start = Number(await width.inputValue());
-  await stepButton(page, 'Bredd', 'Öka').click();
+  await stepButton(page, 'Längd', 'Öka').click();
   await expect(width).toHaveValue(String(start + 5));
-  await stepButton(page, 'Bredd', 'Minska').click();
-  await stepButton(page, 'Bredd', 'Minska').click();
+  await stepButton(page, 'Längd', 'Minska').click();
+  await stepButton(page, 'Längd', 'Minska').click();
   await expect(width).toHaveValue(String(start - 5));
   await width.fill('400');
-  await expect(stepButton(page, 'Bredd', 'Öka')).toBeDisabled();
+  await expect(stepButton(page, 'Längd', 'Öka')).toBeDisabled();
 });
 
 test('bygger till huset och laddar ner ritningen', async ({ page }) => {
@@ -161,13 +167,13 @@ test('öppnar sektionen och väggen när man trycker på väggen, även samma v�
   await page.waitForTimeout(800);
   await page.mouse.click(540, 660);
   await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByLabel('Vägghöjd')).toBeVisible();
+  await expect(page.getByLabel(/^Längd/)).toBeVisible();
   const openWalls = page.getByRole('button', { name: /^Vägg \d$/, expanded: true });
   await expect(openWalls).toHaveCount(1);
   await openWalls.click();
-  await expect(page.getByLabel('Vägghöjd')).toHaveCount(0);
+  await expect(page.getByLabel(/^Längd/)).toHaveCount(0);
   await page.mouse.click(540, 660);
-  await expect(page.getByLabel('Vägghöjd')).toBeVisible();
+  await expect(page.getByLabel(/^Längd/)).toBeVisible();
 });
 
 test('börjar om från början och glömmer det sparade huset', async ({ page }) => {
@@ -201,7 +207,7 @@ test('ställer en sektion bredvid huset när den blir högre än väggen', async
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toBeVisible();
   // Högre än husets vägg blir den ett torn som står bredvid, i stället för ett fel.
   await openWall(page, 'Vägg 1');
-  const wallHeight = page.getByLabel('Vägghöjd');
+  const wallHeight = page.getByLabel(/^Vägghöjd/);
   await wallHeight.fill('160');
   await wallHeight.blur();
   await expect(wallHeight).toHaveValue('160');
@@ -247,7 +253,7 @@ test('stoppar ritningen när taken går in i varandra', async ({ page }) => {
   await page.getByRole('button', { name: 'Tak', exact: true }).click();
   await page.getByLabel('Taktyp').selectOption({ label: 'Tornspira, 8 sidor' });
   await openWall(page, 'Vägg 1');
-  const wallHeight = page.getByLabel('Vägghöjd');
+  const wallHeight = page.getByLabel(/^Vägghöjd/);
   await wallHeight.fill('80');
   await wallHeight.blur();
   await expect(page.getByRole('alert')).toContainText('går in i taket');
@@ -268,7 +274,7 @@ test.describe('pekskärm', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Visa konfiguration' }).click();
     await openWall(page, 'Vägg 1');
-    await expect(page.getByLabel(/^Bredd/)).toBeVisible();
+    await expect(page.getByLabel(/^Längd/)).toBeVisible();
     const bottom = await page.getByRole('button', { name: 'Ladda ner ritning (PDF)' }).evaluate((button) => button.getBoundingClientRect().bottom);
     expect(bottom).toBeCloseTo((await page.evaluate(() => window.innerHeight)) - BOTTOM_GAP_PX, 0);
   });
@@ -277,9 +283,9 @@ test.describe('pekskärm', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Visa konfiguration' }).click();
     await openWall(page, 'Vägg 1');
-    const width = page.getByLabel(/^Bredd/);
+    const width = page.getByLabel(/^Längd/);
     const start = Number(await width.inputValue());
-    const increase = stepButton(page, 'Bredd', 'Öka');
+    const increase = stepButton(page, 'Längd', 'Öka');
     const box = await increase.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(TAP_SIZE_PX);
     expect(box?.height).toBeGreaterThanOrEqual(TAP_SIZE_PX);
@@ -289,14 +295,14 @@ test.describe('pekskärm', () => {
 
   test('fäller upp arket och öppnar väggen när man trycker på en vägg', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByLabel('Vägghöjd')).toBeHidden();
+    await expect(page.getByLabel(/^Längd/)).toBeHidden();
     const view = page.locator('.viewport canvas');
     await page.waitForTimeout(1500);
     const box = await view.boundingBox();
     if (!box) throw new Error('3D-vyn saknas');
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height * 0.6);
     await expect(page.getByRole('button', { name: 'Dölj konfiguration' })).toBeVisible();
-    await expect(page.getByLabel('Vägghöjd')).toBeVisible();
+    await expect(page.getByLabel(/^Längd/)).toBeVisible();
     // Ett tryck utan att dra vrider inte vyn, så den hjälptexten står kvar.
     await expect(page.getByText(VIEW_HINT)).toBeVisible();
   });
@@ -366,7 +372,7 @@ test('döljer hjälptexten om vyn när man har vridit med musen', async ({ page 
   await page.mouse.up();
   await expect(page.getByText(VIEW_HINT)).toHaveCount(0);
   // Att vrida väljer ingen vägg.
-  await expect(page.getByLabel('Vägghöjd')).toHaveCount(0);
+  await expect(page.getByLabel(/^Längd/)).toHaveCount(0);
 });
 
 test('centrerar huset igen efter att man zoomat ut', async ({ page }) => {
@@ -410,7 +416,7 @@ function countHousePixels(page: Page): Promise<number> {
 
 /** Knappen − eller + bredvid ett måttfält. */
 function stepButton(page: Page, fieldLabel: string, name: 'Öka' | 'Minska') {
-  return page.getByLabel(fieldLabel).locator('..').getByRole('button', { name });
+  return page.getByLabel(new RegExp(`^${fieldLabel}`)).locator('..').getByRole('button', { name });
 }
 
 /** Fäller ut en vägg på den öppna sektionen, t.ex. "Vägg 1". */

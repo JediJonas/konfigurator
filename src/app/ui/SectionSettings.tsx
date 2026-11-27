@@ -1,11 +1,10 @@
 import { useId } from 'react';
-import type { ParamField } from '../../core/model/paramForm';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { RuleViolation } from '../../core/rules/rule';
 import { useRuleRanges } from '../rules/useRuleRanges';
 import { useDesignStore } from '../state/designStore';
 import { InstanceHeading, OffsetInput, RemoveButton, useParamFieldsWithinRules, ViolationList } from './InstanceSettings';
-import { listPanelWalls } from './panelWalls';
+import { listPanelWalls, listPartFields } from './panelWalls';
 import { ParamForm } from './ParamForm';
 import { WallSettings } from './WallSettings';
 
@@ -32,7 +31,8 @@ interface SectionSettingsProps {
 
 /**
  * En sektion i panelen: läget överst om den sitter på en annan sektion, sedan
- * taket och väggarna med egna rubriker (ägarens val). Måtten ligger på väggarna.
+ * vägghöjden som gäller alla väggar, taket och väggarna med egna rubriker
+ * (ägarens val). Väggens längd ligger på väggen.
  */
 export function SectionSettings(props: SectionSettingsProps) {
   const { entry, nested, violations, isRemovable, isOpen, onToggle, openPart, onTogglePart } = props;
@@ -42,7 +42,7 @@ export function SectionSettings(props: SectionSettingsProps) {
   const paramFields = useParamFieldsWithinRules(entry, knownRanges);
   const { instance } = entry;
   const walls = listPanelWalls(entry, nested);
-  const wallKeys = new Set(walls.flatMap((wall) => wall.socket.paramKeys ?? []));
+  const wallKeys = new Set(walls.flatMap((wall) => (wall.socket.partParams ?? []).map((param) => param.key)));
   const sectionFields = paramFields.filter((field) => !wallKeys.has(field.key));
   const ownViolations = violations.filter((violation) => violation.instanceId === instance.id);
   return (
@@ -67,7 +67,7 @@ export function SectionSettings(props: SectionSettingsProps) {
                 key={wall.ownerPartId}
                 entry={entry}
                 wall={wall}
-                fields={fieldsOfWall(paramFields, wall.socket.paramKeys)}
+                fields={listPartFields(paramFields, wall.socket)}
                 violations={violations}
                 isOpen={isWallOpen}
                 onToggle={() => onTogglePart(isWallOpen ? {} : { wallPartId: wall.ownerPartId })}
@@ -83,12 +83,4 @@ export function SectionSettings(props: SectionSettingsProps) {
       <ViolationList violations={isOpen ? ownViolations : violations} />
     </section>
   );
-}
-
-/** Väggens fält utan grupp, eftersom väggens rubrik redan samlar dem. */
-function fieldsOfWall(fields: readonly ParamField[], keys: readonly string[] | undefined): ParamField[] {
-  return (keys ?? []).flatMap((key) => {
-    const field = fields.find((candidate) => candidate.key === key);
-    return field ? [{ ...field, meta: { ...field.meta, groupKey: undefined } }] : [];
-  });
 }

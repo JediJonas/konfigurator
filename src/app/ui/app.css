@@ -454,15 +454,10 @@ body {
   gap: 0.75rem;
 }
 
-/* "Bygg till" under väggens fönster och dörrar: rubrik och en rad med knappar (ägarens val). */
+/* Knapparna för att bygga till, under väggens fönster och dörrar: en rad utan rubrik (ägarens val). */
 .add-to-wall {
   display: grid;
   gap: 0.5rem;
-}
-
-.add-to-wall h4 {
-  margin: 0;
-  font-size: 0.875rem;
 }
 
 .add-buttons {

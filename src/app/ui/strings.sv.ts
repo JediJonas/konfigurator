@@ -7,7 +7,6 @@ export const uiStrings = {
   settings: 'Inställningar',
   showConfiguration: 'Visa konfiguration',
   hideConfiguration: 'Dölj konfiguration',
-  addTitle: 'Bygg till',
   addObject: (label: string) => `Lägg till ${label.toLowerCase()}`,
   cannotAdd: 'Det finns ingen plats här, inte ens för den minsta storleken. Välj en annan vägg eller gör väggen större.',
   attachedTo: (place: string) => `Sitter på ${place}`,
