@@ -4,7 +4,7 @@ import { describeParams, isFieldVisible } from '../../core/model/paramForm';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { RuleViolation } from '../../core/rules/rule';
 import type { OffsetRange } from '../../core/rules/placement';
-import { findAllowedOffsetRange, findAllowedParamRange, SNAP_STEP_MM } from '../../core/rules/placement';
+import { findAllowedOffsetRange, findAllowedParamRange, measureOffsetReach, SNAP_STEP_MM } from '../../core/rules/placement';
 import { activeDomain, translate } from '../activeDomain';
 import { useDesignStore } from '../state/designStore';
 import { AddToInstance } from './AddToInstance';
@@ -82,9 +82,8 @@ function useOffsetRange(entry: PlacedInstance, isMovable: boolean): OffsetRange 
   const u = entry.instance.attachment?.u ?? 0;
   return useMemo(() => {
     if (!isMovable || !entry.socket) return { min: u, max: u };
-    const reach = Math.max(...entry.socket.bounds.map((point) => Math.abs(point.x)));
-    return findAllowedOffsetRange(design, activeDomain, { instanceId: entry.instance.id, currentU: u, maxReachMm: reach });
-  }, [design, entry.instance.id, entry.socket, isMovable, u]);
+    return findAllowedOffsetRange(design, activeDomain, { instanceId: entry.instance.id, currentU: u, maxReachMm: measureOffsetReach(entry) });
+  }, [design, entry, isMovable, u]);
 }
 
 export function ViolationList({ violations }: { violations: RuleViolation[] }) {

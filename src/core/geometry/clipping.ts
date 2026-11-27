@@ -56,7 +56,7 @@ function subtractOnFirstWorkingGrid(shape: ClipSubject, region: Polygon): ShapeW
 }
 
 function differenceOnGrid(shape: { outline: Polygon; holes: readonly Polygon[] }, regions: readonly Polygon[], grid: number): ShapeWithHoles[] {
-  const round = (value: number) => (grid === 0 ? value : Math.round(value / grid) * grid);
+  const round = (value: number) => snapToGrid(value, grid);
   const snap = (polygon: Polygon): Ring => toRing(polygon).map(([x, y]): Pair => [round(x), round(y)]);
   const subject: ClipPolygon = [snap(shape.outline), ...shape.holes.map(snap)];
   const clips: ClipPolygon[] = regions.map((region) => [snap(region)]);
@@ -87,8 +87,7 @@ export function uncoveredArea(region: Polygon, covers: readonly { outline: Polyg
   const usable = covers.filter((cover) => cover.outline.length >= 3);
   for (const [index, grid] of SNAP_GRIDS_MM.entries()) {
     try {
-      const round = (value: number) => (grid === 0 ? value : Math.round(value / grid) * grid);
-      const snap = (polygon: Polygon): Ring => toRing(polygon).map(([x, y]): Pair => [round(x), round(y)]);
+      const snap = (polygon: Polygon): Ring => toRing(polygon).map(([x, y]): Pair => [snapToGrid(x, grid), snapToGrid(y, grid)]);
       const rest = polygonClipping.difference([snap(region)], ...usable.map((cover): ClipPolygon => [snap(cover.outline), ...cover.holes.map(snap)]));
       return sumArea(rest);
     } catch (error) {
@@ -98,9 +97,14 @@ export function uncoveredArea(region: Polygon, covers: readonly { outline: Polyg
   return 0;
 }
 
+/** Där två former överlappar, som bitar utan hål. Tom när de inte överlappar. */
+export function intersectOutlines(a: Polygon, b: Polygon): Vec2[][] {
+  return intersectOnFirstWorkingGrid(a, b).map(([outline]) => orient(fromRing(outline ?? []), true));
+}
+
 /** Arean där två former överlappar, i mm². */
 export function overlapArea(a: Polygon, b: Polygon): number {
-  return sumArea(polygonClipping.intersection([toRing(a)], [toRing(b)]));
+  return sumArea(intersectOnFirstWorkingGrid(a, b));
 }
 
 function sumArea(shapes: readonly ClipPolygon[]): number {
@@ -108,6 +112,23 @@ function sumArea(shapes: readonly ClipPolygon[]): number {
     const holeArea = holes.reduce((holeSum, hole) => holeSum + Math.abs(signedArea(fromRing(hole))), 0);
     return sum + Math.abs(signedArea(fromRing(outline ?? []))) - holeArea;
   }, 0);
+}
+
+/** Snittet av två former, på det första rutnätet där biblioteket klarar det (se `SNAP_GRIDS_MM`). */
+function intersectOnFirstWorkingGrid(a: Polygon, b: Polygon): ClipPolygon[] {
+  for (const [index, grid] of SNAP_GRIDS_MM.entries()) {
+    const snap = (polygon: Polygon): Ring => toRing(polygon).map(([x, y]): Pair => [snapToGrid(x, grid), snapToGrid(y, grid)]);
+    try {
+      return polygonClipping.intersection([snap(a)], [snap(b)]);
+    } catch (error) {
+      if (index === SNAP_GRIDS_MM.length - 1) throw error;
+    }
+  }
+  return [];
+}
+
+function snapToGrid(value: number, grid: number): number {
+  return grid === 0 ? value : Math.round(value / grid) * grid;
 }
 
 function toRing(polygon: Polygon): Ring {

@@ -132,20 +132,27 @@ function signedPlanArea(plan: Polygon): number {
 }
 
 /**
- * Sektionens stomme: innanför väggarnas ytterkant och under takets
- * undersida. Ett tak från en annan byggnad som når in där kapas. Villkoren
- * prövas på höjden `depth` i delens tjocklek.
+ * Sektionens stomme med taket: innanför väggarnas ytterkant och under takets
+ * ovansida. Ett tak från en annan byggnad som når in där kapas, även där det
+ * skulle gå genom takskivan, t.ex. ett takutsprång som når in över grannens
+ * tak strax ovanför dess takfot. Byggnaderna står vägg i vägg, så ingen del av
+ * ett tak ligger innanför båda byggnadernas väggar, och det som kapas från det
+ * ena taket blir aldrig ett hål i det andra. Villkoren prövas på höjden
+ * `depth` i delens tjocklek.
  */
 export function bodyHalfSpaces(entry: PlacedInstance, depth: Mm): WorldHalfSpace[] {
   const origin = transformPoint(entry.matrix, vec3(0, 0, 0));
   const toWorld = (direction: Vec3) => subtract3(transformPoint(entry.matrix, direction), origin);
   const support = wallSupport(entry.params as SectionParams, roofContext(entry.context, false));
-  const belowRoof = support.map((plane): WorldHalfSpace => {
-    // y − slopeX · x − slopeZ · z ≤ height i sektionens koordinater.
+  const thickness = entry.context.thickness;
+  const belowRoofTop = support.map((plane): WorldHalfSpace => {
+    // y − slopeX · x − slopeZ · z ≤ height i sektionens koordinater, med ovansidan
+    // en tjocklek över undersidan mätt vinkelrätt mot takytan.
     const normal = toWorld(vec3(-plane.slopeX, 1, -plane.slopeZ));
-    return { normal, offset: plane.height + dot3(normal, origin), depth };
+    const topOffset = thickness * Math.hypot(1, plane.slopeX, plane.slopeZ);
+    return { normal, offset: plane.height + topOffset + dot3(normal, origin), depth };
   });
-  return [...insidePlan(wallPlanOf(entry), depth), ...belowRoof];
+  return [...insidePlan(wallPlanOf(entry), depth), ...belowRoofTop];
 }
 
 /** Inom en konvex polygon moturs sett uppifrån, där polygonens y är z. */

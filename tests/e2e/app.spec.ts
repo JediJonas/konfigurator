@@ -132,11 +132,13 @@ test('stoppar ritningen när taken går in i varandra', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Lägg till sektion' }).click();
-  // Lite högre än husets vägg står sektionen bredvid, men taket når upp i husets takutsprång.
+  // En tornspira kan bara stå bredvid. Blir den högre går spiran upp genom husets takutsprång.
+  await page.getByRole('button', { name: 'Tak', exact: true }).click();
+  await page.getByLabel('Taktyp').selectOption({ label: 'Tornspira, 8 sidor' });
   const wallHeight = page.getByLabel('Vägghöjd');
-  await wallHeight.fill('110');
+  await wallHeight.fill('80');
   await wallHeight.blur();
-  await expect(page.getByRole('alert')).toContainText('in i varandra');
+  await expect(page.getByRole('alert')).toContainText('går in i taket');
   await expect(page.getByRole('button', { name: 'Ladda ner ritning (PDF)' })).toBeDisabled();
 });
 
