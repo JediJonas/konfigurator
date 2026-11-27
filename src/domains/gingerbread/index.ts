@@ -11,6 +11,7 @@ import { valleyResolver } from './interactions/valleys';
 import { buttJoint } from './joints';
 import { gingerbreadRules } from './rules';
 import { gingerbreadStrings } from './strings.sv';
+import { migrateGingerbreadParams } from './migrateParams';
 
 export const gingerbreadDomain: Domain = {
   id: GINGERBREAD_DOMAIN_ID,
@@ -22,4 +23,5 @@ export const gingerbreadDomain: Domain = {
   jointStyles: [buttJoint],
   presets: [simpleHousePreset],
   strings: gingerbreadStrings,
+  migrateParams: migrateGingerbreadParams,
 };

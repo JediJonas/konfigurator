@@ -1,36 +1,48 @@
 import { z } from 'zod';
 import type { Matrix4 } from '../../../../core/geometry/matrix';
-import type { Mm } from '../../../../core/geometry/vector';
-import { degreesToRadians, vec3 } from '../../../../core/geometry/vector';
+import type { Mm, Vec2 } from '../../../../core/geometry/vector';
+import { degreesToRadians, vec2, vec3 } from '../../../../core/geometry/vector';
+import { clipByHalfPlanes } from '../../../../core/geometry/halfPlane';
 import type { Modifier } from '../../../../core/model/modifier';
 import type { ObjectType, SurfaceArea } from '../../../../core/model/objectType';
 import type { Part } from '../../../../core/model/part';
 import { BUILD_STEP } from '../../buildOrder';
 import { WALL_SURFACE } from '../../socketKinds';
 import { planeMatrix } from '../uprightPart';
-import { OPENING_SHAPES, openingOutline, toWallPlane, wallRectangle } from './openingShape';
+import { DOOR_SHAPES, openingOutline, toWallPlane, wallRectangle } from './openingShape';
 import { eaveHeightOf, OPENING_MARGIN_MM, roundToStep, targetWallId, wallOpeningMountMatrix } from './wallOpening';
 
 export const DOOR_TYPE_ID = 'gb.door';
 
-const HINGE_SIDES = ['left', 'right'] as const;
+/**
+ * Vänster- och högerhängd dörr har ett dörrblad med gångjärnet på den sidan,
+ * dubbeldörrar två blad och en öppning inget.
+ */
+const DOOR_KINDS = ['right', 'left', 'double', 'opening'] as const;
+const KINDS_WITH_LEAF = ['right', 'left', 'double'] as const;
+type HingeSide = 'left' | 'right';
 const MIN_DOOR_WIDTH_MM = 20;
 const MIN_DOOR_HEIGHT_MM = 30;
 /** Dörren står på glänt, så att man ser att den går att öppna. */
 const DEFAULT_OPEN_ANGLE_DEGREES = 30;
 
 export const doorParams = z.object({
+  kind: z
+    .enum(DOOR_KINDS)
+    .default('left')
+    .meta({ labelKey: 'param.doorKind', optionLabelKeys: Object.fromEntries(DOOR_KINDS.map((kind) => [kind, `doorKind.${kind}`])) }),
   width: z.number().min(MIN_DOOR_WIDTH_MM).max(150).default(35).meta({ labelKey: 'param.openingWidth', unit: 'mm', step: 5 }),
   height: z.number().min(MIN_DOOR_HEIGHT_MM).max(250).default(65).meta({ labelKey: 'param.openingHeight', unit: 'mm', step: 5 }),
   shape: z
-    .enum(OPENING_SHAPES)
+    .enum(DOOR_SHAPES)
     .default('rect')
-    .meta({ labelKey: 'param.openingShape', optionLabelKeys: Object.fromEntries(OPENING_SHAPES.map((shape) => [shape, `shape.${shape}`])) }),
-  hinge: z
-    .enum(HINGE_SIDES)
-    .default('left')
-    .meta({ labelKey: 'param.hinge', optionLabelKeys: Object.fromEntries(HINGE_SIDES.map((side) => [side, `hinge.${side}`])) }),
-  openAngle: z.number().min(0).max(90).default(DEFAULT_OPEN_ANGLE_DEGREES).meta({ labelKey: 'param.openAngle', unit: '°', step: 5 }),
+    .meta({ labelKey: 'param.openingShape', optionLabelKeys: Object.fromEntries(DOOR_SHAPES.map((shape) => [shape, `shape.${shape}`])) }),
+  openAngle: z
+    .number()
+    .min(0)
+    .max(90)
+    .default(DEFAULT_OPEN_ANGLE_DEGREES)
+    .meta({ labelKey: 'param.openAngle', unit: '°', step: 5, visibleWhen: { kind: KINDS_WITH_LEAF } }),
 });
 
 export type DoorParams = z.infer<typeof doorParams>;
@@ -48,6 +60,8 @@ const PROPOSED_WIDTH_PER_HEIGHT = 0.55;
 /**
  * Dörr: en öppning från golvet och ett dörrblad med samma form, som står på
  * glänt utåt. Dörrbladet kan skäras ur biten som blir över när öppningen tas upp.
+ * En dubbeldörr har två blad, varsin halva av öppningen med gångjärnen i
+ * öppningens kanter. En öppning är samma hål utan dörrblad.
  */
 export const doorType: ObjectType<DoorParams> = {
   id: DOOR_TYPE_ID,
@@ -56,7 +70,7 @@ export const doorType: ObjectType<DoorParams> = {
   instanceIdPrefix: 'D',
   attachesTo: [WALL_SURFACE],
   sockets: () => [],
-  parts: (instance, params, context) => [buildDoorLeaf(instance.id, params, context.thickness)],
+  parts: (instance, params, context) => buildDoorLeaves(instance.id, params, context.thickness),
   modifiers: (_instance, params, context) => buildDoorOpening(params, targetWallId(context)),
   mountMatrix: () => wallOpeningMountMatrix(),
   socketOutline: (params) => wallRectangle(-params.width / 2, 0, params.width / 2, params.height),
@@ -84,20 +98,54 @@ function describeDoorSurface(params: DoorParams, targetPartId: string | undefine
   ];
 }
 
+function buildDoorLeaves(instanceId: string, params: DoorParams, thickness: Mm): Part[] {
+  const opening = openingOutline({ shape: params.shape, width: params.width, height: params.height, bottom: 0 });
+  const edge = params.width / 2;
+  const leafOf = (id: string, outline: Vec2[], hinge: HingeSide): Part =>
+    buildDoorLeaf(instanceId, { id, outline: leafFromHinge(outline, hinge, edge), hinge, hingeX: hinge === 'left' ? -edge : edge, angle: params.openAngle }, thickness);
+  if (params.kind === 'opening') return [];
+  if (params.kind !== 'double') return [leafOf(`${instanceId}/leaf`, opening, params.kind)];
+  const [left, right] = splitInHalves(opening);
+  return [leafOf(`${instanceId}/leaf-left`, left, 'left'), leafOf(`${instanceId}/leaf-right`, right, 'right')];
+}
+
+/** Öppningens vänstra och högra halva, delade mitt i. */
+function splitInHalves(opening: Vec2[]): [Vec2[], Vec2[]] {
+  return [clipByHalfPlanes(opening, [{ normal: vec2(1, 0), offset: 0 }]), clipByHalfPlanes(opening, [{ normal: vec2(-1, 0), offset: 0 }])];
+}
+
+/**
+ * Bladets kontur med x från gångjärnet: med gångjärnet till vänster flyttad dit,
+ * med det till höger speglad, så att x alltid växer bort från gångjärnet.
+ */
+function leafFromHinge(outline: Vec2[], hinge: HingeSide, edge: Mm): Vec2[] {
+  if (hinge === 'left') return outline.map((point) => vec2(point.x + edge, point.y));
+  return outline.map((point) => vec2(edge - point.x, point.y)).reverse();
+}
+
+interface DoorLeaf {
+  id: string;
+  /** Bladets kontur med x från gångjärnet. */
+  outline: Vec2[];
+  hinge: HingeSide;
+  /** Gångjärnets läge längs väggen, i öppningens kant. */
+  hingeX: Mm;
+  angle: number;
+}
+
 /**
  * Dörrbladet har öppningens form och sitter i väggens tjocklek när det är
  * stängt. Det vrids utåt runt gångjärnet, som sitter i öppningens kant på väggens utsida.
  */
-function buildDoorLeaf(instanceId: string, params: DoorParams, thickness: Mm): Part {
-  const outline = openingOutline({ shape: params.shape, width: params.width, height: params.height, bottom: 0 }).map((point) => ({ x: point.x + params.width / 2, y: point.y }));
+function buildDoorLeaf(instanceId: string, leaf: DoorLeaf, thickness: Mm): Part {
   return {
-    id: `${instanceId}/leaf`,
+    id: leaf.id,
     sourceInstanceId: instanceId,
     labelKey: 'part.doorLeaf',
-    outline,
+    outline: leaf.outline,
     holes: [],
     thickness,
-    transform: doorLeafTransform(params, thickness),
+    transform: doorLeafTransform(leaf, thickness),
     buildStep: BUILD_STEP.details,
   };
 }
@@ -107,17 +155,16 @@ function buildDoorLeaf(instanceId: string, params: DoorParams, thickness: Mm): P
  * vänster ligger tjockleken innanför bladets plan och med det till höger utanför,
  * så att bladet i båda fallen fyller öppningen när det är stängt.
  */
-export function doorLeafTransform(params: DoorParams, thickness: Mm): Matrix4 {
-  const angle = degreesToRadians(params.openAngle);
+function doorLeafTransform({ hinge, hingeX, angle: angleDegrees }: DoorLeaf, thickness: Mm): Matrix4 {
+  const angle = degreesToRadians(angleDegrees);
   const up = vec3(0, 1, 0);
-  if (params.hinge === 'left') {
+  if (hinge === 'left') {
     const along = vec3(Math.cos(angle), 0, Math.sin(angle));
     const normal = vec3(-Math.sin(angle), 0, Math.cos(angle));
-    const hinge = vec3(-params.width / 2, 0, 0);
-    return planeMatrix(along, up, vec3(hinge.x - thickness * normal.x, 0, hinge.z - thickness * normal.z));
+    return planeMatrix(along, up, vec3(hingeX - thickness * normal.x, 0, -thickness * normal.z));
   }
   const along = vec3(-Math.cos(angle), 0, Math.sin(angle));
-  return planeMatrix(along, up, vec3(params.width / 2, 0, 0));
+  return planeMatrix(along, up, vec3(hingeX, 0, 0));
 }
 
 /** Förslag från väggens höjd vid hörnen, från den största dörren till den minsta. */
@@ -125,6 +172,6 @@ function listDoorCandidates(eaveHeight: Mm): Record<string, unknown>[] {
   return PROPOSAL_SCALES.map((scale) => {
     const height = roundToStep(eaveHeight * PROPOSED_HEIGHT_SHARE * scale, MIN_DOOR_HEIGHT_MM);
     const width = roundToStep(height * PROPOSED_WIDTH_PER_HEIGHT, MIN_DOOR_WIDTH_MM);
-    return { width, height, shape: 'rect', hinge: 'left', openAngle: DEFAULT_OPEN_ANGLE_DEGREES };
+    return { kind: 'left', width, height, shape: 'rect', openAngle: DEFAULT_OPEN_ANGLE_DEGREES };
   });
 }

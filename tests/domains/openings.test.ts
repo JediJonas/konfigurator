@@ -6,6 +6,8 @@ import type { Part } from '../../src/core/model/part';
 import { buildParts } from '../../src/core/pipeline/buildParts';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { openingOutline } from '../../src/domains/gingerbread/objects/openings/openingShape';
+import type { WindowParams } from '../../src/domains/gingerbread/objects/openings/window';
+import { windowSizeOf } from '../../src/domains/gingerbread/objects/openings/window';
 import { designWithExtensions } from './extensionFixtures';
 import { doorOn, windowOn, WINDOW_PARAMS } from './openingFixtures';
 import { partById } from './roofFixtures';
@@ -42,6 +44,34 @@ describe('fönster', () => {
     expect(Math.max(...flat.map((point) => point.y))).toBeCloseTo(10);
   });
 
+  it('runt fönster är en cirkel med bredden som diameter, oavsett höjdfältet', () => {
+    const params = { ...WINDOW_PARAMS, shape: 'circle', width: 30, height: 80 } as WindowParams;
+    const outline = openingOutline(windowSizeOf(params));
+    const bounds = boundsOf(outline);
+    expect([bounds.minX, bounds.maxX]).toEqual([-15, 15].map((value) => expect.closeTo(value)));
+    expect([bounds.minY, bounds.maxY]).toEqual([30, 60].map((value) => expect.closeTo(value)));
+    for (const point of outline) expect(Math.hypot(point.x, point.y - 45)).toBeCloseTo(15);
+  });
+
+  it('halvmåne är en halvcirkel med rak underkant, hälften så hög som bred', () => {
+    const params = { ...WINDOW_PARAMS, shape: 'halfMoon', width: 40, height: 80 } as WindowParams;
+    const outline = openingOutline(windowSizeOf(params));
+    const bounds = boundsOf(outline);
+    expect([bounds.minY, bounds.maxY]).toEqual([30, 50].map((value) => expect.closeTo(value)));
+    for (const point of outline.filter((point) => point.y > 30.001)) expect(Math.hypot(point.x, point.y - 30)).toBeCloseTo(20);
+  });
+
+  it('runt fönster med spröjs ger fyra rutor och aldrig luckor', () => {
+    const parts = buildParts(designWithExtensions(windowOn('side-right', { shape: 'circle', mullions: 'cross', hasShutters: true })), gingerbreadDomain);
+    expect(partById(parts, 'S1/side-right').holes).toHaveLength(4);
+    expect(parts.filter((part) => part.id.startsWith('F1/shutter'))).toHaveLength(0);
+  });
+
+  it('halvmåne kan ha luckor', () => {
+    const parts = buildParts(designWithExtensions(windowOn('side-right', { shape: 'halfMoon', hasShutters: true })), gingerbreadDomain);
+    expect(parts.filter((part) => part.id.startsWith('F1/shutter'))).toHaveLength(2);
+  });
+
   it('har luckorna uppslagna mot väggens utsida på var sin sida om fönstret', () => {
     const parts = buildParts(designWithExtensions(windowOn('side-right', { hasShutters: true })), gingerbreadDomain);
     const wall = partById(parts, 'S1/side-right');
@@ -58,6 +88,13 @@ describe('fönster', () => {
 });
 
 describe('dörr', () => {
+  it('som öppning tar upp samma hål men har inget dörrblad', () => {
+    const archway = buildParts(designWithExtensions(doorOn('gable-front', { kind: 'opening', shape: 'arch' })), gingerbreadDomain);
+    const door = buildParts(designWithExtensions(doorOn('gable-front', { shape: 'arch' })), gingerbreadDomain);
+    expect(partById(archway, 'S1/gable-front').outline).toEqual(partById(door, 'S1/gable-front').outline);
+    expect(archway.some((part) => part.id === 'D1/leaf')).toBe(false);
+  });
+
   it('går från golvet och har ett blad med samma form som fyller öppningen när det är stängt', () => {
     const parts = buildParts(designWithExtensions(doorOn('gable-front', { shape: 'arch' })), gingerbreadDomain);
     const wall = partById(parts, 'S1/gable-front');
@@ -71,9 +108,32 @@ describe('dörr', () => {
     expect(Math.max(...leaf.map((point) => point.y))).toBeCloseTo(60);
   });
 
+  it('som dubbeldörr har två blad som fyller var sin halva när de är stängda', () => {
+    const parts = buildParts(designWithExtensions(doorOn('gable-front', { kind: 'double', shape: 'arch', openAngle: 0 })), gingerbreadDomain);
+    const wall = partById(parts, 'S1/gable-front');
+    const wallXs = span(wall.outline.map((point) => point.x));
+    const middle = (wallXs[0] + wallXs[1]) / 2;
+    const [left, right] = ['D1/leaf-left', 'D1/leaf-right'].map((id) => cornersIn(partById(parts, id), wall));
+    const round = (value: number) => Math.round(value * 100) / 100;
+    expect(span((left ?? []).map((point) => round(point.x - middle)))).toEqual([-17.5, 0]);
+    expect(span((right ?? []).map((point) => round(point.x - middle)))).toEqual([0, 17.5]);
+    for (const leaf of [left, right]) expect(span((leaf ?? []).map((point) => point.z))).toEqual([0, wall.thickness].map((value) => expect.closeTo(value)));
+    expect(parts.some((part) => part.id === 'D1/leaf')).toBe(false);
+  });
+
+  it('som dubbeldörr står bladen på glänt utåt åt var sitt håll', () => {
+    const parts = buildParts(designWithExtensions(doorOn('gable-front', { kind: 'double', openAngle: 90 })), gingerbreadDomain);
+    const wall = partById(parts, 'S1/gable-front');
+    for (const id of ['D1/leaf-left', 'D1/leaf-right']) {
+      const leaf = cornersIn(partById(parts, id), wall);
+      expect(Math.max(...leaf.map((point) => point.z))).toBeCloseTo(wall.thickness + 17.5);
+      expect(Math.min(...leaf.map((point) => point.z))).toBeGreaterThan(wall.thickness - 0.01);
+    }
+  });
+
   it('står på glänt utåt med gångjärnet i öppningens kant', () => {
     for (const hinge of ['left', 'right']) {
-      const parts = buildParts(designWithExtensions(doorOn('gable-front', { hinge, openAngle: 90 })), gingerbreadDomain);
+      const parts = buildParts(designWithExtensions(doorOn('gable-front', { kind: hinge, openAngle: 90 })), gingerbreadDomain);
       const wall = partById(parts, 'S1/gable-front');
       const leaf = cornersIn(partById(parts, 'D1/leaf'), wall);
       // Helt öppen står bladet vinkelrätt ut från väggen, 35 mm ut.

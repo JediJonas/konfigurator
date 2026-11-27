@@ -3,9 +3,11 @@ import type { Polygon } from '../../../../core/geometry/polygon';
 import type { Mm, Vec2, Vec3 } from '../../../../core/geometry/vector';
 import { vec2, vec3 } from '../../../../core/geometry/vector';
 
-/** Formerna på fönster och dörrar: rak överkant eller rundbåge. */
-export const OPENING_SHAPES = ['rect', 'arch'] as const;
-export type OpeningShape = (typeof OPENING_SHAPES)[number];
+/** Formerna på dörrar: fyrkantig eller med rundbåge. */
+export const DOOR_SHAPES = ['rect', 'arch'] as const;
+/** Fönster kan dessutom vara runda (en cirkel) eller en halvmåne (en halvcirkel med rak underkant). */
+export const WINDOW_SHAPES = [...DOOR_SHAPES, 'circle', 'halfMoon'] as const;
+export type OpeningShape = (typeof WINDOW_SHAPES)[number];
 
 /** Så många raka bitar rundbågen ritas med. Fler ger en jämnare båge men fler hörn att skära. */
 const ARCH_SEGMENTS = 16;
@@ -23,14 +25,17 @@ export interface OpeningSize {
 
 /**
  * Öppningens kontur moturs. Rundbågen är en halv ellips över hela bredden,
- * en halvcirkel när öppningen är minst hälften så hög som bred.
+ * en halvcirkel när öppningen är minst hälften så hög som bred. Den runda
+ * öppningen är en ellips i rutan, och halvmånen en halv ellips från underkanten.
+ * Fönstret ger dem mått som gör dem till en cirkel och en halvcirkel (`windowSizeOf`).
  */
 export function openingOutline(size: OpeningSize): Vec2[] {
   const { width, height, bottom } = size;
   const half = width / 2;
   const top = bottom + height;
   if (size.shape === 'rect') return [vec2(-half, bottom), vec2(half, bottom), vec2(half, top), vec2(-half, top)];
-  const rise = Math.min(half, height);
+  if (size.shape === 'circle') return ellipseOutline(half, height / 2, bottom + height / 2);
+  const rise = size.shape === 'halfMoon' ? height : Math.min(half, height);
   const spring = top - rise;
   const arch = Array.from({ length: ARCH_SEGMENTS + 1 }, (_, index) => {
     const angle = (Math.PI * index) / ARCH_SEGMENTS;
@@ -38,6 +43,15 @@ export function openingOutline(size: OpeningSize): Vec2[] {
   });
   // Bågen går från höger ände över till vänster. Är öppningen bara båge sluter nederkanten den.
   return spring > bottom ? [vec2(-half, bottom), vec2(half, bottom), ...arch] : arch;
+}
+
+/** En hel ellips runt (0, centerY), moturs, med lika många bitar per halva som rundbågen. */
+function ellipseOutline(radiusX: Mm, radiusY: Mm, centerY: Mm): Vec2[] {
+  const segments = 2 * ARCH_SEGMENTS;
+  return Array.from({ length: segments }, (_, index) => {
+    const angle = (2 * Math.PI * index) / segments;
+    return vec2(radiusX * Math.cos(angle), centerY + radiusY * Math.sin(angle));
+  });
 }
 
 /**
