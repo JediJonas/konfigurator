@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { signedArea } from '../../src/core/geometry/polygon';
-import { degreesToRadians } from '../../src/core/geometry/vector';
+import { degreesToRadians, dot3 } from '../../src/core/geometry/vector';
 import type { Vec3 } from '../../src/core/geometry/vector';
 import { groupIdenticalParts } from '../../src/core/layout/partGroups';
 import { buildParts } from '../../src/core/pipeline/buildParts';
+import { placeInstances } from '../../src/core/pipeline/placeInstances';
 import { evaluateDesign } from '../../src/core/rules/evaluateDesign';
 import { proposeChild } from '../../src/core/rules/placement';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
@@ -108,6 +109,19 @@ describe('tillbyggnad som går över huset', () => {
     const steep = { ...EXTENSION_PARAMS, roof: 'shed', roofPitch: 60, wallHeight: 80 };
     const parts = buildParts(designWithExtensions(extension('side-right', steep)), gingerbreadDomain);
     expect(Math.min(...allCorners(partById(parts, 'S2/roof')).map((corner) => corner.x))).toBeGreaterThanOrEqual(-HOST_HALF_WIDTH - 0.01);
+  });
+});
+
+describe('pulpettak som stiger in mot huset', () => {
+  it.each([20, 32, 39, 41])('slutar vid gaveln och går inte upp genom huvudtaket vid %s°', (roofPitch) => {
+    const design = designWithExtensions(extension('gable-front', { ...EXTENSION_PARAMS, roof: 'shed', roofPitch, wallHeight: 60 }));
+    expect(errorsFor(design)).toEqual([]);
+    const gable = placeInstances(design, gingerbreadDomain).find((entry) => entry.instance.id === 'S2')?.socket;
+    if (!gable) throw new Error('Tillbyggnaden saknar kopplingspunkt');
+    const wallPlane = dot3(gable.frame.normal, gable.frame.origin);
+    const parts = buildParts(design, gingerbreadDomain);
+    const innermost = Math.min(...allCorners(partById(parts, 'S2/roof')).map((corner) => dot3(gable.frame.normal, corner)));
+    expect(innermost).toBeGreaterThanOrEqual(wallPlane - 0.01);
   });
 });
 

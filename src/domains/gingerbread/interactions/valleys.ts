@@ -58,7 +58,12 @@ export const valleyResolver: InteractionResolver = {
         if (part.sourceInstanceId !== entry.instance.id) return [part];
         const regions = isUpright(part)
           ? uprightRegions(part, slabs)
-          : [...roofRegions(part, slabs, walls, outward), ...besideHostWalls(part, slabs, walls, socket), beyondHost(part, walls, outward)];
+          : [
+              ...roofRegions(part, slabs, walls, outward),
+              ...besideHostWalls(part, slabs, walls, socket),
+              beyondHost(part, walls, outward),
+              ...insideHostWhenRising(part, socket),
+            ];
         const clipped = removeRegionsFromPart(part, regions, reachOutward);
         return clipped ? [clipped] : [];
       });
@@ -125,9 +130,9 @@ function aboveUndersideOf(slab: HostRoofSlab, depth: Mm): WorldHalfSpace {
   return { normal, offset: dot3(normal, slab.underside), depth };
 }
 
-/** Om takytan sjunker när man går utåt från värden, som ett takfall ner mot takfoten. */
-function slopesDownOutward(slab: HostRoofSlab, outward: Vec3): boolean {
-  return (-slab.normal.x * outward.x - slab.normal.z * outward.z) / slab.normal.y < -DOWNWARD_SLOPE;
+/** Om takytan sjunker när man går utåt från värden, som ett takfall ner mot takfoten. Normalen pekar uppåt. */
+function slopesDownOutward(surface: { normal: Vec3 }, outward: Vec3): boolean {
+  return (-surface.normal.x * outward.x - surface.normal.z * outward.z) / surface.normal.y < -DOWNWARD_SLOPE;
 }
 
 /**
@@ -148,6 +153,18 @@ function roofRegions(part: Part, slabs: readonly HostRoofSlab[], walls: Polygon,
       regionOnPart(part, [...insidePlan(slab.plan, 0), belowTopOf(slab, 0), crossing]),
     ];
   });
+}
+
+/**
+ * Innanför väggen som tillbyggnaden sitter på, för en takyta som stiger in
+ * mot värden, t.ex. ett pulpettak som är högst mot väggen. Den möter aldrig
+ * värdens tak ovanifrån som en ränna, utan skulle gå upp genom det och
+ * fortsätta ovanför, så den slutar vid väggen.
+ */
+function insideHostWhenRising(part: Part, socket: Socket): Vec2[][] {
+  const outward = socket.frame.normal;
+  if (!slopesDownOutward({ normal: partNormal(part) }, outward)) return [];
+  return [regionOnPart(part, [{ normal: outward, offset: dot3(outward, socket.frame.origin), depth: 0 }])];
 }
 
 /**
