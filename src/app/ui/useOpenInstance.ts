@@ -21,6 +21,7 @@ export function useOpenInstance(instanceIds: string[], focus: PanelFocus | undef
     openId,
     isOpen: (instanceId: string) => openId === instanceId,
     toggle: (instanceId: string) => setOpenId((current) => (current === instanceId ? undefined : instanceId)),
+    open: (instanceId: string) => setOpenId(instanceId),
   };
 }
 

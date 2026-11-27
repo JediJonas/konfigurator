@@ -6,7 +6,6 @@ const BOTTOM_GAP_PX = 16;
 /** Minsta tryckyta, 44 pt, se CLAUDE.md. */
 const TAP_SIZE_PX = 44;
 const VIEW_HINT = 'Dra för att vrida, nyp eller scrolla för att zooma.';
-const WALL_HINT = 'Tryck på en vägg i 3D-vyn eller välj den här.';
 
 test('laddar ner en ritning som PDF', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -18,17 +17,24 @@ test('laddar ner en ritning som PDF', async ({ page }) => {
   expect(path).toBeTruthy();
 });
 
-test('visar sektionens mått först när man fäller ut Mått', async ({ page }) => {
+test('visar väggens mått först när man fäller ut väggen', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByLabel('Gavelbredd')).toHaveCount(0);
-  await openDimensions(page);
+  await expect(page.getByLabel(/^Bredd/)).toHaveCount(0);
+  await openWall(page, 'Vägg 1');
+  // Gaveln har bredden och långväggen längden; höjden gäller alla väggar.
+  await expect(page.getByLabel(/^Bredd/)).toBeVisible();
   await expect(page.getByLabel('Vägghöjd')).toBeVisible();
+  await openWall(page, 'Vägg 2');
+  await expect(page.getByLabel('Längd')).toBeVisible();
+  // En sak öppen i taget: Vägg 1 fälls ihop.
+  await expect(page.getByRole('button', { name: 'Vägg 1', exact: true })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByLabel(/^Bredd/)).toHaveCount(0);
 });
 
 test('ändrar huset när ett mått ändras', async ({ page }) => {
   await page.goto('/');
-  await openDimensions(page);
-  const width = page.getByLabel('Gavelbredd');
+  await openWall(page, 'Vägg 1');
+  const width = page.getByLabel(/^Bredd/);
   await width.fill('500');
   await expect(page.getByText('Välj ett värde mellan 60 och 400.')).toBeVisible();
   await width.fill('200');
@@ -37,35 +43,38 @@ test('ändrar huset när ett mått ändras', async ({ page }) => {
 
 test('ändrar ett mått med − och +', async ({ page }) => {
   await page.goto('/');
-  await openDimensions(page);
-  const width = page.getByLabel('Gavelbredd');
+  await openWall(page, 'Vägg 1');
+  const width = page.getByLabel(/^Bredd/);
   const start = Number(await width.inputValue());
-  await stepButton(page, 'Gavelbredd', 'Öka').click();
+  await stepButton(page, 'Bredd', 'Öka').click();
   await expect(width).toHaveValue(String(start + 5));
-  await stepButton(page, 'Gavelbredd', 'Minska').click();
-  await stepButton(page, 'Gavelbredd', 'Minska').click();
+  await stepButton(page, 'Bredd', 'Minska').click();
+  await stepButton(page, 'Bredd', 'Minska').click();
   await expect(width).toHaveValue(String(start - 5));
   await width.fill('400');
-  await expect(stepButton(page, 'Gavelbredd', 'Öka')).toBeDisabled();
+  await expect(stepButton(page, 'Bredd', 'Öka')).toBeDisabled();
 });
 
 test('bygger till huset och laddar ner ritningen', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
-  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Framgavel' });
+  await openWall(page, 'Vägg 1');
   await page.getByRole('button', { name: 'Lägg till sektion' }).click();
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toBeVisible();
-  await expect(page.getByText('Sitter på S1 · framgavel')).toBeVisible();
+  // Läget står överst i den nya sektionen, utan egen rubrik.
+  await expect(page.getByText('Sitter på S1 · vägg 1')).toBeVisible();
   // Bara den nya sektionen är öppen, så att panelen inte blir för lång.
   const mainSection = page.getByRole('button', { name: 'Sektion S1' });
   await expect(mainSection).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('button', { name: 'Mått', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Tak', exact: true })).toHaveCount(1);
   // Rubriken byter till den sektionen och stänger den som var öppen.
   await mainSection.click();
   await expect(mainSection).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByRole('button', { name: 'Sektion S2' })).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('button', { name: 'Mått', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Vägg 4', exact: true })).toHaveCount(1);
   await page.getByRole('button', { name: 'Sektion S2' }).click();
+  // En tillbyggnad har tre väggar.
+  await expect(page.getByRole('button', { name: /^Vägg \d$/ })).toHaveCount(3);
 
   const offset = page.getByLabel('Läge längs väggen (0 = mitten)');
   await offset.fill('200');
@@ -82,18 +91,20 @@ test('bygger till huset och laddar ner ritningen', async ({ page }) => {
 test('sätter fönster och dörr i väggen och har kvar dem när sidan laddas om', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
-  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
+  await openWall(page, 'Vägg 2');
   await page.getByRole('button', { name: 'Lägg till fönster' }).click();
   await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
   await page.getByLabel('Fönsterluckor').check();
   await page.getByLabel('Form').selectOption({ label: 'Rundbåge' });
 
-  await page.getByRole('button', { name: 'Sektion S1' }).click();
-  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Framgavel' });
+  await openWall(page, 'Vägg 1');
+  // Fönstret fälls ihop med sin vägg när en annan vägg öppnas.
+  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Lägg till dörr' }).click();
   await expect(page.getByRole('heading', { name: 'Dörr D1' })).toBeVisible();
-  await page.getByRole('button', { name: 'Sektion S1' }).click();
-  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Framgavel' });
+  // Fälls dörren ihop står väggen kvar öppen.
+  await page.getByRole('button', { name: 'Dörr D1' }).click();
+  await expect(page.getByRole('button', { name: 'Vägg 1', exact: true })).toHaveAttribute('aria-expanded', 'true');
   // En dörr per vägg: knappen är avstängd och säger varför.
   await expect(page.getByRole('button', { name: 'Lägg till dörr' })).toBeDisabled();
   await expect(page.getByText('Det får bara finnas en dörr på varje vägg.')).toBeVisible();
@@ -102,14 +113,13 @@ test('sätter fönster och dörr i väggen och har kvar dem när sidan laddas om
   expect(download.suggestedFilename()).toBe('ritning.pdf');
 
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Dörr D1' })).toBeVisible();
-  // Fönster och dörrar ligger samlade under sektionen de sitter på.
+  // Fönster och dörrar ligger under väggen de sitter på.
   const houseSection = page.locator('[data-instance-id="S1"]');
-  await expect(houseSection.getByRole('heading', { level: 3, name: 'Fönster F1' })).toBeVisible();
   await expect(houseSection.getByRole('heading', { level: 3, name: 'Dörr D1' })).toBeVisible();
+  await openWall(page, 'Vägg 2');
+  await expect(houseSection.getByRole('heading', { level: 3, name: 'Fönster F1' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dörr D1' })).toHaveCount(0);
   // De syns bara när sektionen är utfälld; på toppnivån finns bara sektioner och Inställningar.
-  await page.getByRole('button', { name: 'Sektion S1' }).click();
   await page.getByRole('button', { name: 'Sektion S1' }).click();
   await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByRole('heading', { name: 'Fönster F1' })).toHaveCount(0);
@@ -118,7 +128,7 @@ test('sätter fönster och dörr i väggen och har kvar dem när sidan laddas om
 test('öppnar fönstret när man trycker på det i 3D-vyn', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
-  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
+  await openWall(page, 'Vägg 2');
   await page.getByRole('button', { name: 'Lägg till fönster' }).click();
   // Fönstret stängs, och vyn hinner rita innan man trycker mitt i fönsterhålet.
   await page.getByRole('button', { name: 'Fönster F1' }).click();
@@ -139,22 +149,27 @@ test('fäller ut takets fält när man trycker på taket i 3D-vyn', async ({ pag
   await expect(page.getByLabel('Taktyp')).toBeVisible();
 });
 
-test('öppnar sektionen och dess mått när man trycker på väggen, även samma vägg igen', async ({ page }) => {
+test('öppnar sektionen och väggen när man trycker på väggen, även samma vägg igen', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
-  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
   await page.getByRole('button', { name: 'Sektion S1' }).click();
   await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'false');
   await page.waitForTimeout(800);
   await page.mouse.click(540, 660);
   await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.getByLabel('Gavelbredd')).toBeVisible();
+  await expect(page.getByLabel('Vägghöjd')).toBeVisible();
+  const openWalls = page.getByRole('button', { name: /^Vägg \d$/, expanded: true });
+  await expect(openWalls).toHaveCount(1);
+  await openWalls.click();
+  await expect(page.getByLabel('Vägghöjd')).toHaveCount(0);
+  await page.mouse.click(540, 660);
+  await expect(page.getByLabel('Vägghöjd')).toBeVisible();
 });
 
 test('börjar om från början och glömmer det sparade huset', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
-  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
+  await openWall(page, 'Vägg 2');
   await page.getByRole('button', { name: 'Lägg till fönster' }).click();
   await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
   await page.getByRole('button', { name: 'Inställningar', exact: true }).click();
@@ -174,13 +189,14 @@ test('börjar om från början och glömmer det sparade huset', async ({ page })
 test('ställer en sektion bredvid huset när den blir högre än väggen', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
-  // Varje vägg visas en gång, med en knapp.
-  await expect(page.getByLabel('Vägg', { exact: true }).locator('option')).toHaveCount(4);
-  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
+  // Varje vägg visas en gång, med en knapp för sektion.
+  await expect(page.getByRole('button', { name: /^Vägg \d$/ })).toHaveCount(4);
+  await openWall(page, 'Vägg 2');
+  await expect(page.getByRole('button', { name: 'Lägg till sektion' })).toHaveCount(1);
   await page.getByRole('button', { name: 'Lägg till sektion' }).click();
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toBeVisible();
   // Högre än husets vägg blir den ett torn som står bredvid, i stället för ett fel.
-  await openDimensions(page);
+  await openWall(page, 'Vägg 1');
   const wallHeight = page.getByLabel('Vägghöjd');
   await wallHeight.fill('160');
   await wallHeight.blur();
@@ -221,11 +237,12 @@ test('visar bara takets fält för vald taktyp', async ({ page }) => {
 test('stoppar ritningen när taken går in i varandra', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
+  await openWall(page, 'Vägg 2');
   await page.getByRole('button', { name: 'Lägg till sektion' }).click();
   // En tornspira kan bara stå bredvid. Blir den högre går spiran upp genom husets takutsprång.
   await page.getByRole('button', { name: 'Tak', exact: true }).click();
   await page.getByLabel('Taktyp').selectOption({ label: 'Tornspira, 8 sidor' });
-  await openDimensions(page);
+  await openWall(page, 'Vägg 1');
   const wallHeight = page.getByLabel('Vägghöjd');
   await wallHeight.fill('80');
   await wallHeight.blur();
@@ -246,8 +263,8 @@ test.describe('pekskärm', () => {
   test('visar konfigurationen i ett ark och behåller knapparna nertill', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Visa konfiguration' }).click();
-    await openDimensions(page);
-    await expect(page.getByLabel('Gavelbredd')).toBeVisible();
+    await openWall(page, 'Vägg 1');
+    await expect(page.getByLabel(/^Bredd/)).toBeVisible();
     const bottom = await page.getByRole('button', { name: 'Ladda ner ritning (PDF)' }).evaluate((button) => button.getBoundingClientRect().bottom);
     expect(bottom).toBeCloseTo((await page.evaluate(() => window.innerHeight)) - BOTTOM_GAP_PX, 0);
   });
@@ -255,10 +272,10 @@ test.describe('pekskärm', () => {
   test('visar − och + lika stora som en tryckyta', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Visa konfiguration' }).click();
-    await openDimensions(page);
-    const width = page.getByLabel('Gavelbredd');
+    await openWall(page, 'Vägg 1');
+    const width = page.getByLabel(/^Bredd/);
     const start = Number(await width.inputValue());
-    const increase = stepButton(page, 'Gavelbredd', 'Öka');
+    const increase = stepButton(page, 'Bredd', 'Öka');
     const box = await increase.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(TAP_SIZE_PX);
     expect(box?.height).toBeGreaterThanOrEqual(TAP_SIZE_PX);
@@ -266,36 +283,18 @@ test.describe('pekskärm', () => {
     await expect(width).toHaveValue(String(start + 5));
   });
 
-  test('fäller upp arket med konfigurationen när man trycker på en vägg', async ({ page }) => {
+  test('fäller upp arket och öppnar väggen när man trycker på en vägg', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByLabel('Gavelbredd')).toBeHidden();
+    await expect(page.getByLabel('Vägghöjd')).toBeHidden();
     const view = page.locator('.viewport canvas');
     await page.waitForTimeout(1500);
     const box = await view.boundingBox();
     if (!box) throw new Error('3D-vyn saknas');
     await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height * 0.6);
     await expect(page.getByRole('button', { name: 'Dölj konfiguration' })).toBeVisible();
-    await expect(page.getByLabel('Gavelbredd')).toBeVisible();
-  });
-
-  test('döljer hjälptexten om väggar när man har tryckt på en vägg', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Visa konfiguration' }).click();
-    await expect(page.getByText(WALL_HINT)).toBeVisible();
-    await page.getByRole('button', { name: 'Dölj konfiguration' }).click();
-    const view = page.locator('.viewport canvas');
-    await page.waitForTimeout(1500);
-    const box = await view.boundingBox();
-    if (!box) throw new Error('3D-vyn saknas');
-    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height * 0.6);
-    await expect(page.getByLabel('Gavelbredd')).toBeVisible();
-    await expect(page.getByText(WALL_HINT)).toHaveCount(0);
+    await expect(page.getByLabel('Vägghöjd')).toBeVisible();
     // Ett tryck utan att dra vrider inte vyn, så den hjälptexten står kvar.
     await expect(page.getByText(VIEW_HINT)).toBeVisible();
-    await page.reload();
-    await page.getByRole('button', { name: 'Visa konfiguration' }).click();
-    await expect(page.getByRole('button', { name: 'Mått', exact: true })).toBeVisible();
-    await expect(page.getByText(WALL_HINT)).toHaveCount(0);
   });
 });
 
@@ -324,7 +323,8 @@ test('döljer hjälptexten om vyn när man har vridit med musen', async ({ page 
   await page.mouse.move(box.x + 140, box.y + 60, { steps: 5 });
   await page.mouse.up();
   await expect(page.getByText(VIEW_HINT)).toHaveCount(0);
-  await expect(page.getByText(WALL_HINT)).toBeVisible();
+  // Att vrida väljer ingen vägg.
+  await expect(page.getByLabel('Vägghöjd')).toHaveCount(0);
 });
 
 test('centrerar huset igen efter att man zoomat ut', async ({ page }) => {
@@ -371,7 +371,8 @@ function stepButton(page: Page, fieldLabel: string, name: 'Öka' | 'Minska') {
   return page.getByLabel(fieldLabel).locator('..').getByRole('button', { name });
 }
 
-/** Fäller ut gruppen Mått på den öppna sektionen. */
-async function openDimensions(page: Page) {
-  await page.getByRole('button', { name: 'Mått', exact: true }).click();
+/** Fäller ut en vägg på den öppna sektionen, t.ex. "Vägg 1". */
+async function openWall(page: Page, name: string) {
+  const wall = page.getByRole('button', { name, exact: true });
+  if ((await wall.getAttribute('aria-expanded')) !== 'true') await wall.click();
 }

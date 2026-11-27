@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
@@ -10,14 +11,26 @@ for (const colorScheme of ['light', 'dark'] as const) {
   test(`uppfyller WCAG 2.2 AA i ${colorScheme === 'light' ? 'ljust' : 'mörkt'} läge`, async ({ page }) => {
     await page.emulateMedia({ colorScheme });
     await page.goto('/');
-    await page.addScriptTag({ content: axeSource });
-    // Elementen står med i felet, så att ett fel i CI går att spåra utan att köra om.
-    const violations = await page.evaluate(async (tags) => {
-      type AxeResult = { violations: { id: string; nodes: { target: string[] }[] }[] };
-      const axe = (window as unknown as { axe: { run: (context: Document, options: object) => Promise<AxeResult> } }).axe;
-      const { violations: found } = await axe.run(document, { runOnly: tags });
-      return found.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`);
-    }, WCAG_TAGS);
-    expect(violations).toEqual([]);
+    expect(await listAxeViolations(page)).toEqual([]);
   });
+
+  test(`uppfyller WCAG 2.2 AA med en vägg och ett fönster öppna i ${colorScheme === 'light' ? 'ljust' : 'mörkt'} läge`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Vägg 2', exact: true }).click();
+    await page.getByRole('button', { name: 'Lägg till fönster' }).click();
+    await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
+    expect(await listAxeViolations(page)).toEqual([]);
+  });
+}
+
+/** Felen enligt axe. Elementen står med i felet, så att ett fel i CI går att spåra utan att köra om. */
+async function listAxeViolations(page: Page): Promise<string[]> {
+  await page.addScriptTag({ content: axeSource });
+  return page.evaluate(async (tags) => {
+    type AxeResult = { violations: { id: string; nodes: { target: string[] }[] }[] };
+    const axe = (window as unknown as { axe: { run: (context: Document, options: object) => Promise<AxeResult> } }).axe;
+    const { violations: found } = await axe.run(document, { runOnly: tags });
+    return found.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`);
+  }, WCAG_TAGS);
 }

@@ -13,6 +13,7 @@ import type { BuildContext, Socket } from '../../../core/model/objectType';
 import { WALL_BESIDE, WALL_SURFACE } from '../socketKinds';
 import { isExtension, isNeighbor, listRoofCorners, roofContext } from './sectionGeometry';
 import type { SectionParams } from './sectionParams';
+import type { WallSide } from './sectionWalls';
 import { listWallSides, profileAlong, wallSupport, wallTopProfile } from './sectionWalls';
 
 /**
@@ -31,12 +32,19 @@ const MIN_CONTACT_THICKNESSES = 1;
 /** Stort nog att rymma vilken öppning som helst innan den klipps till. */
 const OPENING_WORK_AREA_MM = 2000;
 
-const SOCKET_LABEL_KEYS: Record<string, string> = {
-  'side-right': 'socket.sideRight',
-  'side-left': 'socket.sideLeft',
-  'gable-front': 'socket.gableFront',
-  'gable-back': 'socket.gableBack',
+/** Väggarna numreras runt huset med början på framgaveln (ägarens val): Vägg 1, Vägg 2 … */
+const WALL_NUMBER_ORDER = ['gable-front', 'side-right', 'gable-back', 'side-left'];
+/** Fälten som ändrar väggen: långväggarna följer längden och gavlarna bredden. Höjden gäller alla. */
+const WALL_PARAM_KEYS: Record<WallSide['pair'], (keyof SectionParams)[]> = {
+  side: ['depth', 'wallHeight'],
+  gable: ['width', 'wallHeight'],
 };
+
+/** "socket.wall1" för den första väggen runt huset bland de väggar sektionen har. En tillbyggnad saknar bakre gavel. */
+function wallLabelKey(sideId: string, sides: readonly WallSide[]): string {
+  const numbered = WALL_NUMBER_ORDER.filter((id) => sides.some((side) => side.id === id));
+  return `socket.wall${numbered.indexOf(sideId) + 1}`;
+}
 
 /**
  * Väggytorna som tillbyggnader kan fästa i. Origo ligger mitt på väggens
@@ -61,7 +69,8 @@ const BESIDE_SOCKET_PREFIX = 'beside-';
 
 function buildWallSurfaceSockets(instance: Instance, params: SectionParams, context: BuildContext): Socket[] {
   const roofCorners = listRoofCorners(params, context);
-  return listWallSides(params, isExtension(context)).map((side) => {
+  const sides = listWallSides(params, isExtension(context));
+  return sides.map((side) => {
     const start = vec3(side.outerStart.x, 0, side.outerStart.y);
     const end = vec3(side.outerEnd.x, 0, side.outerEnd.y);
     const origin = vec3((start.x + end.x) / 2, 0, (start.z + end.z) / 2);
@@ -74,11 +83,12 @@ function buildWallSurfaceSockets(instance: Instance, params: SectionParams, cont
     return {
       id: side.id,
       kind: WALL_SURFACE,
-      labelKey: SOCKET_LABEL_KEYS[side.id] ?? side.id,
+      labelKey: wallLabelKey(side.id, sides),
       frame: { origin, u, normal },
       bounds,
       topBounds: convexHull([...bounds, ...roofInSocket]),
       ownerPartId: `${instance.id}/${side.id}`,
+      paramKeys: WALL_PARAM_KEYS[side.pair],
     };
   });
 }

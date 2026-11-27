@@ -15,12 +15,10 @@ export interface FocusedInstance {
   count: number;
 }
 
-/** En kopplingspunkt på ett visst objekt, t.ex. högra långväggen på S1. */
+/** En kopplingspunkt på ett visst objekt, t.ex. vägg 2 på S1. */
 export interface SocketRef {
   instanceId: string;
   socketId: string;
-  /** Fältgruppen som fälls ut när väggen väljs i 3D-vyn, t.ex. måtten. */
-  groupKey?: string;
   /** Ökar vid varje val, så att sektionen öppnas igen när man trycker på samma vägg en gång till. */
   count?: number;
 }

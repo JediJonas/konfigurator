@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 /** Hjälptexter som döljs när man har gjort det de beskriver en gång. */
-export type HintId = 'view' | 'addFromView';
+export type HintId = 'view';
 
 const HINT_STORAGE_PREFIX = 'konfigurator.hintSeen.';
 
@@ -42,7 +42,7 @@ interface SeenHintsState {
 export const useSeenHints = create<SeenHintsState>((set, get) => {
   const storage = findBrowserStorage();
   return {
-    seen: { view: hasSeenHint(storage, 'view'), addFromView: hasSeenHint(storage, 'addFromView') },
+    seen: { view: hasSeenHint(storage, 'view') },
     markHintSeen: (hint) => {
       if (get().seen[hint]) return;
       rememberSeenHint(storage, hint);

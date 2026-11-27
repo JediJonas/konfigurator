@@ -12,7 +12,12 @@ import type { CaptureOverview } from '../three/OverviewCapture';
 import { createDrawingRequest } from '../export/drawingRequest';
 import { useDesignStore } from '../state/designStore';
 import { FieldGroup } from './FieldGroup';
-import { InstanceSettings } from './InstanceSettings';
+import type { OpenPart } from './SectionSettings';
+import { SectionSettings } from './SectionSettings';
+import { findOwnerPartId } from './panelWalls';
+import { isLeafInstance } from './socketSelection';
+import type { PlacedInstance } from '../../core/pipeline/placeInstances';
+import type { FocusedInstance, SocketRef } from '../state/designStore';
 import { StartOver } from './StartOver';
 import { NumberInput } from './NumberInput';
 import { uiStrings } from './strings.sv';
@@ -26,7 +31,7 @@ interface SettingsPanelProps {
 const THICKNESS_FIELD = { kind: 'number', key: 'thickness', meta: { labelKey: 'thickness', unit: 'mm', step: 0.5 }, min: 2, max: 10, defaultValue: 4 } as const;
 
 export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPanelProps) {
-  const { design, paper, setThickness, setPaper, selectSocket, selectedSocket, focusedInstance, setOpenInstanceId } = useDesignStore();
+  const { design, paper, setThickness, setPaper, selectSocket, selectedSocket, focusedInstance, focusInstance, setOpenInstanceId } = useDesignStore();
   const [isExpanded, setIsExpanded] = useState(false);
   const [pdfState, setPdfState] = useState<'idle' | 'working' | 'failed'>('idle');
   const contentId = useId();
@@ -42,32 +47,56 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
     : focusedInstance
       ? { instanceId: focusedInstance.instanceId, key: `${focusedInstance.instanceId}#${focusedInstance.count}` }
       : undefined;
-  const openInstance = useOpenInstance(instanceEntries.map((entry) => entry.instance.id), focus);
+  const openInstance = useOpenInstance(
+    instanceEntries.map((entry) => entry.instance.id),
+    focus,
+  );
   const openInstanceId = openInstance.openId;
   // 3D-vyn markerar fönstret eller dörren som är öppen i panelen.
   useEffect(() => setOpenInstanceId(openInstanceId), [openInstanceId, setOpenInstanceId]);
-  const revealedGroup = selectedSocket?.groupKey
-    ? { instanceId: selectedSocket.instanceId, groupKey: selectedSocket.groupKey, revealKey: `${selectedSocket.socketId}#${selectedSocket.count ?? 0}` }
-    : focusedInstance?.groupKey !== undefined
-      ? { instanceId: focusedInstance.instanceId, groupKey: focusedInstance.groupKey, revealKey: String(focusedInstance.count) }
-      : undefined;
+  const openLeaf = instanceEntries.find((entry) => entry.instance.id === openInstanceId && isLeafInstance(entry));
+  const [storedPart, setStoredPart] = useState<{ instanceId?: string; part: OpenPart }>({ part: {} });
   const contentRef = useRef<HTMLDivElement>(null);
-  // Trycker man på en vägg eller ett fönster fälls arket upp i mobilen, så att måtten syns.
+  // Trycker man på en vägg, ett tak eller ett fönster fälls det ut och arket fälls upp i mobilen.
   const focusKey = focus?.key;
   const [knownFocusKey, setKnownFocusKey] = useState(focusKey);
   if (focusKey !== knownFocusKey) {
     setKnownFocusKey(focusKey);
     if (focusKey) setIsExpanded(true);
+    const focusedPart = describeFocusedPart(evaluation.placed, selectedSocket, focusedInstance);
+    if (focusedPart) setStoredPart(focusedPart);
   }
+  // Ett öppet fönster eller en öppen dörr håller sin vägg utfälld.
+  const openPart = openLeaf?.parentId
+    ? { instanceId: openLeaf.parentId, part: { wallPartId: openLeaf.socket?.ownerPartId } }
+    : storedPart;
   const focusedInstanceId = focus?.instanceId;
-  const focusedGroupKey = selectedSocket ? selectedSocket.groupKey : focusedInstance?.groupKey;
+  const focusedGroupKey = selectedSocket ? findOwnerPartId(evaluation.placed.find((entry) => entry.instance.id === selectedSocket.instanceId), selectedSocket.socketId) : focusedInstance?.groupKey;
   useEffect(() => {
     if (!focusKey || !focusedInstanceId) return;
     const section = contentRef.current?.querySelector(`[data-instance-id="${CSS.escape(focusedInstanceId)}"]`);
-    // Trycker man på taket rullar panelen fram till takets fält.
+    // Trycker man på en vägg eller taket rullar panelen fram till den.
     const group = focusedGroupKey ? section?.querySelector(`[data-group-key="${CSS.escape(focusedGroupKey)}"]`) : undefined;
     (group ?? section)?.scrollIntoView({ block: 'nearest' });
   }, [focusKey, focusedInstanceId, focusedGroupKey]);
+
+  /** Fäller ut en vägg eller taket och markerar det i 3D-vyn, eller fäller ihop det. En sak i taget. */
+  function togglePart(entry: PlacedInstance, part: OpenPart) {
+    const instanceId = entry.instance.id;
+    setStoredPart({ instanceId, part });
+    openInstance.open(instanceId);
+    const wall = part.wallPartId ? entry.sockets.find((socket) => socket.ownerPartId === part.wallPartId) : undefined;
+    if (wall) selectSocket({ instanceId, socketId: wall.id });
+    else if (part.groupKey) focusInstance(instanceId, part.groupKey);
+    else selectSocket(undefined);
+  }
+
+  /** Fönster och dörrar fälls ut ett i taget; fälls ett ihop står väggen kvar öppen. */
+  function toggleNested(child: PlacedInstance) {
+    if (!openInstance.isOpen(child.instance.id)) return openInstance.open(child.instance.id);
+    if (child.parentId) openInstance.open(child.parentId);
+    setStoredPart({ instanceId: child.parentId, part: { wallPartId: child.socket?.ownerPartId } });
+  }
 
   async function handleDownload() {
     setPdfState('working');
@@ -91,36 +120,29 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
       </button>
       <div className="panel-content" id={contentId} ref={contentRef}>
         {panelEntries.map(({ entry, nested }) => {
-          const isExpanded = openInstance.isOpen(entry.instance.id) || nested.some((child) => openInstance.isOpen(child.instance.id));
-          // Felen på fönster och dörrar syns på sektionen när den är stängd, så att inget som stoppar ritningen göms.
-          const shownIds = new Set([entry.instance.id, ...(isExpanded ? [] : nested.map((child) => child.instance.id))]);
+          const isOpen = openInstance.isOpen(entry.instance.id) || nested.some((child) => openInstance.isOpen(child.instance.id));
+          const shownIds = new Set([entry.instance.id, ...nested.map((child) => child.instance.id)]);
           return (
-            <InstanceSettings
+            <SectionSettings
               key={entry.instance.id}
               entry={entry}
+              nested={nested}
               isRemovable={entry.parentId !== rootId}
-              isOpen={isExpanded}
-              onToggle={() => openInstance.toggle(entry.instance.id)}
+              isOpen={isOpen}
+              onToggle={() => {
+                // Väggen som var markerad hör till den förra sektionen.
+                selectSocket(undefined);
+                openInstance.toggle(entry.instance.id);
+              }}
               violations={evaluation.violations.filter((violation) => shownIds.has(violation.instanceId))}
-              revealedGroup={revealedGroup?.instanceId === entry.instance.id ? revealedGroup : undefined}
-            >
-              {nested.length > 0 ? (
-                // Fönster och dörrar samlas under sektionen de sitter på och syns när den är utfälld (ägarens val).
-                <div className="nested-instances">
-                  {nested.map((child) => (
-                    <InstanceSettings
-                      key={child.instance.id}
-                      entry={child}
-                      headingLevel={3}
-                      isRemovable
-                      isOpen={openInstance.isOpen(child.instance.id)}
-                      onToggle={() => openInstance.toggle(child.instance.id)}
-                      violations={evaluation.violations.filter((violation) => violation.instanceId === child.instance.id)}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </InstanceSettings>
+              openPart={openPart.instanceId === entry.instance.id ? openPart.part : {}}
+              onTogglePart={(part) => togglePart(entry, part)}
+              isNestedOpen={(instanceId) => openInstance.isOpen(instanceId)}
+              onToggleNested={(instanceId) => {
+                const child = nested.find((candidate) => candidate.instance.id === instanceId);
+                if (child) toggleNested(child);
+              }}
+            />
           );
         })}
         {/* Ändras sällan, så sektionen är hopfälld från början som takets grupp. */}
@@ -164,4 +186,19 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
 /** Väntar tills React och 3D-vyn har ritat om efter en ändring i tillståndet. */
 function waitForRedraw(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+}
+
+/**
+ * Vad ett tryck i 3D-vyn fäller ut inuti sin sektion: väggen man tryckte på,
+ * taket, eller väggen som fönstret eller dörren sitter på.
+ */
+function describeFocusedPart(placed: readonly PlacedInstance[], selectedSocket: SocketRef | undefined, focusedInstance: FocusedInstance | undefined): { instanceId?: string; part: OpenPart } | undefined {
+  if (selectedSocket) {
+    const entry = placed.find((candidate) => candidate.instance.id === selectedSocket.instanceId);
+    return { instanceId: selectedSocket.instanceId, part: { wallPartId: findOwnerPartId(entry, selectedSocket.socketId) } };
+  }
+  if (!focusedInstance) return undefined;
+  if (focusedInstance.groupKey) return { instanceId: focusedInstance.instanceId, part: { groupKey: focusedInstance.groupKey } };
+  const leaf = placed.find((candidate) => candidate.instance.id === focusedInstance.instanceId);
+  return leaf && isLeafInstance(leaf) ? { instanceId: leaf.parentId, part: { wallPartId: leaf.socket?.ownerPartId } } : undefined;
 }
