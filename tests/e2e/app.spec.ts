@@ -244,18 +244,50 @@ test('visar bara takets fält för vald taktyp', async ({ page }) => {
   await expect(page.getByLabel(/^Taklutning/)).toBeVisible();
 });
 
+/**
+ * En tornspira bredvid huset som är så hög att spiran går upp genom husets
+ * takutsprång. Den sparas före start, eftersom fältets gränser inte släpper
+ * igenom en höjd som ger fel när de väl är räknade.
+ */
+const SPIRE_THROUGH_EAVES = {
+  id: 'open',
+  name: 'Mitt hus',
+  domain: 'gingerbread',
+  updatedAt: '2026-11-27T00:00:00.000Z',
+  design: {
+    version: 1,
+    domain: 'gingerbread',
+    domainVersion: 1,
+    material: { id: 'gb.dough', thickness: 4 },
+    root: {
+      id: 'plate',
+      type: 'gb.plate',
+      params: {},
+      children: [
+        {
+          id: 'S1',
+          type: 'gb.section',
+          params: {},
+          attachment: { socketId: 'ground', u: 0, v: 0, rotationDegrees: 0 },
+          children: [
+            {
+              id: 'S2',
+              type: 'gb.section',
+              params: { width: 100, depth: 80, wallHeight: 80, roof: 'spire8', spirePitch: 70, eaveOverhang: 8, gableOverhang: 8 },
+              attachment: { socketId: 'beside-side-right', u: 0, v: 0, rotationDegrees: 0 },
+              children: [],
+            },
+          ],
+        },
+      ],
+    },
+  },
+};
+
 test('stoppar ritningen när taken går in i varandra', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
+  await page.addInitScript((project) => localStorage.setItem('konfigurator.project.open', JSON.stringify(project)), SPIRE_THROUGH_EAVES);
   await page.goto('/');
-  await openWall(page, 'Vägg 2');
-  await page.getByRole('button', { name: 'Lägg till sektion' }).click();
-  // En tornspira kan bara stå bredvid. Blir den högre går spiran upp genom husets takutsprång.
-  await page.getByRole('button', { name: 'Tak', exact: true }).click();
-  await page.getByLabel('Taktyp').selectOption({ label: 'Tornspira, 8 sidor' });
-  await openWall(page, 'Vägg 1');
-  const wallHeight = page.getByLabel(/^Vägghöjd/);
-  await wallHeight.fill('80');
-  await wallHeight.blur();
   await expect(page.getByRole('alert')).toContainText('går in i taket');
   await expect(page.getByRole('button', { name: 'Ladda ner ritning (PDF)' })).toBeDisabled();
 });
