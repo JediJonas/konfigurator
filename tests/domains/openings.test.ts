@@ -82,3 +82,9 @@ describe('dörr', () => {
     }
   });
 });
+
+it('markerar väggarnas och takets insida, men inte luckor och dörrblad', () => {
+  const parts = buildParts(designWithExtensions(windowOn('side-right', { hasShutters: true }), doorOn('gable-front')), gingerbreadDomain);
+  expect(parts.filter((part) => part.sourceInstanceId === 'S1').every((part) => part.hasInsideAtZero)).toBe(true);
+  expect(parts.filter((part) => part.sourceInstanceId !== 'S1').some((part) => part.hasInsideAtZero)).toBe(false);
+});
