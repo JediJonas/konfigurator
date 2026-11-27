@@ -127,6 +127,23 @@ describe('borg med fyra torn', () => {
     });
     expect(pages.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('låter ett torn stå bredvid ett block som sitter på ett torn som tillbyggnad', () => {
+    // Som i panelen: ett torn, ett lägre block som ryms på tornets vägg som tillbyggnad,
+    // och på blockets gavel en sektion som görs till ett lika högt torn med tornspira.
+    let design = setParamWithinRules(designWithExtensions(), gingerbreadDomain, { instanceId: 'S1', key: 'roof', value: 'spire4' });
+    for (const [key, value] of Object.entries({ width: 80, depth: 80, wallHeight: 200 }))
+      design = setParamWithinRules(design, gingerbreadDomain, { instanceId: 'S1', key, value });
+    const block = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: SECTION_TYPE_ID });
+    expect(block.instance.attachment?.socketId).toBe('side-right');
+    design = { ...design, root: addChildInstance(design.root, 'S1', block.instance) };
+    const corner = proposeChild(design, gingerbreadDomain, { parentId: block.instance.id, socketId: 'gable-front', objectTypeId: SECTION_TYPE_ID });
+    design = { ...design, root: addChildInstance(design.root, block.instance.id, corner.instance) };
+    design = setParamWithinRules(design, gingerbreadDomain, { instanceId: corner.instance.id, key: 'roof', value: 'spire4' });
+    design = setParamWithinRules(design, gingerbreadDomain, { instanceId: corner.instance.id, key: 'wallHeight', value: 200 });
+    expect(findInstance(design.root, corner.instance.id)?.attachment?.socketId).toBe('beside-gable-front');
+    expect(errorsFor(design)).toEqual([]);
+  });
 });
 
 describe('tak som möts', () => {
