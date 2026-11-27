@@ -78,7 +78,8 @@ function startAtLowestCorner(polygon: Vec2[]): Vec2[] {
 function shapeKey(part: Part, outline: Polygon, holes: Polygon[]): string {
   const round = (value: number) => Math.round(value / SHAPE_KEY_PRECISION_MM);
   const encode = (polygon: Polygon) => polygon.map((p) => `${round(p.x)},${round(p.y)}`).join(';');
-  return [part.labelKey, round(part.thickness), encode(outline), ...holes.map(encode)].join('|');
+  // Hålen kan komma i vilken ordning som helst, t.ex. rutorna i ett fönster.
+  return [part.labelKey, round(part.thickness), encode(outline), ...holes.map(encode).sort()].join('|');
 }
 
 /**

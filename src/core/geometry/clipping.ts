@@ -78,10 +78,33 @@ export function addRegion(shape: { outline: Polygon; holes: readonly Polygon[] }
   return { outline: orient(fromRing(outline ?? []), true), holes: holes.map((hole) => orient(fromRing(hole), false)) };
 }
 
+/**
+ * Arean av området som inte täcks av formerna, i mm². Används t.ex. för att
+ * pröva att ytan runt ett fönster är hel vägg: väggen och fönstrets egen
+ * öppning ska täcka den.
+ */
+export function uncoveredArea(region: Polygon, covers: readonly { outline: Polygon; holes: readonly Polygon[] }[]): number {
+  const usable = covers.filter((cover) => cover.outline.length >= 3);
+  for (const [index, grid] of SNAP_GRIDS_MM.entries()) {
+    try {
+      const round = (value: number) => (grid === 0 ? value : Math.round(value / grid) * grid);
+      const snap = (polygon: Polygon): Ring => toRing(polygon).map(([x, y]): Pair => [round(x), round(y)]);
+      const rest = polygonClipping.difference([snap(region)], ...usable.map((cover): ClipPolygon => [snap(cover.outline), ...cover.holes.map(snap)]));
+      return sumArea(rest);
+    } catch (error) {
+      if (index === SNAP_GRIDS_MM.length - 1) throw error;
+    }
+  }
+  return 0;
+}
+
 /** Arean där två former överlappar, i mm². */
 export function overlapArea(a: Polygon, b: Polygon): number {
-  const overlap = polygonClipping.intersection([toRing(a)], [toRing(b)]);
-  return overlap.reduce((sum, [outline, ...holes]) => {
+  return sumArea(polygonClipping.intersection([toRing(a)], [toRing(b)]));
+}
+
+function sumArea(shapes: readonly ClipPolygon[]): number {
+  return shapes.reduce((sum, [outline, ...holes]) => {
     const holeArea = holes.reduce((holeSum, hole) => holeSum + Math.abs(signedArea(fromRing(hole))), 0);
     return sum + Math.abs(signedArea(fromRing(outline ?? []))) - holeArea;
   }, 0);

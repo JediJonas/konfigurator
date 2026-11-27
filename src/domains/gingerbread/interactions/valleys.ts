@@ -57,6 +57,7 @@ interface HostRoofSlab {
  */
 export const valleyResolver: InteractionResolver = {
   id: 'gb.valleys',
+  affectsSurfaces: false,
   resolve: (placed, parts) =>
     placed.reduce<Part[]>((current, entry) => {
       const host = findHost(placed, entry);

@@ -29,3 +29,14 @@ export interface Part {
   marks?: Mark[];
   buildStep: number;
 }
+
+/**
+ * En del som klipps i bitar, t.ex. en vägg som delas av en granne, får id:n
+ * som "S1/side-right~2". Bitarna räknas fortfarande som samma del.
+ */
+export const PART_PIECE_SEPARATOR = '~';
+
+/** Sant när delen är `partId` eller en bit av den. */
+export function isPieceOf(part: Part, partId: string): boolean {
+  return part.id === partId || part.id.startsWith(`${partId}${PART_PIECE_SEPARATOR}`);
+}

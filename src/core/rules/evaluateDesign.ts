@@ -1,7 +1,6 @@
 import type { Design } from '../model/design';
 import type { Domain } from '../model/domain';
 import type { Part } from '../model/part';
-import { applyModifiers } from '../pipeline/applyModifiers';
 import { collectParts } from '../pipeline/buildParts';
 import type { InteractionResolver } from '../pipeline/interaction';
 import type { PlacedInstance } from '../pipeline/placeInstances';
@@ -23,21 +22,22 @@ export interface DesignEvaluation {
 export function evaluateDesign(design: Design, domain: Domain, resolveLabel: (key: string) => string): DesignEvaluation {
   const placed = placeInstances(design, domain);
   const { parts, failedInstanceIds } = collectParts(placed, domain.interactions);
-  return { placed, parts, violations: [...validateDesign(placed, domain.rules, resolveLabel), ...describeFailures(failedInstanceIds), ...listConflicts(placed, domain.interactions, resolveLabel)] };
+  return { placed, parts, violations: [...validateDesign(placed, parts, domain.rules, resolveLabel), ...describeFailures(failedInstanceIds), ...listConflicts(placed, domain.interactions, resolveLabel)] };
 }
 
 /**
- * Bara regelbrotten, utan att räkna fram de färdiga delarna. Samverkan, t.ex.
- * vinkelrännor, ändrar bara delar och hoppas över; möten som samverkan inte
- * kan lösa prövas däremot. Används när många lägen och mått prövas efter varandra.
+ * Bara regelbrotten. Samverkan, t.ex. vinkelrännor, ändrar bara delar och
+ * hoppas över; möten som samverkan inte kan lösa prövas däremot. Har designen
+ * objekt som sitter på en yta, t.ex. fönster, räknas samverkan som kan ta bort
+ * en del av ytan med (`affectsSurfaces`), t.ex. där en granne står mot väggen.
+ * Används när många lägen och mått prövas efter varandra.
  */
 export function listViolations(design: Design, domain: Domain, resolveLabel: (key: string) => string): RuleViolation[] {
   const placed = placeInstances(design, domain);
-  const { failedInstanceIds } = applyModifiers(
-    placed.flatMap((entry) => entry.parts),
-    placed.flatMap((entry) => entry.modifiers.map((modifier) => ({ sourceInstanceId: entry.instance.id, modifier }))),
-  );
-  return [...validateDesign(placed, domain.rules, resolveLabel), ...describeFailures(failedInstanceIds), ...listConflicts(placed, domain.interactions, resolveLabel)];
+  const hasSurfaceObjects = placed.some((entry) => entry.surfaceAreas.length > 0);
+  const interactions = hasSurfaceObjects ? domain.interactions.filter((interaction) => interaction.affectsSurfaces) : [];
+  const { parts, failedInstanceIds } = collectParts(placed, interactions);
+  return [...validateDesign(placed, parts, domain.rules, resolveLabel), ...describeFailures(failedInstanceIds), ...listConflicts(placed, domain.interactions, resolveLabel)];
 }
 
 function listConflicts(placed: readonly PlacedInstance[], interactions: readonly InteractionResolver[], resolveLabel: (key: string) => string): RuleViolation[] {

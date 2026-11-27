@@ -55,6 +55,33 @@ test('bygger till huset och laddar ner ritningen', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toHaveCount(0);
 });
 
+test('sätter fönster och dörr i väggen och har kvar dem när sidan laddas om', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Långvägg höger' });
+  await page.getByRole('button', { name: 'Lägg till fönster' }).click();
+  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
+  await page.getByLabel('Fönsterluckor').check();
+  await page.getByLabel('Form').selectOption({ label: 'Rundbåge' });
+
+  await page.getByRole('button', { name: 'Sektion S1' }).click();
+  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Framgavel' });
+  await page.getByRole('button', { name: 'Lägg till dörr' }).click();
+  await expect(page.getByRole('heading', { name: 'Dörr D1' })).toBeVisible();
+  await page.getByRole('button', { name: 'Sektion S1' }).click();
+  await page.getByLabel('Vägg', { exact: true }).selectOption({ label: 'Framgavel' });
+  // En dörr per vägg: knappen är avstängd och säger varför.
+  await expect(page.getByRole('button', { name: 'Lägg till dörr' })).toBeDisabled();
+  await expect(page.getByText('Det får bara finnas en dörr på varje vägg.')).toBeVisible();
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ladda ner ritning (PDF)' }).click()]);
+  expect(download.suggestedFilename()).toBe('ritning.pdf');
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dörr D1' })).toBeVisible();
+});
+
 test('ställer en sektion bredvid huset när den blir högre än väggen', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');

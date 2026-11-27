@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addRegion, overlapArea, subtractRegion, subtractRegions } from '../../src/core/geometry/clipping';
+import { addRegion, overlapArea, subtractRegion, subtractRegions, uncoveredArea } from '../../src/core/geometry/clipping';
 import { convexHull, isPointInPolygon } from '../../src/core/geometry/hull';
 import { signedArea } from '../../src/core/geometry/polygon';
 import { vec2 } from '../../src/core/geometry/vector';
@@ -78,5 +78,15 @@ describe('addRegion', () => {
   it('ger tillbaka formen när området inte når fram', () => {
     const shape = { outline: [vec2(0, 0), vec2(10, 0), vec2(10, 5), vec2(0, 5)], holes: [] };
     expect(addRegion(shape, [vec2(20, 0), vec2(24, 0), vec2(24, 5), vec2(20, 5)]).outline).toEqual(shape.outline);
+  });
+});
+
+describe('yta som inte täcks', () => {
+  it('räknar bara det som ligger utanför formerna och deras hål', () => {
+    const wallWithHole = { outline: square(0, 0, 100), holes: [square(40, 40, 20)] };
+    expect(uncoveredArea(square(10, 10, 20), [wallWithHole])).toBeCloseTo(0);
+    expect(uncoveredArea(square(30, 30, 40), [wallWithHole])).toBeCloseTo(400);
+    expect(uncoveredArea(square(30, 30, 40), [wallWithHole, { outline: square(40, 40, 20), holes: [] }])).toBeCloseTo(0);
+    expect(uncoveredArea(square(90, 0, 20), [wallWithHole])).toBeCloseTo(200);
   });
 });

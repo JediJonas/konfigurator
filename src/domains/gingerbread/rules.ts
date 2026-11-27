@@ -1,5 +1,7 @@
 import type { Rule } from '../../core/rules/rule';
 import { EXTENSION_ROOF_TYPES } from './objects/roof/extensionRoofs';
+import { DOOR_TYPE_ID } from './objects/openings/door';
+import { WINDOW_TYPE_ID } from './objects/openings/window';
 import { SECTION_TYPE_ID } from './objects/section';
 import { GROUND, WALL_BESIDE, WALL_SURFACE } from './socketKinds';
 
@@ -12,4 +14,9 @@ export const gingerbreadRules: Rule[] = [
   { kind: 'withinSocketBounds', level: 'error', objectType: SECTION_TYPE_ID, messageKey: 'rule.extensionFitsWall' },
   { kind: 'allowedParamValues', level: 'error', objectType: SECTION_TYPE_ID, socketKind: WALL_SURFACE, param: 'roof', values: EXTENSION_ROOF_TYPES, messageKey: 'rule.noSpireOnExtension' },
   { kind: 'noOverlap', level: 'error', objectType: SECTION_TYPE_ID, messageKey: 'rule.sectionsOverlap' },
+  { kind: 'allowedRotations', level: 'error', objectType: WINDOW_TYPE_ID, socketKind: WALL_SURFACE, degrees: [0], messageKey: 'rule.openingUpright' },
+  { kind: 'allowedRotations', level: 'error', objectType: DOOR_TYPE_ID, socketKind: WALL_SURFACE, degrees: [0], messageKey: 'rule.openingUpright' },
+  { kind: 'onSolidPart', level: 'error', objectType: WINDOW_TYPE_ID, messageKey: 'rule.windowOnWall' },
+  { kind: 'onSolidPart', level: 'error', objectType: DOOR_TYPE_ID, messageKey: 'rule.doorOnWall' },
+  { kind: 'maxCountPerSocket', level: 'error', objectType: DOOR_TYPE_ID, max: 1, messageKey: 'rule.oneDoorPerWall' },
 ];

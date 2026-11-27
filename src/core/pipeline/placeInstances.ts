@@ -4,7 +4,7 @@ import { degreesToRadians, vec3 } from '../geometry/vector';
 import type { Design, Instance } from '../model/design';
 import type { Domain } from '../model/domain';
 import type { Modifier } from '../model/modifier';
-import type { BuildContext, ObjectType, Socket } from '../model/objectType';
+import type { BuildContext, ObjectType, Socket, SurfaceArea } from '../model/objectType';
 import type { Part } from '../model/part';
 import { frameMatrix, transformFrame } from './frame';
 
@@ -25,6 +25,8 @@ export interface PlacedInstance {
   parts: Part[];
   /** Påverkan med områdena flyttade till världen. */
   modifiers: Modifier[];
+  /** Ytorna objektet behöver på andra delar, i världen. */
+  surfaceAreas: SurfaceArea[];
 }
 
 /** Går igenom monteringsträdet och placerar varje objekt i förälderns kopplingspunkt. */
@@ -67,6 +69,11 @@ function placeInstance(step: PlaceStep): void {
     modifiers: (objectType.modifiers?.(instance, params, context) ?? []).map((modifier) => ({
       ...modifier,
       region: modifier.region.map((point) => transformPoint(matrix, point)),
+    })),
+    surfaceAreas: (objectType.surfaceAreas?.(params, context) ?? []).map((area) => ({
+      ...area,
+      solidRegion: area.solidRegion.map((point) => transformPoint(matrix, point)),
+      coveredRegion: area.coveredRegion.map((point) => transformPoint(matrix, point)),
     })),
   });
   for (const child of instance.children) {

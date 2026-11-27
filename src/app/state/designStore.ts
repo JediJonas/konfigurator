@@ -28,6 +28,8 @@ interface DesignState {
   removeChild: (instanceId: string) => void;
   /** Flyttar ett objekt längs sin kopplingspunkt till närmaste tillåtna snäppläge. */
   moveAlongSocket: (instanceId: string, u: number) => void;
+  /** Byter hela designen, t.ex. mot den som sparades senast. */
+  replaceDesign: (design: Design) => void;
 }
 
 function createStartDesign(): Design {
@@ -55,4 +57,5 @@ export const useDesignStore = create<DesignState>((set) => ({
       selectedSocket: state.selectedSocket?.instanceId === instanceId ? undefined : state.selectedSocket,
     })),
   moveAlongSocket: (instanceId, u) => set((state) => ({ design: snapAttachmentOffset(state.design, activeDomain, instanceId, u) })),
+  replaceDesign: (design) => set({ design, selectedSocket: undefined }),
 }));

@@ -67,6 +67,19 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 - Sektioner på fatet får stå vägg i vägg: `noOverlap` räknar bara väggarna för dem, men takutsprången för tillbyggnader.
 - Förslaget prövar tillbyggnad först. Förslag för en sektion bredvid används när ingen tillbyggnad ryms: de tar 60 % av väggens längd och är lika djup som bred. Bredvid ett lågt hus blir den ett torn, 1,6 × väggens höjd i hörnet; bredvid ett torn (väggen högre än lång) ett block, 0,6 × höjden, med sadeltak i stället för tornspira. Går den första höjden inte prövas den andra.
 
+## Fönster och dörrar (fas 4)
+
+- Fönster (`gb.window`) och dörr (`gb.door`) fäster i väggytan (`wall-surface`) och sitter i väggens plan (`objects/openings/`). Läget längs väggen är kopplingspunktens u; fönstrets höjd över golvet är en parameter.
+- Fönstret är ett hål i väggen, rakt eller med rundbåge. Med spröjs (kors) skärs fyra rutor och spröjsen blir kvar av väggen. Fönsterluckor är två egna delar, varsin halva av fönstret uppslagen mot väggens utsida.
+- Dörren är en öppning från golvet och ett dörrblad med samma form, som står på glänt utåt runt gångjärnet i öppningens kant.
+- Regeln `onSolidPart` (`core/rules/surfaceRules.ts`) läser objekttypens `surfaceAreas`: minst 15 mm hel vägg runt öppningen (`OPENING_MARGIN_MM`, SPEC avsnitt 5) och vägg bakom luckorna. Den prövas på de färdiga delarna, så ett hål där en tillbyggnad eller en sektion bredvid möter väggen räknas, och en vägg som saknas ger fel. Två objekts täckta ytor (öppning och luckor) får inte överlappa. `maxCountPerSocket`: en dörr per vägg.
+- `listViolations` räknar med samverkan som har `affectsSurfaces` (gemensamma väggar) när designen har sådana objekt; vinkelrännorna hoppas över där eftersom de är dyra.
+- Förslag: storleken räknas från väggens höjd vid hörnen. Fönster och dörrar behåller hellre storleken och flyttas från mitten (`prefersSizeOverCenter`), så att ett andra fönster blir lika stort som det första. Ett förslag får inte ge nya fel på andra objekt, t.ex. en tillbyggnad över ett fönster.
+
+## Lagring
+
+- Det öppna huset sparas av sig självt (`app/storage/`), 0,4 s efter senaste ändringen och direkt när sidan göms, via `ProjectStore` i webbläsarens lokala lagring. Vid start öppnas det senast sparade; går det inte att migrera (`core/model/migrateDesign.ts`) eller räkna börjar appen med mallen.
+
 ## Ritningen
 
 - **Hörnregeln för stumfog** (ägarens val): en vägg med sned överkant går hela vägen ut, och väggar med rak överkant kortas med 2 × tjockleken och står mellan. Då följer den sneda väggen takets undersida ut till hörnet och inget hål syns under taket.

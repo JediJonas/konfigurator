@@ -46,8 +46,30 @@ export interface AllowedParamValuesRule extends RuleBase {
   values: readonly string[];
 }
 
+/**
+ * Objektets ytor på andra delar (`ObjectType.surfaceAreas`) ska ligga på hel
+ * del, och får inte ta samma yta som ett annat objekts. Prövas på de färdiga
+ * delarna, så att t.ex. ett hål där en granne står mot väggen räknas.
+ */
+export interface OnSolidPartRule extends RuleBase {
+  kind: 'onSolidPart';
+}
+
+/** Högst så många objekt av typen i samma kopplingspunkt, t.ex. en dörr per vägg. */
+export interface MaxCountPerSocketRule extends RuleBase {
+  kind: 'maxCountPerSocket';
+  max: number;
+}
+
 /** Kopplingsregler som data i domänpaketet, SPEC.md avsnitt 5. */
-export type Rule = AllowedRotationsRule | WithinSocketBoundsRule | NoOverlapRule | ParamLimitRule | AllowedParamValuesRule;
+export type Rule =
+  | AllowedRotationsRule
+  | WithinSocketBoundsRule
+  | NoOverlapRule
+  | ParamLimitRule
+  | AllowedParamValuesRule
+  | OnSolidPartRule
+  | MaxCountPerSocketRule;
 
 export interface RuleViolation {
   level: RuleLevel;

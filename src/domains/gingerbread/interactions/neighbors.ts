@@ -14,6 +14,7 @@ import { joinSharedWalls } from './sharedWalls';
  */
 export const neighborResolver: InteractionResolver = {
   id: 'gb.neighbors',
+  affectsSurfaces: true,
   resolve: (placed, parts) => {
     const sections = listSectionsInBuildings(placed);
     return cutRoofsAtNeighbors(sections, joinSharedWalls(sections, parts));
