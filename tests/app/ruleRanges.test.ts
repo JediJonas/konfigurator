@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RangeResult } from '../../src/app/rules/ruleRanges';
-import { computeRanges, OFFSET_KEY } from '../../src/app/rules/ruleRanges';
+import { computeRanges, createLatestRequests, OFFSET_KEY } from '../../src/app/rules/ruleRanges';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { designWithExtensions, extension } from '../domains/extensionFixtures';
 
@@ -27,5 +27,18 @@ describe('fältens gränser vid sidan av', () => {
     const results: RangeResult[] = [];
     await computeRanges(request, gingerbreadDomain, (result) => results.push(result), async () => true);
     expect(results.map((result) => result.key)).toEqual([OFFSET_KEY]);
+  });
+
+  it('låter en ny begäran för sektionen ta över bara sektionens, inte fönstrets på väggen', () => {
+    const latest = createLatestRequests();
+    const window = { id: 1, instanceId: 'F1' };
+    const section = { id: 2, instanceId: 'S1' };
+    latest.mark(window);
+    latest.mark(section);
+    expect(latest.isOutdated(window)).toBe(false);
+    expect(latest.isOutdated(section)).toBe(false);
+    latest.mark({ id: 3, instanceId: 'S1' });
+    expect(latest.isOutdated(section)).toBe(true);
+    expect(latest.isOutdated(window)).toBe(false);
   });
 });
