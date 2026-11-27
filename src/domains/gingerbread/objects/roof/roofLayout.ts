@@ -2,7 +2,9 @@ import type { HeightPlane } from '../../../../core/geometry/heightPlanes';
 import type { Polygon } from '../../../../core/geometry/polygon';
 import type { Mm } from '../../../../core/geometry/vector';
 import type { SectionParams } from '../sectionParams';
+import { isRoofTurned } from '../sectionParams';
 import { buildFlatLayout, buildSpire4Layout, buildSpire8Layout } from './spireLayouts';
+import { buildTurnedLayout } from './turnedLayout';
 import { buildGableLayout, buildHipLayout, buildMansardLayout, buildShedLayout } from './slopedLayouts';
 
 /**
@@ -54,6 +56,10 @@ export function extensionBackEdge(params: SectionParams, context: RoofContext): 
 }
 
 export function buildRoofLayout(params: SectionParams, context: RoofContext): RoofLayout {
+  return isRoofTurned(params) ? buildTurnedLayout(params, context, buildUnturnedLayout) : buildUnturnedLayout(params, context);
+}
+
+function buildUnturnedLayout(params: SectionParams, context: RoofContext): RoofLayout {
   switch (params.roof) {
     case 'gable':
       return buildGableLayout(params, context);
