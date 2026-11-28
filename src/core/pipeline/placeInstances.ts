@@ -29,11 +29,20 @@ export interface PlacedInstance {
   surfaceAreas: SurfaceArea[];
 }
 
+export interface PlaceOptions {
+  /**
+   * Hoppa över ett objekt, och allt som sitter på det, när förälderns
+   * kopplingspunkt saknas, i stället för att kasta. Används när en ändring
+   * kan ha tagit bort punkten, t.ex. ett takfall när taket vrids.
+   */
+  isSkippingDetached?: boolean;
+}
+
 /** Går igenom monteringsträdet och placerar varje objekt i förälderns kopplingspunkt. */
-export function placeInstances(design: Design, domain: Domain): PlacedInstance[] {
+export function placeInstances(design: Design, domain: Domain, options: PlaceOptions = {}): PlacedInstance[] {
   const placed: PlacedInstance[] = [];
   const rootContext: BuildContext = { thickness: design.material.thickness };
-  placeInstance({ instance: design.root, parentMatrix: identityMatrix(), parentSockets: [], domain, context: rootContext, placed });
+  placeInstance({ instance: design.root, parentMatrix: identityMatrix(), parentSockets: [], domain, context: rootContext, placed, isSkippingDetached: options.isSkippingDetached ?? false });
   return placed;
 }
 
@@ -46,12 +55,14 @@ interface PlaceStep {
   domain: Domain;
   context: BuildContext;
   placed: PlacedInstance[];
+  isSkippingDetached: boolean;
 }
 
 function placeInstance(step: PlaceStep): void {
   const { instance, domain } = step;
   const objectType = findObjectType(domain, instance.type);
   const params = parseParams(objectType, instance);
+  if (step.isSkippingDetached && isDetached(instance, step.parentSockets)) return;
   const localSocket = findParentSocket(instance, step.parentSockets);
   const context: BuildContext = { thickness: instance.thickness ?? step.context.thickness, socket: localSocket, attachment: localSocket ? instance.attachment : undefined };
   const matrix = multiplyMatrices(step.parentMatrix, placementMatrix(instance, localSocket, objectType.mountMatrix?.(params, context)));
@@ -90,6 +101,11 @@ export function findObjectType(domain: Domain, typeId: string): ObjectType<unkno
 /** Fyller i standardvärden och kastar om något värde är ogiltigt. */
 export function parseParams(objectType: ObjectType<unknown>, instance: Instance): Record<string, unknown> {
   return objectType.params.parse(instance.params);
+}
+
+function isDetached(instance: Instance, parentSockets: readonly Socket[]): boolean {
+  const attachment = instance.attachment;
+  return attachment !== undefined && !parentSockets.some((socket) => socket.id === attachment.socketId);
 }
 
 function findParentSocket(instance: Instance, parentSockets: Socket[]): Socket | undefined {

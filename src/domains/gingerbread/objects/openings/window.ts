@@ -7,7 +7,7 @@ import type { Mm } from '../../../../core/geometry/vector';
 import { BUILD_STEP } from '../../buildOrder';
 import { DORMER_WALL, WALL_SURFACE } from '../../socketKinds';
 import type { OpeningShape, OpeningSize } from './openingShape';
-import { listPanes, MULLION_STYLES, WINDOW_SHAPES, shutterOutlines, toWallPlane, wallRectangle } from './openingShape';
+import { arePanesBigEnough, listPanes, MULLION_STYLES, WINDOW_SHAPES, shutterOutlines, toWallPlane, wallRectangle } from './openingShape';
 import { eaveHeightOf, openingMarginOf, roundToStep, targetWallId, wallOpeningMountMatrix } from './wallOpening';
 import { DOOR_TYPE_ID } from './door';
 import { MIN_SILL_HEIGHT_MM, MIN_WINDOW_SIZE_MM, proposeWindowSize, windowOpeningHeight } from './openingProposal';
@@ -16,8 +16,8 @@ export const WINDOW_TYPE_ID = 'gb.window';
 
 /** Formerna där höjden väljs fritt. Runt och halvmåne får höjden ur bredden. */
 const SHAPES_WITH_HEIGHT = ['arch', 'rect', 'slanted', 'pointed', 'triangle'] as const;
-/** Formerna som kan ha luckor. Två halvcirklar blir inga riktiga luckor. */
-const SHAPES_WITH_SHUTTERS: readonly OpeningShape[] = WINDOW_SHAPES.filter((shape) => shape !== 'circle');
+/** Formerna som kan vara speglade (Invertera). */
+const SHAPES_WITH_INVERT: readonly OpeningShape[] = ['slanted', 'triangle'];
 
 export const windowParams = z.object({
   width: z.number().min(MIN_WINDOW_SIZE_MM).max(200).default(30).meta({ labelKey: 'param.openingWidth', unit: 'mm', step: 5, isInherited: true }),
@@ -36,13 +36,14 @@ export const windowParams = z.object({
     .enum(MULLION_STYLES)
     .default('none')
     .meta({ labelKey: 'param.mullions', isInherited: true, optionLabelKeys: Object.fromEntries(MULLION_STYLES.map((style) => [style, `mullions.${style}`])) }),
-  hasShutters: z.boolean().default(false).meta({ labelKey: 'param.hasShutters', isInherited: true, visibleWhen: { shape: SHAPES_WITH_SHUTTERS } }),
+  isInverted: z.boolean().default(false).meta({ labelKey: 'param.isInverted', isInherited: true, visibleWhen: { shape: SHAPES_WITH_INVERT } }),
+  hasShutters: z.boolean().default(false).meta({ labelKey: 'param.hasShutters', isInherited: true }),
 });
 
 export type WindowParams = z.infer<typeof windowParams>;
 
 /** Fälten som ärvs även när förra fönstrets storlek inte ryms. */
-const STYLE_KEYS = ['shape', 'mullions', 'hasShutters'] as const;
+const STYLE_KEYS = ['shape', 'isInverted', 'mullions', 'hasShutters'] as const;
 /** Förslagens storlekar i förhållande till den största, från störst till minst. */
 const PROPOSAL_SCALES = [1, 0.8, 0.6, 0.45];
 /** Steget mellan höjderna över golvet som ett nytt fönster prövas på när det inte ryms på sin vanliga höjd. */
@@ -66,17 +67,19 @@ export const windowType: ObjectType<WindowParams> = {
   socketOutline: (params) => wallRectangle(-params.width / 2, params.sillHeight, params.width / 2, params.sillHeight + windowSizeOf(params).height),
   surfaceAreas: (params, context) => describeWindowSurface(params, targetWallId(context), openingMarginOf(context.socket)),
   prefersSizeOverCenter: true,
+  isParamsValid: (params) => arePanesBigEnough(windowSizeOf(params), params.mullions),
   paramCandidates: (socket, _context, inherited, findRelated) =>
     listCandidatesAtHeights(listWindowCandidates(eaveHeightOf(socket), inherited, doorHeadFor(socket, findRelated)), wallTopOf(socket), openingMarginOf(socket)),
 };
 
 /** Fönstrets öppning, med höjden ur bredden för runda fönster och halvmånar. */
 export function windowSizeOf(params: WindowParams): OpeningSize {
-  return { shape: params.shape, width: params.width, height: windowOpeningHeight(params.shape, params.width, params.height), bottom: params.sillHeight };
+  const isInverted = SHAPES_WITH_INVERT.includes(params.shape) && params.isInverted;
+  return { shape: params.shape, width: params.width, height: windowOpeningHeight(params.shape, params.width, params.height), bottom: params.sillHeight, isInverted };
 }
 
 function hasShutters(params: WindowParams): boolean {
-  return params.hasShutters && SHAPES_WITH_SHUTTERS.includes(params.shape);
+  return params.hasShutters;
 }
 
 function buildWindowOpening(params: WindowParams, targetPartId: string | undefined): Modifier[] {

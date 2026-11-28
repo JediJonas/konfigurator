@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { findOutermostNested, groupPanelEntries, listOpenChain } from './panelEntries';
-import { useOpenInstance } from './useOpenInstance';
+import { followId, useOpenInstance } from './useOpenInstance';
 import { usePanelGroup } from './usePanelGroup';
 import type { PanelGroupKey } from './usePanelGroup';
 import type { RefObject } from 'react';
@@ -39,7 +39,9 @@ interface SettingsPanelProps {
 const THICKNESS_FIELD = { kind: 'number', key: 'thickness', meta: { labelKey: 'thickness', unit: 'mm', step: 0.5 }, min: 2, max: 10, defaultValue: 4 } as const;
 
 export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPanelProps) {
-  const { design, paper, setThickness, setPaper, selectSocket, selectedSocket, focusedInstance, focusInstance, setOpenInstanceId } = useDesignStore();
+  const { design, paper, setThickness, setPaper, selectSocket, selectedSocket, focusedInstance, focusInstance, setOpenInstanceId, instanceIdChange } = useDesignStore();
+  // Id:n som byttes i senaste ändringen, t.ex. S3 → S2 när S2 togs bort, så att samma objekt står öppet.
+  const idChange = instanceIdChange?.design === design ? instanceIdChange : undefined;
   // Öppnades appen med en länk fälls arket upp, så att meddelandet om huset syns i mobilen.
   const [isExpanded, setIsExpanded] = useState(() => useHouseNotice.getState().notice !== undefined);
   const [pdfState, setPdfState] = useState<'idle' | 'working' | 'failed'>('idle');
@@ -61,6 +63,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   const openInstance = useOpenInstance(
     instanceEntries.map((entry) => entry.instance.id),
     focus,
+    idChange,
   );
   const openInstanceId = openInstance.openId;
   // Bara en toppnod är utfälld åt gången: en sektion, Mina hus eller Inställningar.
@@ -71,6 +74,11 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   // Kupan runt ett öppet fönster är också utfälld.
   const openChain = listOpenChain(evaluation.placed, openInstanceId);
   const [storedPart, setStoredPart] = useState<{ instanceId?: string; part: OpenPart }>({ part: {} });
+  const [knownIdChange, setKnownIdChange] = useState(idChange);
+  if (idChange !== knownIdChange) {
+    setKnownIdChange(idChange);
+    if (idChange) setStoredPart({ instanceId: followId(storedPart.instanceId, idChange), part: storedPart.part });
+  }
   const contentRef = useRef<HTMLDivElement>(null);
   // Trycker man på en vägg, ett tak eller ett fönster fälls det ut och arket fälls upp i mobilen.
   const focusKey = focus?.key;

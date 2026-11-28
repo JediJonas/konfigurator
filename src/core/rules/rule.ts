@@ -61,6 +61,11 @@ export interface MaxCountPerSocketRule extends RuleBase {
   max: number;
 }
 
+/** Objekttypens egen kontroll av sina parametrar (`ObjectType.isParamsValid`) ska gå igenom. */
+export interface ValidParamsRule extends RuleBase {
+  kind: 'validParams';
+}
+
 /** Kopplingsregler som data i domänpaketet, SPEC.md avsnitt 5. */
 export type Rule =
   | AllowedRotationsRule
@@ -69,7 +74,8 @@ export type Rule =
   | ParamLimitRule
   | AllowedParamValuesRule
   | OnSolidPartRule
-  | MaxCountPerSocketRule;
+  | MaxCountPerSocketRule
+  | ValidParamsRule;
 
 export interface RuleViolation {
   level: RuleLevel;

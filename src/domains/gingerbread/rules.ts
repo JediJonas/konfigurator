@@ -20,6 +20,7 @@ export const gingerbreadRules: Rule[] = [
   { kind: 'allowedRotations', level: 'error', objectType: WINDOW_TYPE_ID, socketKind: DORMER_WALL, degrees: [0], messageKey: 'rule.openingUpright' },
   { kind: 'allowedRotations', level: 'error', objectType: DOOR_TYPE_ID, socketKind: WALL_SURFACE, degrees: [0], messageKey: 'rule.openingUpright' },
   { kind: 'onSolidPart', level: 'error', objectType: WINDOW_TYPE_ID, messageKey: 'rule.windowOnWall' },
+  { kind: 'validParams', level: 'error', objectType: WINDOW_TYPE_ID, messageKey: 'rule.windowPanesTooSmall' },
   { kind: 'onSolidPart', level: 'error', objectType: DOOR_TYPE_ID, messageKey: 'rule.doorOnWall' },
   { kind: 'maxCountPerSocket', level: 'error', objectType: DOOR_TYPE_ID, max: 1, messageKey: 'rule.oneDoorPerWall' },
   { kind: 'allowedRotations', level: 'error', objectType: DORMER_TYPE_ID, socketKind: ROOF_SURFACE, degrees: [0], messageKey: 'rule.dormerUpright' },

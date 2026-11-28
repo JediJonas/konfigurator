@@ -5,6 +5,7 @@ import type { ParamField } from '../model/paramForm';
 import { describeParams, isFieldVisible } from '../model/paramForm';
 import { findObjectType } from '../pipeline/placeInstances';
 import { hasAnyErrorRemembered } from './ruleCheck';
+import { reattachDetachedChildren } from './detachedChildren';
 import { attachInFittingSockets, listAffectedInstanceIds } from './socketChoice';
 
 /** Steget i sökningen när fältet inte anger något. */
@@ -31,7 +32,8 @@ type NumberField = Extract<ParamField, { kind: 'number' }>;
  */
 export function setParamWithinRules(design: Design, domain: Domain, change: ParamChange): Design {
   const { instanceId, key, value } = change;
-  const plain = withParam(design, { instanceId, key, value });
+  // Får föräldern andra kopplingspunkter, t.ex. takfallen när taket vrids, flyttar det som satt i dem.
+  const plain = reattachDetachedChildren(design, withParam(design, { instanceId, key, value }), domain);
   const changed = attachInFittingSockets(plain, domain, listAffectedInstanceIds(plain, instanceId));
   const instance = findInstance(design.root, instanceId);
   if (!instance) return changed;

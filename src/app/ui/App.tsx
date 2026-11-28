@@ -23,6 +23,7 @@ type EvaluationResult = { evaluation: DesignEvaluation; error?: string };
 
 export function App() {
   const design = useDesignStore((state) => state.design);
+  const viewFitCount = useDesignStore((state) => state.viewFitCount);
   const selectedSocket = useDesignStore((state) => state.selectedSocket);
   const selectSocket = useDesignStore((state) => state.selectSocket);
   const focusInstance = useDesignStore((state) => state.focusInstance);
@@ -66,6 +67,7 @@ export function App() {
             color={material?.color ?? '#a8652f'}
             captureRef={captureRef}
             fitRef={fitRef}
+            fitCount={viewFitCount}
             highlight={highlight}
             onSelectPart={(partId) => {
               // En fönsterlucka eller ett dörrblad öppnar sitt fönster eller sin dörr.

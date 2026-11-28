@@ -132,6 +132,8 @@ export interface ObjectType<P = Record<string, unknown>> {
    * prövas alla storlekar i mitten innan objektet flyttas.
    */
   prefersSizeOverCenter?: boolean;
+  /** Sant när parametrarna går att tillverka tillsammans, t.ex. rutor som inte är för små. Prövas av regeln `validParams`. */
+  isParamsValid?(params: P): boolean;
   paramCandidates?(socket: Socket, context: BuildContext, inherited: Record<string, unknown>, findRelated: RelatedParamsLookup): Record<string, unknown>[];
   /**
    * Objekt som ett nytt objekt av typen får direkt, i sina egna
