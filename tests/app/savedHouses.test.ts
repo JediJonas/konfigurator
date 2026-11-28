@@ -5,6 +5,9 @@ import { findHouseNamed, listSavedHouses, openHouse, renameHouse, saveHouse } fr
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { simpleHousePreset } from '../../src/domains/gingerbread/presets/simpleHouse';
 import { createMemoryStorage } from './memoryStorage';
+import { useDesignStore } from '../../src/app/state/designStore';
+import { evaluateDesign } from '../../src/core/rules/evaluateDesign';
+import { findInstance } from '../../src/core/model/instanceTree';
 
 function houseWithWidth(width: number) {
   const design = simpleHousePreset.create();
@@ -60,5 +63,20 @@ describe('sparade hus', () => {
     broken.version = 99;
     const saved = await saveHouse(store, 'Framtiden', broken);
     await expect(openHouse(store, saved.id, gingerbreadDomain)).rejects.toThrow();
+  });
+
+  it('öppnar ett sparat hus med takkupa och bygger vidare, även när taket vrids', async () => {
+    const store = createLocalProjectStore(createMemoryStorage());
+    useDesignStore.getState().resetDesign();
+    useDesignStore.getState().addChild({ parentId: 'S1', socketId: 'roof-right', objectTypeId: 'gb.dormer' });
+    const saved = await saveHouse(store, 'Kupan', useDesignStore.getState().design);
+    useDesignStore.getState().resetDesign();
+    const opened = await openHouse(store, saved.id, gingerbreadDomain);
+    useDesignStore.getState().openDesign(opened.design, opened.name);
+    useDesignStore.getState().setParam('S1', 'isRoofTurned', true);
+    useDesignStore.getState().setParam('S1', 'wallHeight', 90);
+    const design = useDesignStore.getState().design;
+    expect(findInstance(design.root, 'K1')?.attachment?.socketId).toBe('roof-front');
+    expect(() => evaluateDesign(design, gingerbreadDomain, (key) => key)).not.toThrow();
   });
 });

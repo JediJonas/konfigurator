@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { countHousePixels, waitForViewToSettle } from './viewPixels';
 
 test('sparar ett hus under ett namn och öppnar det igen', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -54,6 +55,23 @@ test('öppnar ett hus från en delad länk på en annan enhet', async ({ browser
   await expect(phone.getByRole('heading', { name: 'Fönster F1' })).toHaveCount(0);
   await context.close();
   await other.close();
+});
+
+test('ställer in kameran på huset när ett sparat hus öppnas', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 700 });
+  await page.goto('/');
+  await openSavedHouses(page);
+  await page.getByLabel('Namn', { exact: true }).fill('Kyrkan');
+  await page.getByRole('button', { name: 'Spara', exact: true }).click();
+  await waitForViewToSettle(page);
+  const atStart = await countHousePixels(page);
+  await page.locator('.viewport canvas').hover();
+  for (let step = 0; step < 12; step++) await page.mouse.wheel(0, 200);
+  await waitForViewToSettle(page);
+  expect(await countHousePixels(page)).toBeLessThan(atStart * 0.7);
+  await page.getByRole('button', { name: 'Öppna Kyrkan' }).click();
+  await waitForViewToSettle(page);
+  expect(await countHousePixels(page)).toBeGreaterThan(atStart * 0.8);
 });
 
 async function addWindow(page: Page) {
