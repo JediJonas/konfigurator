@@ -24,7 +24,7 @@ type HingeSide = 'left' | 'right';
 const MIN_DOOR_WIDTH_MM = 20;
 const MIN_DOOR_HEIGHT_MM = 30;
 /** Dörren står alltid på glänt, så att man ser att den går att öppna (ägarens val). */
-const OPEN_ANGLE_DEGREES = 30;
+const OPEN_ANGLE_DEGREES = 45;
 
 export const doorParams = z.object({
   kind: z

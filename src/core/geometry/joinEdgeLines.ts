@@ -33,7 +33,41 @@ export function joinEdgeLines(lines: readonly Vec3[][], joinDistance: Mm): Vec3[
       line[end.isStart ? 0 : line.length - 1] = center;
     }
   }
-  return chainLines(usable, groups);
+  const chains = chainLines(usable, groups);
+  snapLooseEnds(chains, joinDistance);
+  return chains;
+}
+
+/**
+ * Flyttar en ände som inte möter någon annan ände till närmaste punkt på en
+ * annan linje inom avståndet, så att t.ex. väggens hörn når upp till takets
+ * kant i stället för att sluta en bit under.
+ */
+function snapLooseEnds(chains: Vec3[][], distance: Mm): void {
+  chains.forEach((chain, chainIndex) => {
+    if (chain.length < 2 || chain[0] === chain[chain.length - 1]) return;
+    for (const endIndex of [0, chain.length - 1]) {
+      const end = chain[endIndex] as Vec3;
+      let nearest: { point: Vec3; gap: Mm } | undefined;
+      chains.forEach((other, otherIndex) => {
+        if (otherIndex === chainIndex) return;
+        for (let index = 1; index < other.length; index++) {
+          const point = closestPointOnSegment(end, other[index - 1] as Vec3, other[index] as Vec3);
+          const gap = length3(subtract3(point, end));
+          if (gap <= distance && (!nearest || gap < nearest.gap)) nearest = { point, gap };
+        }
+      });
+      if (nearest && nearest.gap > SAME_POINT_MM) chain[endIndex] = nearest.point;
+    }
+  });
+}
+
+function closestPointOnSegment(point: Vec3, start: Vec3, end: Vec3): Vec3 {
+  const direction = subtract3(end, start);
+  const lengthSquared = direction.x * direction.x + direction.y * direction.y + direction.z * direction.z;
+  const offset = subtract3(point, start);
+  const t = lengthSquared === 0 ? 0 : Math.min(1, Math.max(0, (offset.x * direction.x + offset.y * direction.y + offset.z * direction.z) / lengthSquared));
+  return { x: start.x + direction.x * t, y: start.y + direction.y * t, z: start.z + direction.z * t };
 }
 
 /**
