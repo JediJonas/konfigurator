@@ -80,10 +80,9 @@ export function listOuterEdges(parts: readonly Part[], options: OuterEdgeOptions
           const next = ring[(index + 1) % ring.length] ?? point;
           const start = transformPoint(owner.part.transform, { x: point.x, y: point.y, z });
           const end = transformPoint(owner.part.transform, { x: next.x, y: next.y, z });
-          const ownerNormal = isOnFace ? undefined : findOuterNormal(owner, z);
           for (const visible of listVisibleSegments(start, end, isCovered)) {
             if (isOnFace) faceSegments.push(visible);
-            else segments.push(...(ownerNormal ? shiftIntoCorners(visible, ownerNormal, (point) => findInwardCornerNormal(point, prepared, ownerIndex), options.holeMargin) : [visible]));
+            else segments.push(...shiftIntoCorners(visible, findOuterNormal(owner, z), (point) => findInwardCornerNormal(point, prepared, ownerIndex), options.holeMargin));
           }
         });
       }

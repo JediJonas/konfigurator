@@ -61,7 +61,7 @@ describe('ytterkanter', () => {
     const wallA = plate('A', rectangle(0, 10, 100, 50));
     // Vägg B står ut från A:s utsida (z = tjockleken) vid x = 50, med sin utsida mot x = 54.
     const wallB = plate('B', rectangle(0, 10, 50, 50), { transform: basisMatrix(vec3(0, 0, 1), vec3(0, 1, 0), vec3(1, 0, 0), vec3(50, 0, THICKNESS_MM)) });
-    // Strängen flyttas ut i hörnet, en strängradie från varje yta, så att den ligger an mot båda.
+    // Strängen flyttas en strängradie ut från A:s yta och en strängradie från B:s utsida, så att den ligger an mot A.
     expect(verticalPlacesNear(edges([wallA, wallB]), vec3(50 + THICKNESS_MM + HOLE_MARGIN_MM, 0, THICKNESS_MM + HOLE_MARGIN_MM), 0.5)).toHaveLength(1);
   });
 
