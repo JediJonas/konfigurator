@@ -22,6 +22,12 @@ export interface ParamMeta {
    * `{ roof: ['flat'] }`. Värdet finns kvar i parametrarna även när fältet är dolt.
    */
   visibleWhen?: Record<string, readonly string[]>;
+  /**
+   * Bara på val: när man väljer ett av värdena får de angivna fälten de här
+   * värdena, t.ex. `{ shed: { roofPitch: 15 } }` så att pulpettaket blir flackt.
+   * Schemats standardvärden ändras inte, så sparade designer läses som förut.
+   */
+  valuesWhenChosen?: Record<string, Record<string, unknown>>;
 }
 
 /**

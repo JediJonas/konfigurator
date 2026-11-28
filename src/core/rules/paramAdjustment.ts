@@ -21,7 +21,8 @@ export interface ParamChange {
 type NumberField = Extract<ParamField, { kind: 'number' }>;
 
 /**
- * Sätter ett fält på ett objekt. När ett val, t.ex. taktypen, gör att
+ * Sätter ett fält på ett objekt. Ett val kan också sätta andra fält
+ * (`valuesWhenChosen`), t.ex. en flack lutning när man väljer pulpettak. När ett val, t.ex. taktypen, gör att
  * designen bryter mot reglerna med de övriga värdena i samma grupp, t.ex. en
  * ärvd taklutning som är för brant för den nya taktypen, flyttas det första
  * synliga talet i gruppen som kan rätta det till närmaste värde som klarar
@@ -32,16 +33,17 @@ type NumberField = Extract<ParamField, { kind: 'number' }>;
  */
 export function setParamWithinRules(design: Design, domain: Domain, change: ParamChange): Design {
   const { instanceId, key, value } = change;
-  // Får föräldern andra kopplingspunkter, t.ex. takfallen när taket vrids, flyttar det som satt i dem.
-  const plain = reattachDetachedChildren(design, withParam(design, { instanceId, key, value }), domain);
-  const changed = attachInFittingSockets(plain, domain, listAffectedInstanceIds(plain, instanceId));
   const instance = findInstance(design.root, instanceId);
-  if (!instance) return changed;
-  const fields = describeParams(findObjectType(domain, instance.type).params);
+  const fields = instance ? describeParams(findObjectType(domain, instance.type).params) : [];
   const field = fields.find((candidate) => candidate.key === key);
+  const chosenValues = field ? listValuesWhenChosen(field, instance?.params[key], value) : {};
+  // Får föräldern andra kopplingspunkter, t.ex. takfallen när taket vrids, flyttar det som satt i dem.
+  const plain = reattachDetachedChildren(design, withParams(design, instanceId, { ...chosenValues, [key]: value }), domain);
+  const changed = attachInFittingSockets(plain, domain, listAffectedInstanceIds(plain, instanceId));
+  if (!instance) return changed;
   if (field?.kind !== 'choice' || !field.meta.groupKey) return changed;
   if (!hasAnyError(plain, domain) || hasAnyError(design, domain)) return changed;
-  const params = { ...instance.params, [key]: value };
+  const params = { ...instance.params, ...chosenValues, [key]: value };
   const adjustable = fields.filter(
     (candidate): candidate is NumberField =>
       candidate.kind === 'number' && candidate.meta.groupKey === field.meta.groupKey && isFieldVisible(candidate, params, fields),
@@ -77,10 +79,20 @@ function findNearestValidValue(design: Design, domain: Domain, search: NumberSea
   return undefined;
 }
 
+/** Fälten som valet sätter (`valuesWhenChosen`), bara när valet verkligen byts. */
+function listValuesWhenChosen(field: ParamField, previous: unknown, value: unknown): Record<string, unknown> {
+  if (field.kind !== 'choice' || String(previous ?? field.defaultValue) === String(value)) return {};
+  return field.meta.valuesWhenChosen?.[String(value)] ?? {};
+}
+
 function withParam(design: Design, change: ParamChange): Design {
+  return withParams(design, change.instanceId, { [change.key]: change.value });
+}
+
+function withParams(design: Design, instanceId: string, values: Record<string, unknown>): Design {
   return {
     ...design,
-    root: updateInstance(design.root, change.instanceId, (instance) => ({ ...instance, params: { ...instance.params, [change.key]: change.value } })),
+    root: updateInstance(design.root, instanceId, (instance) => ({ ...instance, params: { ...instance.params, ...values } })),
   };
 }
 
