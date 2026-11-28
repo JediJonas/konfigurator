@@ -176,6 +176,9 @@ test('öppnar sektionen och väggen när man trycker på väggen, även samma v�
   await page.getByRole('button', { name: 'Sektion S1' }).click();
   await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'false');
   await page.waitForTimeout(800);
+  console.log('FELSÖK', await page.evaluate(() => JSON.stringify({ hit: document.elementFromPoint(540, 660)?.outerHTML.slice(0, 160), canvas: document.querySelector('canvas')?.getBoundingClientRect(), report: document.getElementById('error-report')?.textContent?.slice(0, 600), w: innerWidth, h: innerHeight })));
+  await page.screenshot({ path: 'test-results/felsok.png' });
+  console.log('BILD', (await page.screenshot({ clip: { x: 0, y: 40, width: 920, height: 760 }, scale: 'css', type: 'jpeg', quality: 30 })).toString('base64').length);
   await page.mouse.click(540, 660);
   await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByLabel(/^Längd/)).toBeVisible();
