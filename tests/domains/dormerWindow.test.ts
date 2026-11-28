@@ -67,11 +67,11 @@ describe('fönster i takkupans framvägg', () => {
   });
 
   it('föreslår ett fönster som ryms i framväggen, med husets form men mindre', () => {
-    const houseWindow: Instance = { id: 'F9', type: 'gb.window', params: { width: 30, height: 40, sillHeight: 30, shape: 'arch', mullions: 'cross', hasShutters: false }, attachment: { socketId: 'side-right', u: 0, v: 0, rotationDegrees: 0 }, children: [] };
+    const houseWindow: Instance = { id: 'F9', type: 'gb.window', params: { width: 30, height: 40, sillHeight: 30, shape: 'arch', mullions: 'four', hasShutters: false }, attachment: { socketId: 'side-right', u: 0, v: 0, rotationDegrees: 0 }, children: [] };
     const design = designWithExtensions(houseWindow, dormerOn('roof-right'));
     const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'K1', socketId: 'gable-front', objectTypeId: 'gb.window' });
     expect(proposal.violations).toEqual([]);
-    expect(proposal.instance.params).toMatchObject({ shape: 'arch', mullions: 'cross' });
+    expect(proposal.instance.params).toMatchObject({ shape: 'arch', mullions: 'four' });
     expect(Number(proposal.instance.params.height)).toBeLessThan(40);
   });
 });

@@ -4,6 +4,7 @@ import { createHouseLink, readHouseLink } from '../../src/app/storage/houseLink'
 import { useDesignStore } from '../../src/app/state/designStore';
 import { evaluateDesign } from '../../src/core/rules/evaluateDesign';
 import type { Design } from '../../src/core/model/design';
+import { GINGERBREAD_DOMAIN_VERSION } from '../../src/domains/gingerbread/identity';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { simpleHousePreset } from '../../src/domains/gingerbread/presets/simpleHouse';
 
@@ -61,7 +62,7 @@ describe('länk till ett hus', () => {
     old.root.children[0]?.children.push({ id: 'D1', type: 'gb.door', params: { hinge: 'right' }, attachment: { socketId: 'gable-front', u: 0, v: 0, rotationDegrees: 0 }, children: [] });
     const link = await createHouseLink(PAGE_URL, old, gingerbreadDomain);
     const opened = await readHouseLink(new URL(link).hash, gingerbreadDomain);
-    expect(opened?.design.domainVersion).toBe(3);
+    expect(opened?.design.domainVersion).toBe(GINGERBREAD_DOMAIN_VERSION);
     expect(opened?.design.root.children[0]?.children[0]?.params).toEqual({ kind: 'single' });
   });
 
@@ -71,5 +72,14 @@ describe('länk till ett hus', () => {
     const link = await createHouseLink(PAGE_URL, simpleHousePreset.create(), gingerbreadDomain);
     await expect(readHouseLink(new URL(link).hash.slice(0, -8), gingerbreadDomain)).rejects.toThrow();
     await expect(readHouseLink('#hus=9.abc', gingerbreadDomain)).rejects.toThrow();
+  });
+
+  it('öppnar en länk med Spröjs från en äldre version som Fyra rutor', async () => {
+    const old = simpleHousePreset.create();
+    old.domainVersion = 3;
+    old.root.children[0]?.children.push({ id: 'F1', type: 'gb.window', params: { mullions: 'cross' }, attachment: { socketId: 'side-right', u: 0, v: 0, rotationDegrees: 0 }, children: [] });
+    const link = await createHouseLink(PAGE_URL, old, gingerbreadDomain);
+    const opened = await readHouseLink(new URL(link).hash, gingerbreadDomain);
+    expect(opened?.design.root.children[0]?.children[0]?.params).toEqual({ mullions: 'four' });
   });
 });
