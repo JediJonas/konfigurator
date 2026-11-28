@@ -113,7 +113,7 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 
 ## Ångra och Gör om
 
-- Knapparna Ångra och Gör om står bredvid Centrera i 3D-vyns hörn, bara med ikon (`app/ui/HistoryButtons.tsx`). På dator ångrar Ctrl/Cmd+Z och Skift+Ctrl/Cmd+Z eller Ctrl+Y gör om, utom i ett textfält där webbläsaren ångrar det man skriver.
+- Knapparna Ångra och Gör om står bredvid Centrera i 3D-vyns hörn, med ikon och text som Centrera (`app/ui/HistoryButtons.tsx`). På dator ångrar Ctrl/Cmd+Z och Skift+Ctrl/Cmd+Z eller Ctrl+Y gör om, utom i ett textfält där webbläsaren ångrar det man skriver.
 - Historiken (`app/state/designHistory.ts`) gäller bara medan sidan är öppen, högst 100 steg. Ändringar av samma fält på samma objekt som kommer tätare än 1 s blir ett steg (`MERGE_WINDOW_MS`), så att snabba tryck på − och + ångras med ett tryck. Börja om går att ångra; att öppna det sparade huset vid start tömmer historiken.
 
 ## Ritningen
