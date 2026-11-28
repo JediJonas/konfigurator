@@ -3,6 +3,8 @@ import type { Page } from '@playwright/test';
 
 test('ångrar och gör om med knapparna vid Centrera och med kortkommandon', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
+  // Klockan står still, så att trycken räknas som snabba även när CI är långsam.
+  await page.clock.setFixedTime(new Date('2026-11-28T09:00:00'));
   await page.goto('/');
   const undo = page.getByRole('button', { name: 'Ångra', exact: true });
   const redo = page.getByRole('button', { name: 'Gör om', exact: true });
