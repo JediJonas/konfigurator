@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import type { Design } from '../../core/model/design';
 import type { PaperFormat } from '../../core/layout/paper';
-import { findInstance, removeInstance } from '../../core/model/instanceTree';
+import { findInstance } from '../../core/model/instanceTree';
+import type { InstanceIdPrefixOf } from '../../core/model/instanceNumbering';
+import { findRemoval, removeAndRenumber } from '../../core/model/instanceNumbering';
 import type { ChildRequest } from '../../core/rules/placement';
 import { setParamWithinRules } from '../../core/rules/paramAdjustment';
 import { snapAttachmentOffset } from '../../core/rules/placement';
@@ -26,8 +28,22 @@ export interface SocketRef {
   count?: number;
 }
 
+/**
+ * Id:n som byttes i senaste ändringen av designen, t.ex. S3 → S2 när S2 togs bort,
+ * så att panelen kan hålla samma objekt öppet. Gäller bara när `design` är den öppna designen.
+ */
+export interface InstanceIdChange {
+  design: Design;
+  renames: ReadonlyMap<string, string>;
+  removedIds: readonly string[];
+  /** Objektet som kom tillbaka, t.ex. när en borttagning ångras. */
+  addedId?: string;
+}
+
 interface DesignState {
   design: Design;
+  /** Id:n som byttes i senaste borttagningen, eller när den ångrades eller gjordes om. */
+  instanceIdChange?: InstanceIdChange;
   paper: PaperFormat['id'];
   /** Kopplingspunkten som är vald i 3D-vyn eller i panelen. */
   selectedSocket?: SocketRef;
@@ -90,17 +106,51 @@ function changeDesign(state: DesignState, design: Design, mergeKey?: string): De
   return { design, history: recordChange(state.history, state.design, design, { mergeKey, at: Date.now() }) };
 }
 
+const instanceIdPrefixOf: InstanceIdPrefixOf = (typeId) => activeDomain.objectTypes.find((objectType) => objectType.id === typeId)?.instanceIdPrefix;
+
+/** Id:n som byts när man går från `current` till `next`: en borttagning, eller en borttagning som ångras. */
+function describeIdChange(current: Design, next: Design): InstanceIdChange | undefined {
+  const removal = findRemoval(current.root, next.root, instanceIdPrefixOf);
+  if (removal) return { design: next, renames: removal.renames, removedIds: removal.removedIds };
+  const restored = findRemoval(next.root, current.root, instanceIdPrefixOf);
+  if (!restored) return undefined;
+  const renames = new Map([...restored.renames].map(([before, after]) => [after, before]));
+  return { design: next, renames, removedIds: [], addedId: restored.removedId };
+}
+
+/**
+ * Släpper valen som pekar på objekt som inte finns i den nya designen eller har bytt id,
+ * så att inget annat objekt öppnas av sig självt. Vald takfall följer med sitt objekt.
+ */
+function keepSelections(state: DesignState, design: Design, change: InstanceIdChange | undefined): DesignStateUpdate {
+  const isKept = (instanceId: string | undefined) =>
+    instanceId !== undefined && !change?.renames.has(instanceId) && !change?.removedIds.includes(instanceId) && findInstance(design.root, instanceId) !== undefined;
+  return {
+    instanceIdChange: change,
+    selectedSocket: isKept(state.selectedSocket?.instanceId) ? state.selectedSocket : undefined,
+    focusedInstance: isKept(state.focusedInstance?.instanceId) ? state.focusedInstance : undefined,
+    selectedGroupSocket: followSocket(state.selectedGroupSocket, design, change),
+  };
+}
+
+/** Kopplingspunkten på samma objekt efter att id:n har bytts, eller ingen när objektet är borta. */
+function followSocket(socket: SocketRef | undefined, design: Design, change: InstanceIdChange | undefined): SocketRef | undefined {
+  if (!socket || change?.removedIds.includes(socket.instanceId)) return undefined;
+  const instanceId = change?.renames.get(socket.instanceId) ?? socket.instanceId;
+  return findInstance(design.root, instanceId) ? { ...socket, instanceId } : undefined;
+}
+
 /** Byter till en design ur historiken och släpper valen som pekar på objekt som inte finns i den. */
 function showDesignFromHistory(state: DesignState, step: { design: Design; history: DesignHistory } | undefined): DesignStateUpdate {
   if (!step) return {};
-  const exists = (instanceId: string | undefined) => instanceId !== undefined && findInstance(step.design.root, instanceId) !== undefined;
-  return {
-    design: step.design,
-    history: step.history,
-    selectedSocket: exists(state.selectedSocket?.instanceId) ? state.selectedSocket : undefined,
-    focusedInstance: exists(state.focusedInstance?.instanceId) ? state.focusedInstance : undefined,
-    selectedGroupSocket: exists(state.selectedGroupSocket?.instanceId) ? state.selectedGroupSocket : undefined,
-  };
+  return { design: step.design, history: step.history, ...keepSelections(state, step.design, describeIdChange(state.design, step.design)) };
+}
+
+/** Tar bort objektet och numrerar om de andra av samma sort, t.ex. S3 och S4 blir S2 och S3 när S2 tas bort. */
+function removeFromDesign(state: DesignState, instanceId: string): DesignStateUpdate {
+  const removal = removeAndRenumber(state.design.root, instanceId, instanceIdPrefixOf);
+  const design = { ...state.design, root: removal.root };
+  return { ...changeDesign(state, design), ...keepSelections(state, design, { design, renames: removal.renames, removedIds: removal.removedIds }) };
 }
 
 function createStartDesign(): Design {
@@ -136,12 +186,7 @@ export const useDesignStore = create<DesignState>((set) => ({
   selectGroupSocket: (selectedGroupSocket) => set({ selectedGroupSocket, isOpenInstanceHighlighted: true }),
   setOpenInstanceId: (openInstanceId) => set({ openInstanceId, isOpenInstanceHighlighted: true }),
   addChild: (request) => set((state) => changeDesign(state, addProposedChild(state.design, activeDomain, request))),
-  removeChild: (instanceId) =>
-    set((state) => ({
-      ...changeDesign(state, { ...state.design, root: removeInstance(state.design.root, instanceId) }),
-      selectedSocket: state.selectedSocket?.instanceId === instanceId ? undefined : state.selectedSocket,
-      focusedInstance: state.focusedInstance?.instanceId === instanceId ? undefined : state.focusedInstance,
-    })),
+  removeChild: (instanceId) => set((state) => removeFromDesign(state, instanceId)),
   moveAlongSocket: (instanceId, u) =>
     set((state) => changeDesign(state, snapAttachmentOffset(state.design, activeDomain, instanceId, u), `move:${instanceId}`)),
   replaceDesign: (design, houseName) =>

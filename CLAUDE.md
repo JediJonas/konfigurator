@@ -119,6 +119,11 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 - Knapparna Ångra och Gör om står bredvid Centrera i 3D-vyns hörn, med ikon och text som Centrera (`app/ui/HistoryButtons.tsx`). På dator ångrar Ctrl/Cmd+Z och Skift+Ctrl/Cmd+Z eller Ctrl+Y gör om, utom i ett textfält där webbläsaren ångrar det man skriver.
 - Historiken (`app/state/designHistory.ts`) gäller bara medan sidan är öppen, högst 100 steg. Ändringar av samma fält på samma objekt som kommer tätare än 1 s blir ett steg (`MERGE_WINDOW_MS`), så att snabba tryck på − och + ångras med ett tryck. Börja om går att ångra; att öppna det sparade huset vid start tömmer historiken.
 
+## Numrering
+
+- Objektens id är också namnet man ser (S1, F2, K1, SK1, D1). Tas ett objekt bort numreras de av samma sort om utan glapp, i samma ordning (ägarens önskan): tas S2 bort blir S3 S2 och S4 S3. Det gäller också sorterna som satt på det borttagna, t.ex. fönstren på en borttagen sektion (`core/model/instanceNumbering.ts`). Designen sparar bara id:n i `Instance.id`, så sparade hus och länkar påverkas inte.
+- Panelen håller samma objekt öppet och valt takfall följer med sitt objekt (`instanceIdChange` i `designStore`, `followId`). Andra val på objekt som bytt nummer släpps, så att inget annat objekt öppnas. Ångras en borttagning hittas den med `findRemoval`, så att objekten får sina gamla nummer och det som kom tillbaka öppnas.
+
 ## Ritningen
 
 - **Hörnregeln för stumfog** (ägarens val): en vägg med sned överkant går hela vägen ut, och väggar med rak överkant kortas med 2 × tjockleken och står mellan. Då följer den sneda väggen takets undersida ut till hörnet och inget hål syns under taket.
