@@ -33,7 +33,7 @@ function createFurnishedHouse(): Design {
 describe('länk till ett hus', () => {
   it('öppnar samma hus och namn från länken', async () => {
     const design = createFurnishedHouse();
-    const link = await createHouseLink(PAGE_URL, design, gingerbreadDomain, 'Kyrkan');
+    const link = await createHouseLink(PAGE_URL, { design, name: 'Kyrkan' }, gingerbreadDomain);
     expect(link.startsWith(`${PAGE_URL}#hus=1.`)).toBe(true);
     const opened = await readHouseLink(new URL(link).hash, gingerbreadDomain);
     expect(opened?.name).toBe('Kyrkan');
@@ -42,7 +42,7 @@ describe('länk till ett hus', () => {
   });
 
   it('blir kort nog att skicka', async () => {
-    const link = await createHouseLink(PAGE_URL, createFurnishedHouse(), gingerbreadDomain, 'Kyrkan');
+    const link = await createHouseLink(PAGE_URL, { design: createFurnishedHouse(), name: 'Kyrkan' }, gingerbreadDomain);
     expect(link.length).toBeLessThan(MAX_LINK_LENGTH);
   });
 
@@ -60,7 +60,7 @@ describe('länk till ett hus', () => {
     const old = simpleHousePreset.create();
     old.domainVersion = 2;
     old.root.children[0]?.children.push({ id: 'D1', type: 'gb.door', params: { hinge: 'right' }, attachment: { socketId: 'gable-front', u: 0, v: 0, rotationDegrees: 0 }, children: [] });
-    const link = await createHouseLink(PAGE_URL, old, gingerbreadDomain);
+    const link = await createHouseLink(PAGE_URL, { design: old }, gingerbreadDomain);
     const opened = await readHouseLink(new URL(link).hash, gingerbreadDomain);
     expect(opened?.design.domainVersion).toBe(GINGERBREAD_DOMAIN_VERSION);
     expect(opened?.design.root.children[0]?.children[0]?.params).toEqual({ kind: 'single' });
@@ -69,7 +69,7 @@ describe('länk till ett hus', () => {
   it('ger inget utan hus i adressen och kastar för en avklippt länk', async () => {
     expect(await readHouseLink('', gingerbreadDomain)).toBeUndefined();
     expect(await readHouseLink('#annat=1', gingerbreadDomain)).toBeUndefined();
-    const link = await createHouseLink(PAGE_URL, simpleHousePreset.create(), gingerbreadDomain);
+    const link = await createHouseLink(PAGE_URL, { design: simpleHousePreset.create() }, gingerbreadDomain);
     await expect(readHouseLink(new URL(link).hash.slice(0, -8), gingerbreadDomain)).rejects.toThrow();
     await expect(readHouseLink('#hus=9.abc', gingerbreadDomain)).rejects.toThrow();
   });
@@ -78,8 +78,24 @@ describe('länk till ett hus', () => {
     const old = simpleHousePreset.create();
     old.domainVersion = 3;
     old.root.children[0]?.children.push({ id: 'F1', type: 'gb.window', params: { mullions: 'cross' }, attachment: { socketId: 'side-right', u: 0, v: 0, rotationDegrees: 0 }, children: [] });
-    const link = await createHouseLink(PAGE_URL, old, gingerbreadDomain);
+    const link = await createHouseLink(PAGE_URL, { design: old }, gingerbreadDomain);
     const opened = await readHouseLink(new URL(link).hash, gingerbreadDomain);
     expect(opened?.design.root.children[0]?.children[0]?.params).toEqual({ mullions: 'four' });
+  });
+
+  it('har kamerans vinkel med i länken, avrundad till hela millimeter', async () => {
+    const view = { position: [260.4, 229.6, 340] as [number, number, number], target: [0, 70.2, -0.4] as [number, number, number] };
+    const withName = await readHouseLink(new URL(await createHouseLink(PAGE_URL, { design: createFurnishedHouse(), name: 'Kyrkan', view }, gingerbreadDomain)).hash, gingerbreadDomain);
+    expect(withName?.view).toEqual({ position: [260, 230, 340], target: [0, 70, 0] });
+    expect(withName?.name).toBe('Kyrkan');
+    const withoutName = await readHouseLink(new URL(await createHouseLink(PAGE_URL, { design: simpleHousePreset.create(), view }, gingerbreadDomain)).hash, gingerbreadDomain);
+    expect(withoutName?.name).toBeUndefined();
+    expect(withoutName?.view?.position).toEqual([260, 230, 340]);
+  });
+
+  it('blir kort nog att skicka även med vinkeln', async () => {
+    const view = { position: [-312, 245, 401] as [number, number, number], target: [12, 64, -8] as [number, number, number] };
+    const link = await createHouseLink(PAGE_URL, { design: createFurnishedHouse(), name: 'Kyrkan', view }, gingerbreadDomain);
+    expect(link.length).toBeLessThan(MAX_LINK_LENGTH);
   });
 });

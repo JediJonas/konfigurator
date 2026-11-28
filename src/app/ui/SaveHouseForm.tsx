@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import type { FormEvent } from 'react';
+import { captureCameraView } from '../state/cameraView';
 import { useDesignStore } from '../state/designStore';
 import type { ProjectMeta, ProjectStore } from '../storage/projectStore';
 import { findHouseNamed, saveHouse } from '../storage/savedHouses';
@@ -28,7 +29,8 @@ export function SaveHouseForm({ store, houses, onSaved }: SaveHouseFormProps) {
   async function save() {
     setReplacing(undefined);
     try {
-      const saved = await saveHouse(store, trimmed, design);
+      // Vinkeln sparas med, så att huset visas likadant när det öppnas.
+      const saved = await saveHouse(store, { name: trimmed, design, view: captureCameraView() });
       setHouseName(saved.name);
       setStatus(uiStrings.houseSaved(saved.name));
       onSaved();

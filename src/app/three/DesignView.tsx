@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Bounds, OrbitControls, useBounds } from '@react-three/drei';
+import { Bounds, OrbitControls } from '@react-three/drei';
 import { useEffect, useMemo, useRef } from 'react';
 import { Shape, ShapeGeometry, TOUCH, Vector2, Vector3 } from 'three';
 import type { Camera, DirectionalLight, Group } from 'three';
@@ -7,6 +7,8 @@ import type { RefObject } from 'react';
 import type { Polygon } from '../../core/geometry/polygon';
 import type { Part } from '../../core/model/part';
 import type { EdgeBead } from '../../core/model/domain';
+import type { ViewRequest } from '../state/designStore';
+import { CameraFitting } from './CameraFitting';
 import { EdgeBeadMesh } from './EdgeBeadMesh';
 import { listInsideFloors } from './insideFloor';
 import { PartMesh } from './PartMesh';
@@ -29,8 +31,8 @@ interface DesignViewProps {
   captureRef: RefObject<CaptureOverview | null>;
   /** Fylls med en funktion som centrerar huset och anpassar zoomen. */
   fitRef: RefObject<FitView | null>;
-  /** Ökar när kameran ska ställas in på huset igen, t.ex. när ett sparat hus öppnas. */
-  fitCount: number;
+  /** Ändras när ett annat hus öppnas: kameran visar det med den sparade vinkeln, eller ställs in på det. */
+  viewRequest: ViewRequest;
   /** Det som är valt, t.ex. en vägg, ett tak eller ett fönster; det visas i en annan färg. */
   highlight: SelectionHighlight;
   /** Anropas när man trycker på en del, eller på tomma ytan (utan id). */
@@ -45,7 +47,8 @@ interface DesignViewProps {
   onUserMoveView: () => void;
 }
 
-export type FitView = () => void;
+import type { FitView } from './CameraFitting';
+export type { FitView };
 
 /** Skuggans upplösning; rutan växer med skuggan så den behöver fler punkter än förr. */
 const SHADOW_MAP_SIZE_PX = 2048;
@@ -59,7 +62,7 @@ const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 /** Närmaste avstånd till vyns mittpunkt. Husets egna väggar och tak stoppar zoomen långt innan dess. */
 const MIN_ORBIT_DISTANCE_MM = 20;
 
-export function DesignView({ parts: designParts, color, captureRef, fitRef, fitCount, highlight, onSelectPart, pickAreas: designPickAreas, onSelectInstance, edgeBead, onUserMoveView }: DesignViewProps) {
+export function DesignView({ parts: designParts, color, captureRef, fitRef, viewRequest, highlight, onSelectPart, pickAreas: designPickAreas, onSelectInstance, edgeBead, onUserMoveView }: DesignViewProps) {
   // Huset med alla tillbyggnader och sektioner står alltid mitt på fatet (ägarens önskan).
   const offset = useMemo(() => measurePlateCenteringOffset(designParts), [designParts]);
   const parts = useMemo(() => shiftParts(designParts, offset), [designParts, offset]);
@@ -96,7 +99,7 @@ export function DesignView({ parts: designParts, color, captureRef, fitRef, fitC
         <shadowMaterial opacity={FLOOR_SHADOW_OPACITY} />
       </mesh>
       <Bounds margin={1.6}>
-        <CameraFitting parts={parts} fitRef={fitRef} fitCount={fitCount} />
+        <CameraFitting parts={parts} fitRef={fitRef} viewRequest={viewRequest} />
         <group ref={partsRef}>
           {parts.map((part) => (
             <PartMesh key={part.id} part={part} color={color} isSelected={highlight.partIds.has(part.id)} onSelect={onSelectPart} />
@@ -130,38 +133,6 @@ export function DesignView({ parts: designParts, color, captureRef, fitRef, fitC
   );
 }
 
-/**
- * Ställer kameran så att hela huset syns när det visas första gången och när
- * man trycker på knappen för att centrera, och när ett annat hus öppnas. Annars behåller kameran sitt läge
- * när måtten ändras, så att vyn inte hoppar; ägaren vill zooma själv.
- * PDF:ens översiktsbild har en egen kamera.
- */
-function CameraFitting({ parts, fitRef, fitCount }: { parts: Part[]; fitRef: RefObject<FitView | null>; fitCount: number }) {
-  const bounds = useBounds();
-  const hasFittedRef = useRef(false);
-  const fittedCountRef = useRef(fitCount);
-
-  useEffect(() => {
-    fitRef.current = () => bounds.refresh().clip().fit();
-    return () => {
-      fitRef.current = null;
-    };
-  }, [bounds, fitRef]);
-
-  useEffect(() => {
-    if (hasFittedRef.current || parts.length === 0) return;
-    hasFittedRef.current = true;
-    bounds.refresh().clip().fit();
-  }, [bounds, parts]);
-
-  // Ett annat hus har öppnats: kameran ställs in på det, som när man trycker på Centrera.
-  useEffect(() => {
-    if (fitCount === fittedCountRef.current || parts.length === 0) return;
-    fittedCountRef.current = fitCount;
-    bounds.refresh().clip().fit();
-  }, [bounds, parts, fitCount]);
-  return null;
-}
 
 /**
  * Håller kameran utanför huset: zoomar, vrider eller flyttar man vyn så att
