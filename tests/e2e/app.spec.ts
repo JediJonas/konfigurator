@@ -9,6 +9,10 @@ const TAP_SIZE_PX = 44;
 const HEADING_GAP_PX = 12;
 const VIEW_HINT = 'Dra för att vrida, nyp eller scrolla för att zooma.';
 
+/** Så länge mellan två bilder av 3D-vyn när man väntar på att kameran står still. */
+const VIEW_SETTLE_INTERVAL_MS = 300;
+const VIEW_SETTLE_TIMEOUT_MS = 10_000;
+
 test('laddar ner en ritning som PDF', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
@@ -148,7 +152,7 @@ test('öppnar fönstret när man trycker på det i 3D-vyn', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByRole('button', { name: 'Fönster F1' })).toHaveAttribute('aria-expanded', 'false');
   await expect(page.getByLabel('Höjd över golvet')).toBeHidden();
-  await page.waitForTimeout(800);
+  await waitForViewToSettle(page);
   await page.mouse.click(590, 520);
   await expect(page.getByRole('button', { name: 'Fönster F1' })).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByLabel('Höjd över golvet')).toBeVisible();
@@ -158,7 +162,7 @@ test('fäller ut takets fält när man trycker på taket i 3D-vyn', async ({ pag
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
   await expect(page.getByLabel('Taktyp')).toBeHidden();
-  await page.waitForTimeout(800);
+  await waitForViewToSettle(page);
   await page.mouse.click(500, 300);
   await expect(page.getByRole('button', { name: 'Tak', exact: true })).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByLabel('Taktyp')).toBeVisible();
@@ -175,7 +179,7 @@ test('öppnar sektionen och väggen när man trycker på väggen, även samma v�
   await page.goto('/');
   await page.getByRole('button', { name: 'Sektion S1' }).click();
   await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'false');
-  await page.waitForTimeout(800);
+  await waitForViewToSettle(page);
   await page.mouse.click(540, 660);
   await expect(page.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByLabel(/^Längd/)).toBeVisible();
@@ -453,4 +457,26 @@ async function measureHeadingGap(page: Page, name: RegExp) {
 async function openWall(page: Page, name: string) {
   const wall = page.getByRole('button', { name, exact: true });
   if ((await wall.getAttribute('aria-expanded')) !== 'true') await wall.click();
+}
+
+/**
+ * Väntar tills kameran har slutat röra sig efter att den ställts in på huset,
+ * så att ett tryck på en viss punkt i 3D-vyn träffar. En fast väntetid räcker
+ * inte när CI ritar långsamt.
+ */
+async function waitForViewToSettle(page: Page) {
+  const view = page.locator('.viewport canvas');
+  let previous = '';
+  await expect
+    .poll(
+      async () => {
+        await page.waitForTimeout(VIEW_SETTLE_INTERVAL_MS);
+        const current = (await view.screenshot({ scale: 'css' })).toString('base64');
+        const isStill = current === previous;
+        previous = current;
+        return isStill;
+      },
+      { timeout: VIEW_SETTLE_TIMEOUT_MS, intervals: [0] },
+    )
+    .toBe(true);
 }

@@ -111,6 +111,9 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 
 - Det öppna huset sparas av sig självt (`app/storage/`), 0,4 s efter senaste ändringen och direkt när sidan göms, via `ProjectStore` i webbläsarens lokala lagring. Vid start öppnas det senast sparade; går det inte att migrera (`core/model/migrateDesign.ts`) eller räkna börjar appen med mallen. "Börja om" under Inställningar ersätter huset med mallen efter en bekräftelse i panelen, och autosparet skriver över det sparade (ägarens önskan).
 
+- **Mina hus** (egen grupp i panelen före Inställningar): spara det öppna huset under ett namn, och öppna, byta namn på och ta bort sparade hus (`app/storage/savedHouses.ts`, `app/ui/SavedHouses.tsx`). De sparas i samma `ProjectStore` som det öppna huset, som har id `open` och inte står i listan. Samma namn (oavsett stora och små bokstäver) ersätter det sparade huset efter en bekräftelse. Att öppna ett sparat hus går att ångra. Varje sparat eller delat hus läses med `readStoredDesign` (migrering, domänens parametrar och en provräkning).
+- **Dela länk** i stället för fil (ägarens val, ingen nedladdning): hela huset står i adressen efter `#hus=1.` (`app/storage/houseLink.ts`), packat som korta listor där fält med standardvärdet tas bort (`compactDesign.ts`), komprimerat med `deflate-raw` och base64url. Ett hus med fönster, dörr, sektion, skorsten och takkupa blir cirka 370 tecken. I mobilen öppnas delningsmenyn, annars kopieras länken. En länk öppnas ovanpå det sparade huset, så att Ångra tar tillbaka det, och tas bort ur adressen. Ändras packningen höjs formatet (`1`).
+
 ## Ångra och Gör om
 
 - Knapparna Ångra och Gör om står bredvid Centrera i 3D-vyns hörn, med ikon och text som Centrera (`app/ui/HistoryButtons.tsx`). På dator ångrar Ctrl/Cmd+Z och Skift+Ctrl/Cmd+Z eller Ctrl+Y gör om, utom i ett textfält där webbläsaren ångrar det man skriver.

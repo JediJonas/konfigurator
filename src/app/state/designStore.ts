@@ -65,8 +65,13 @@ interface DesignState {
   removeChild: (instanceId: string) => void;
   /** Flyttar ett objekt längs sin kopplingspunkt till närmaste tillåtna snäppläge. */
   moveAlongSocket: (instanceId: string, u: number) => void;
+  /** Namnet huset senast sparades eller öppnades under; föreslås när man sparar igen. */
+  houseName?: string;
   /** Byter hela designen, t.ex. mot den som sparades senast. Historiken töms, eftersom det är ett annat hus. */
-  replaceDesign: (design: Design) => void;
+  replaceDesign: (design: Design, houseName?: string) => void;
+  /** Öppnar ett sparat hus eller ett från en länk. Går att ångra, så att huset som var öppet går att få tillbaka. */
+  openDesign: (design: Design, houseName?: string) => void;
+  setHouseName: (houseName: string) => void;
   /** Börjar om med domänens mall. Autosparet sparar mallen över det som var sparat. Går att ångra. */
   resetDesign: () => void;
   /** Tidigare och ångrade designer för Ångra och Gör om. */
@@ -139,8 +144,11 @@ export const useDesignStore = create<DesignState>((set) => ({
     })),
   moveAlongSocket: (instanceId, u) =>
     set((state) => changeDesign(state, snapAttachmentOffset(state.design, activeDomain, instanceId, u), `move:${instanceId}`)),
-  replaceDesign: (design) =>
-    set({ design, history: EMPTY_HISTORY, selectedSocket: undefined, focusedInstance: undefined, selectedGroupSocket: undefined }),
+  replaceDesign: (design, houseName) =>
+    set({ design, houseName, history: EMPTY_HISTORY, selectedSocket: undefined, focusedInstance: undefined, selectedGroupSocket: undefined }),
+  openDesign: (design, houseName) =>
+    set((state) => ({ ...changeDesign(state, design), houseName, selectedSocket: undefined, focusedInstance: undefined, selectedGroupSocket: undefined })),
+  setHouseName: (houseName) => set({ houseName }),
   resetDesign: () =>
     set((state) => ({ ...changeDesign(state, createStartDesign()), selectedSocket: undefined, focusedInstance: undefined, selectedGroupSocket: undefined })),
   undo: () => set((state) => showDesignFromHistory(state, undoChange(state.history, state.design))),

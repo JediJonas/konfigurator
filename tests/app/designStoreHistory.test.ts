@@ -61,4 +61,14 @@ describe('Ångra och Gör om i designStore', () => {
     store.getState().replaceDesign(store.getState().design);
     expect(store.getState().history.past).toHaveLength(0);
   });
+
+  it('kan ångra att ett sparat hus öppnas', () => {
+    const before = store.getState().design;
+    const other = { ...before, material: { ...before.material, thickness: 5 } };
+    store.getState().openDesign(other, 'Kyrkan');
+    expect(store.getState().design).toBe(other);
+    expect(store.getState().houseName).toBe('Kyrkan');
+    store.getState().undo();
+    expect(store.getState().design).toBe(before);
+  });
 });
