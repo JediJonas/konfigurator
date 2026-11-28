@@ -157,16 +157,16 @@ export function listPanes(size: OpeningSize, style: MullionStyle): Vec2[][] {
   const bar = MULLION_WIDTH_MM / 2;
   const left = -size.width / 2;
   const columnWidth = size.width / columns;
-  const rowHeight = heightAtCenter(size) / rows;
+  const edges = listRowEdges(size, style, bar);
   const top = size.bottom + size.height;
   const panes: Vec2[][] = [];
   for (let row = 0; row < rows; row++) {
     for (let column = 0; column < columns; column++) {
       const minX = left + column * columnWidth + (column > 0 ? bar : 0);
       const maxX = left + (column + 1) * columnWidth - (column < columns - 1 ? bar : 0);
-      const minY = size.bottom + row * rowHeight + (row > 0 ? bar : 0);
+      const minY = row > 0 ? size.bottom + edges[row - 1]! + bar : size.bottom;
       // Översta raden går upp till formens överkant, så att rutorna överst inte blir för små där den sluttar.
-      const maxY = row < rows - 1 ? size.bottom + (row + 1) * rowHeight - bar : top;
+      const maxY = row < rows - 1 ? size.bottom + edges[row]! - bar : top;
       const pane = clipByHalfPlanes(outline, [
         { normal: vec2(-1, 0), offset: -minX },
         { normal: vec2(1, 0), offset: maxX },
@@ -177,6 +177,19 @@ export function listPanes(size: OpeningSize, style: MullionStyle): Vec2[][] {
     }
   }
   return panes;
+}
+
+/**
+ * Höjden över underkanten till mitten av varje vågrät spröjs, nerifrån. Jämnt
+ * fördelat på mittlinjens höjd, utom för trekantigt med sex rutor (ägarens val):
+ * understa spröjsen ligger i mitten av underdelen, som med fyra rutor, och den
+ * ovanför så att understa och mellersta rutan blir lika höga mot den raka sidan.
+ */
+function listRowEdges(size: OpeningSize, style: MullionStyle, bar: Mm): Mm[] {
+  const { rows } = PANE_GRIDS[style as Exclude<MullionStyle, 'none'>];
+  const center = heightAtCenter(size);
+  if (size.shape === 'triangle' && style === 'six') return [center / 2, center + bar];
+  return Array.from({ length: rows - 1 }, (_, index) => ((index + 1) * center) / rows);
 }
 
 function isCuttable(pane: Vec2[]): boolean {

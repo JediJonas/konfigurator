@@ -127,11 +127,33 @@ describe('fönster', () => {
 
   it.each(['four', 'six'] as const)('rutorna delas från mittlinjen så att alla rader har samma höjd där (%s)', (style) => {
     for (const shape of ['slanted', 'triangle'] as const) {
+      // Trekantigt med sex rutor har egna lägen på spröjsen, se testet nedan.
+      if (shape === 'triangle' && style === 'six') continue;
       const size = { shape, width: 60, height: 90, bottom: 10 };
       const rows = style === 'six' ? 3 : 2;
       const rowHeight = heightAtCenter(size) / rows;
       const starts = Array.from({ length: rows }, (_, index) => 10 + index * rowHeight + (index > 0 ? 2.5 : 0));
       for (const pane of listPanes(size, style).map(boundsOf)) expect(starts.some((start) => Math.abs(start - pane.minY) < 1e-6)).toBe(true);
+    }
+  });
+
+  it('rutorna på snedskuret går ända upp till den sneda överkanten, utan band av vägg', () => {
+    const size = { shape: 'slanted' as const, width: 60, height: 90, bottom: 10 };
+    const [leftPane, rightPane] = listPanes(size, 'two').map(boundsOf).sort((a, b) => a.minX - b.minX);
+    expect(rightPane?.maxY).toBeCloseTo(100);
+    expect(leftPane?.maxY).toBeCloseTo(83.75);
+  });
+
+  it('trekantigt med sex rutor har understa och mellersta rutan lika höga mot den raka sidan', () => {
+    for (const isInverted of [false, true]) {
+      const size = { shape: 'triangle' as const, width: 60, height: 90, bottom: 10, isInverted };
+      const sideX = isInverted ? -30 : 30;
+      const panes = listPanes(size, 'six').filter((pane) => pane.some((point) => Math.abs(point.x - sideX) < 1e-6));
+      const heights = panes.map((pane) => pane.filter((point) => Math.abs(point.x - sideX) < 1e-6).map((point) => point.y)).map((ys) => [Math.min(...ys), Math.max(...ys)]).sort((a, b) => a[0]! - b[0]!);
+      expect(heights[0]![0]).toBeCloseTo(10);
+      // Understa spröjsen ligger en fjärdedel från botten, som med fyra rutor.
+      expect(heights[0]![1]! + 2.5).toBeCloseTo(10 + 90 / 4);
+      expect(heights[0]![1]! - heights[0]![0]!).toBeCloseTo(heights[1]![1]! - heights[1]![0]!);
     }
   });
 
