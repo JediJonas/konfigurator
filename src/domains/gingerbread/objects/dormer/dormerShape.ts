@@ -1,11 +1,12 @@
 import type { Matrix4 } from '../../../../core/geometry/matrix';
-import { basisMatrix, translationMatrix } from '../../../../core/geometry/matrix';
+import { translationMatrix } from '../../../../core/geometry/matrix';
 import type { Mm, Vec3 } from '../../../../core/geometry/vector';
-import { degreesToRadians, vec3 } from '../../../../core/geometry/vector';
+import { vec3 } from '../../../../core/geometry/vector';
 import type { BuildContext } from '../../../../core/model/objectType';
 import type { RoofContext } from '../roof/roofLayout';
 import type { SectionParams } from '../sectionParams';
 import { sectionParams } from '../sectionParams';
+import { measureHostPitch, uprightOnRoofMatrix } from '../roofMount';
 import { wallSupport } from '../sectionWalls';
 import type { DormerParams } from './dormerParams';
 
@@ -22,8 +23,6 @@ const PROVISIONAL_DEPTH_MM = 100;
 const MAX_REACH_MM = 1000;
 /** Kupans tak måste närma sig husets takyta minst så här mycket per mm uppför den för att mötas. */
 const MIN_CLOSING = 1e-3;
-/** Husets taklutning när kupan ännu inte sitter på något tak, t.ex. i tester. */
-const FALLBACK_PITCH_DEGREES = 45;
 /** Så mycket av husets takfall som står kvar innanför kupans väggar runt hålet, som för en tillbyggnad. */
 export const DORMER_HOLE_INSET_MM = 10;
 /** Så mycket helt tak som behövs runt kupan, mot takets kanter, nocken och andra kupor (som för fönster). */
@@ -76,21 +75,9 @@ function shapeWithDepth(params: DormerParams, hostPitch: number, roofContext: Ro
   return { section, sectionToDormer: translationMatrix(vec3(0, -WALL_DROP_MM, -depth / 2)), roofContext, hostPitch };
 }
 
-/** Lutningen på takfallet kupan sitter på, ur kopplingspunktens normal. */
-function measureHostPitch(context: BuildContext): number {
-  const normal = context.socket?.frame.normal;
-  if (!normal) return degreesToRadians(FALLBACK_PITCH_DEGREES);
-  return Math.acos(Math.min(1, Math.max(-1, normal.y / Math.hypot(normal.x, normal.y, normal.z))));
-}
-
-/**
- * Kupan står upprätt på det lutande takfallet: eget x längs −u, y uppåt och z
- * utåt, med origo `eaveDistance` uppför takfallet från takfoten.
- */
+/** Kupan står upprätt på det lutande takfallet, med origo `eaveDistance` uppför takfallet från takfoten. */
 export function dormerMountMatrix(params: DormerParams, context: BuildContext): Matrix4 {
-  const pitch = measureHostPitch(context);
-  const [cos, sin] = [Math.cos(pitch), Math.sin(pitch)];
-  return basisMatrix(vec3(-1, 0, 0), vec3(0, cos, sin), vec3(0, sin, -cos), vec3(0, 0, params.eaveDistance));
+  return uprightOnRoofMatrix(params.eaveDistance, context);
 }
 
 /** En punkt på husets takyta, `alongSlope` uppför den från framväggens utsida. */

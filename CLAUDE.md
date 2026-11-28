@@ -94,6 +94,13 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 - Panelen: under Tak står kuporna och en knapp per takfall, och i en kupa dess fönster och + Fönster (`isShownUnderParent`: ett objekt i en fältgrupp visas under föräldern fast det bär något; ett öppet fönster i kupan håller kupan och Tak utfällda, `listOpenChain`). Knappen per takfall: "+ Takkupa · takfall mot vägg 2". Fältet heter "Läge längs taket" (domänens text `offset.roof-surface`).
 - Ritningen ger en smal del lika mycket plats som etiketten (`measureLabelWidth`), så att namnen på små delar inte går in i varandra.
 
+## Skorsten
+
+- Skorstenen (`gb.chimney`, `objects/chimney/`) står upprätt på ett takfall (`roof-surface`), som takkupan (`objects/roofMount.ts`). Fyra sidor: sidorna har nederkanten snedskuren mot takplanet (SPEC avsnitt 8) och går hela vägen ut; fram- och baksidan står mellan dem. Varje sida når ner till takytan vid sin nedre yta, så att ingen glipa syns. Den tar inget hål i taket.
+- Mått: Avstånd från takfoten (längs lutningen till framsidans utsida), Bredd (längs takfoten), Djup (vågrätt in mot nocken) och Höjd över taket, mätt på baksidan där taket är högst, så att varje höjd går att bygga. Måtten ärvs från förra skorstenen på huset.
+- Regler: 5 mm helt tak runt sig (`CHIMNEY_MARGIN_MM`), under nocken och inte på samma yta som en kupa (`onSolidPart`). Ett annat objekts delar som går in i skorstenen, t.ex. en kupas takutsprång, är ett fel (`rule.chimneyMeetsRoof`, `interactions/chimneys.ts`).
+- Förslaget ställer baksidan strax nedanför nocken. Panelen visar skorstenarna under Tak, med knappen "+ Skorsten · takfall mot vägg 2". Texten när inget ryms kan anges per objekttyp (`cannotAdd.gb.chimney`) före sorten av kopplingspunkt.
+
 ## 3D-vyn
 
 - Huset med alla tillbyggnader, sektioner och takutsprång står alltid mitt på fatet (ägarens önskan). 3D-vyn flyttar delarna så att mitten av rutan runt dem sett uppifrån hamnar i fatets mitt (`app/three/plateCentering.ts`). Ritningen och regelkontrollen räknar som förut; bara vyn flyttar.

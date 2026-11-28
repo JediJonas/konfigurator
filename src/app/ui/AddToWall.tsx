@@ -52,16 +52,16 @@ export function AddToWall({ entry, wall, placeLabel }: AddToWallProps) {
       </div>
       {blocked.map(({ objectType, blockingMessage }) => (
         <p key={objectType.id} className="field-hint" id={`${idPrefix}-${objectType.id}`}>
-          {placeLabel ? uiStrings.objectAt(translate(objectType.labelKey), placeLabel) : translate(objectType.labelKey)}: {blockingMessage ?? noRoomMessage(wall)}
+          {placeLabel ? uiStrings.objectAt(translate(objectType.labelKey), placeLabel) : translate(objectType.labelKey)}: {blockingMessage ?? noRoomMessage(wall, objectType.id)}
         </p>
       ))}
     </div>
   );
 }
 
-/** Varför inget ryms, med domänens egen text för sorten av kopplingspunkt när den finns, t.ex. ett takfall. */
-function noRoomMessage(wall: Socket): string {
-  return activeDomain.strings[`cannotAdd.${wall.kind}`] ?? uiStrings.cannotAdd;
+/** Varför inget ryms, med domänens egen text för objekttypen eller sorten av kopplingspunkt när den finns, t.ex. en skorsten eller ett takfall. */
+function noRoomMessage(wall: Socket, objectTypeId: string): string {
+  return activeDomain.strings[`cannotAdd.${objectTypeId}`] ?? activeDomain.strings[`cannotAdd.${wall.kind}`] ?? uiStrings.cannotAdd;
 }
 
 /** Domänen kan ge en egen text, t.ex. "Lägg till sektion". */
