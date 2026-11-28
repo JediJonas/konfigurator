@@ -3,7 +3,8 @@ import type { Page } from '@playwright/test';
 
 /** Så länge mellan två bilder av 3D-vyn när man väntar på att kameran står still. */
 const VIEW_SETTLE_INTERVAL_MS = 300;
-const VIEW_SETTLE_TIMEOUT_MS = 10_000;
+/** I CI ritar mjukvaran långsamt, så en bild kan ta flera sekunder. */
+const VIEW_SETTLE_TIMEOUT_MS = 25_000;
 /** Så många lika bilder i rad krävs, så att en kamera som glider långsamt inte räknas som stilla. */
 const VIEW_SETTLE_STILL_COUNT = 3;
 

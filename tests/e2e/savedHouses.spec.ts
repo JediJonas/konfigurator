@@ -79,6 +79,7 @@ test('ställer in kameran på huset när ett sparat hus öppnas', async ({ page 
 });
 
 test('öppnar ett sparat hus med vinkeln det sparades med', async ({ page }) => {
+  test.slow();
   await page.setViewportSize({ width: 1000, height: 700 });
   await page.goto('/');
   await waitForViewToSettle(page);
@@ -107,6 +108,7 @@ test('öppnar ett sparat hus med vinkeln det sparades med', async ({ page }) => 
 });
 
 test('öppnar en delad länk med vinkeln den delades med', async ({ browser }) => {
+  test.slow();
   const context = await browser.newContext({ viewport: { width: 1000, height: 700 }, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await context.newPage();
   await page.goto('/');
