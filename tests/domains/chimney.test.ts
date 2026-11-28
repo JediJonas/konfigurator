@@ -181,11 +181,11 @@ describe('skorsten mot väggen', () => {
     expect(findChimney(up)?.attachment?.socketId).toBe('roof-right');
   });
 
-  it('läggs till mot väggen när man trycker på knappen under väggen', () => {
-    const added = addProposedChild(designWithExtensions(), gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: 'gb.chimney' });
-    expect(findChimney(added)?.attachment?.socketId).toBe('side-right');
-    expect(findChimney(added)?.params.eaveDistance).toBe(0);
-    expect(evaluateDesign(added, gingerbreadDomain, keyAsLabel).violations.filter((violation) => violation.level === 'error')).toEqual([]);
+  it('går att läsa från ett sparat hus där den står mot gaveln, fast den bara läggs till från taket', () => {
+    const saved = designWithExtensions(chimneyOn('gable-front', { eaveDistance: 0 }));
+    expect(buildParts(saved, gingerbreadDomain).filter((part) => part.sourceInstanceId === 'SK1')).toHaveLength(4);
+    expect(errorKeys(saved)).toEqual([]);
+    expect(gingerbreadDomain.objectTypes.find((type) => type.id === 'gb.chimney')?.addsTo).toEqual(['roof-surface']);
   });
 });
 

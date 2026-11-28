@@ -91,6 +91,11 @@ export interface ObjectType<P = Record<string, unknown>> {
   instanceIdPrefix: string;
   /** Kopplingstyper som detta objekt kan fästa i. Tom för roten. */
   attachesTo: SocketKind[];
+  /**
+   * Kopplingstyperna där ett nytt objekt kan läggas till, t.ex. med en knapp i
+   * panelen. Det kan sedan flyttas till de andra i `attachesTo`. Saknas den gäller `attachesTo`.
+   */
+  addsTo?: SocketKind[];
   sockets(instance: Instance, params: P, context: BuildContext): Socket[];
   /** Delar i objektets eget koordinatsystem; flödet lägger på placeringen. */
   parts(instance: Instance, params: P, context: BuildContext): Part[];
