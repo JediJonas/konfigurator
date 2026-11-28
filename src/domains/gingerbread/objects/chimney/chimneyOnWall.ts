@@ -14,11 +14,17 @@ const UP = vec3(0, 1, 0);
  * En skorsten mot en vägg står på fatet med baksidan mot väggens utsida och
  * går upp förbi takutsprånget, som en utvändig skorsten. Egna koordinater: x
  * längs väggen (åt höger sett utifrån), y uppåt och z utåt från väggen, med
- * origo på väggens utsida vid fatet. Den kan flyttas längs väggen så länge
- * den har minst en tjocklek kontakt med den, som en sektion bredvid.
+ * origo på väggens utsida vid fatet. Den kan flyttas längs väggen men inte
+ * förbi hörnen (ägarens val, `wallChimneyBase`).
  */
 export function wallChimneyMountMatrix(): Matrix4 {
   return basisMatrix(vec3(-1, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0), vec3(0, 0, 0));
+}
+
+/** Skorstenens fot längs väggen, som ska rymmas inom väggen från hörn till hörn (regeln `withinSocketBounds`). */
+export function wallChimneyBase(params: ChimneyParams): Vec3[] {
+  const half = params.width / 2;
+  return [vec3(-half, 0, 0), vec3(half, 0, 0)];
 }
 
 /** Sidorna går hela vägen ut och fram- och baksidan står mellan dem, som på taket. */

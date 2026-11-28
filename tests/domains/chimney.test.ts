@@ -109,6 +109,19 @@ describe('skorstenens regler', () => {
   });
 });
 
+describe('skorsten på takutsprånget', () => {
+  it('står bara ovanför väggarna, inte på takutsprånget vid takfoten', () => {
+    expect(errorKeys(designWithExtensions(chimneyOn('roof-right', { eaveDistance: 5 })))).toEqual(['rule.chimneyOverWalls']);
+    expect(errorKeys(designWithExtensions(chimneyOn('roof-right', { eaveDistance: 30 })))).toEqual([]);
+  });
+
+  it('får inte flyttas ut på takutsprånget vid gaveln', () => {
+    // Huset är 180 mm långt; skorstenen är 25 mm bred.
+    expect(errorKeys(designWithExtensions(chimneyOn('roof-right', {}, 75)))).toEqual([]);
+    expect(errorKeys(designWithExtensions(chimneyOn('roof-right', {}, 80)))).toEqual(['rule.chimneyOverWalls']);
+  });
+});
+
 describe('ny skorsten', () => {
   it('föreslås högt upp på takfallet och klarar reglerna', () => {
     const design = addProposedChild(designWithExtensions(), gingerbreadDomain, { parentId: 'S1', socketId: 'roof-right', objectTypeId: 'gb.chimney' });
@@ -149,10 +162,10 @@ describe('skorsten mot väggen', () => {
     expect(errorKeys(design)).toEqual([]);
   });
 
-  it('får flyttas förbi hörnet så länge den har kontakt med väggen', () => {
-    // Långväggen är 180 mm; skorstenen är 20 mm bred och långväggen står mellan gavlarna.
-    expect(errorKeys(designWithExtensions(onWall({ width: 20 }, 90)))).toEqual([]);
-    expect(errorKeys(designWithExtensions(onWall({ width: 20 }, 105)))).toContain('rule.chimneyOnRoof');
+  it('får flyttas längs väggen men inte förbi hörnet', () => {
+    // Långväggen är 180 mm från hörn till hörn; skorstenen är 20 mm bred.
+    expect(errorKeys(designWithExtensions(onWall({ width: 20 }, 80)))).toEqual([]);
+    expect(errorKeys(designWithExtensions(onWall({ width: 20 }, 85)))).toContain('rule.chimneyWithinWall');
   });
 
   it('får inte täcka ett fönster', () => {
