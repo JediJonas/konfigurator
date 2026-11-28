@@ -139,7 +139,7 @@ describe('fönster', () => {
     const size = { shape: 'slanted' as const, width: 60, height: 90, bottom: 10 };
     const [leftPane, rightPane] = listPanes(size, 'two').map(boundsOf).sort((a, b) => a.minX - b.minX);
     expect(rightPane?.maxY).toBeCloseTo(100);
-    expect(leftPane?.maxY).toBeCloseTo(openingOutline(size)[3]!.y);
+    expect(leftPane?.maxY).toBeCloseTo(83.75);
   });
 
   it('heightAtCenter är hälften för trekantigt och mellan sidorna för snedskuret', () => {
