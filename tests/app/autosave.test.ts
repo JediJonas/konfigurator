@@ -1,22 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AUTOSAVE_DELAY_MS, createAutosave, loadSavedDesign, OPEN_PROJECT_ID } from '../../src/app/storage/autosave';
-import type { KeyValueStorage } from '../../src/app/storage/localProjectStore';
 import { createLocalProjectStore } from '../../src/app/storage/localProjectStore';
+import { createMemoryStorage } from './memoryStorage';
+import { saveHouse } from '../../src/app/storage/savedHouses';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { simpleHousePreset } from '../../src/domains/gingerbread/presets/simpleHouse';
-
-function createMemoryStorage(): KeyValueStorage {
-  const values = new Map<string, string>();
-  return {
-    get length() {
-      return values.size;
-    },
-    key: (index) => [...values.keys()][index] ?? null,
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => void values.set(key, value),
-    removeItem: (key) => void values.delete(key),
-  };
-}
 
 function houseWithWiderSection() {
   const design = simpleHousePreset.create();
@@ -30,22 +18,22 @@ describe('autospar', () => {
     vi.useFakeTimers();
     const storage = createMemoryStorage();
     const store = createLocalProjectStore(storage);
-    const autosave = createAutosave(store, 'Mitt hus', () => new Date('2026-11-27T10:00:00Z'));
-    autosave.schedule(simpleHousePreset.create());
-    autosave.schedule(houseWithWiderSection());
+    const autosave = createAutosave(store, () => new Date('2026-11-27T10:00:00Z'));
+    autosave.schedule({ design: simpleHousePreset.create(), name: '' });
+    autosave.schedule({ design: houseWithWiderSection(), name: 'Mitt hus' });
     expect(await store.list()).toEqual([]);
     vi.advanceTimersByTime(AUTOSAVE_DELAY_MS);
     vi.useRealTimers();
     expect(await store.list()).toEqual([{ id: OPEN_PROJECT_ID, name: 'Mitt hus', domain: 'gingerbread', thumbnail: undefined, updatedAt: '2026-11-27T10:00:00.000Z' }]);
-    expect(await loadSavedDesign(store, gingerbreadDomain)).toEqual(houseWithWiderSection());
+    expect(await loadSavedDesign(store, gingerbreadDomain)).toEqual({ design: houseWithWiderSection(), name: 'Mitt hus' });
   });
 
   it('sparar direkt när sidan göms', async () => {
     const store = createLocalProjectStore(createMemoryStorage());
-    const autosave = createAutosave(store, 'Mitt hus');
-    autosave.schedule(houseWithWiderSection());
+    const autosave = createAutosave(store);
+    autosave.schedule({ design: houseWithWiderSection(), name: 'Mitt hus' });
     autosave.flush();
-    expect(await loadSavedDesign(store, gingerbreadDomain)).toEqual(houseWithWiderSection());
+    expect(await loadSavedDesign(store, gingerbreadDomain)).toEqual({ design: houseWithWiderSection(), name: 'Mitt hus' });
   });
 
   it('börjar med mallen när det sparade inte går att öppna', async () => {
@@ -58,5 +46,14 @@ describe('autospar', () => {
     if (broken.root.children[0]) broken.root.children[0].params = { width: 'bred' };
     await store.save({ id: OPEN_PROJECT_ID, name: 'Mitt hus', domain: 'gingerbread', updatedAt: '2026-11-27T10:00:00Z', design: broken });
     expect(await loadSavedDesign(store, gingerbreadDomain)).toBeUndefined();
+  });
+
+  it('öppnar det öppna huset, inte det senast sparade under ett namn', async () => {
+    const store = createLocalProjectStore(createMemoryStorage());
+    const autosave = createAutosave(store, () => new Date('2026-11-27T10:00:00Z'));
+    autosave.schedule({ design: houseWithWiderSection(), name: '' });
+    autosave.flush();
+    await saveHouse(store, 'Kyrkan', simpleHousePreset.create(), new Date('2026-11-28T10:00:00Z'));
+    expect(await loadSavedDesign(store, gingerbreadDomain)).toEqual({ design: houseWithWiderSection(), name: '' });
   });
 });

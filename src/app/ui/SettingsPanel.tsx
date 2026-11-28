@@ -20,6 +20,9 @@ import { scrollHeadingToTop } from './scrollToHeading';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { FocusedInstance, SocketRef } from '../state/designStore';
 import { StartOver } from './StartOver';
+import { HouseNotice } from './HouseNotice';
+import { SavedHouses } from './SavedHouses';
+import { useHouseNotice } from '../state/houseNotice';
 import { NumberInput } from './NumberInput';
 import { uiStrings } from './strings.sv';
 
@@ -33,7 +36,8 @@ const THICKNESS_FIELD = { kind: 'number', key: 'thickness', meta: { labelKey: 't
 
 export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPanelProps) {
   const { design, paper, setThickness, setPaper, selectSocket, selectedSocket, focusedInstance, focusInstance, setOpenInstanceId } = useDesignStore();
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Öppnades appen med en länk fälls arket upp, så att meddelandet om huset syns i mobilen.
+  const [isExpanded, setIsExpanded] = useState(() => useHouseNotice.getState().notice !== undefined);
   const [pdfState, setPdfState] = useState<'idle' | 'working' | 'failed'>('idle');
   const contentId = useId();
   const thicknessId = useId();
@@ -128,6 +132,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
         {isExpanded ? uiStrings.hideConfiguration : uiStrings.showConfiguration}
       </button>
       <div className="panel-content" id={contentId} ref={contentRef}>
+        <HouseNotice />
         {panelEntries.map(({ entry, nested }) => {
           const isOpen = openInstance.isOpen(entry.instance.id) || nested.some((child) => openInstance.isOpen(child.instance.id));
           const shownIds = new Set([entry.instance.id, ...nested.map((child) => child.instance.id)]);
@@ -154,6 +159,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
             />
           );
         })}
+        <SavedHouses />
         {/* Ändras sällan, så sektionen är hopfälld från början som takets grupp. */}
         <section className="panel-section">
           <FieldGroup label={uiStrings.settings} headingLevel={2}>

@@ -518,3 +518,87 @@ body {
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+
+/* Mina hus: namn och Spara på en rad, och de sparade husen i en lista. */
+.save-house,
+.share-house {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.save-house-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.save-house-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.save-house .field-hint:empty,
+.share-house .field-hint:empty,
+.param-form > .field-hint[role='status']:empty {
+  display: none;
+}
+
+.saved-houses {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.saved-house {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.625rem;
+}
+
+.saved-house-heading {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.saved-house-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.saved-house-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.saved-house-actions .confirm-action {
+  flex-basis: 100%;
+}
+
+.share-house-button {
+  justify-self: start;
+}
+
+.house-notice {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.625rem;
+}
+
+.house-notice p {
+  margin: 0;
+}
+
+.house-notice-error {
+  border-color: var(--color-error);
+}
+
+.house-notice .secondary-button {
+  justify-self: start;
+}

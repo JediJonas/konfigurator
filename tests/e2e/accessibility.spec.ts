@@ -22,6 +22,20 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
     expect(await listAxeViolations(page)).toEqual([]);
   });
+
+  test(`uppfyller WCAG 2.2 AA med Mina hus öppen i ${colorScheme === 'light' ? 'ljust' : 'mörkt'} läge`, async ({ browser }) => {
+    const context = await browser.newContext({ colorScheme, permissions: ['clipboard-read', 'clipboard-write'] });
+    const page = await context.newPage();
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Mina hus', exact: true }).click();
+    await page.getByLabel('Namn', { exact: true }).fill('Kyrkan');
+    await page.getByRole('button', { name: 'Spara', exact: true }).click();
+    await page.getByRole('button', { name: 'Byt namn på Kyrkan' }).click();
+    await page.getByRole('button', { name: 'Dela länk' }).click();
+    await expect(page.getByLabel('Länk till huset')).toBeVisible();
+    expect(await listAxeViolations(page)).toEqual([]);
+    await context.close();
+  });
 }
 
 /** Felen enligt axe. Elementen står med i felet, så att ett fel i CI går att spåra utan att köra om. */

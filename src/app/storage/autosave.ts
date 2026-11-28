@@ -1,53 +1,55 @@
 import type { Design } from '../../core/model/design';
 import type { Domain } from '../../core/model/domain';
-import { migrateDesign } from '../../core/model/migrateDesign';
-import { evaluateDesign } from '../../core/rules/evaluateDesign';
 import type { ProjectStore } from './projectStore';
+import { readStoredDesign } from './storedDesign';
 
-/** Det öppna projektet sparas under det här id:t tills man kan ha flera projekt. */
+/** Det öppna huset sparas av sig självt under det här id:t, skilt från husen man sparar under ett namn. */
 export const OPEN_PROJECT_ID = 'open';
 /** Så länge efter senaste ändringen som projektet sparas, så att varje steg i ett fält inte sparas för sig. */
 export const AUTOSAVE_DELAY_MS = 400;
 
+/** Det öppna huset och namnet det senast sparades eller öppnades under. */
+export interface OpenHouse {
+  design: Design;
+  name: string;
+}
+
 /**
- * Senast sparade designen för domänen, om den går att öppna. En design som
+ * Det öppna huset från förra gången, om det går att öppna. En design som
  * inte går att migrera eller räkna, t.ex. efter en ändring i appen, hoppas över
  * så att appen startar med mallen i stället för att fastna.
  */
-export async function loadSavedDesign(store: ProjectStore, domain: Domain): Promise<Design | undefined> {
+export async function loadSavedDesign(store: ProjectStore, domain: Domain): Promise<OpenHouse | undefined> {
   try {
-    const latest = (await store.list()).find((meta) => meta.domain === domain.id);
-    if (!latest) return undefined;
-    const stored = migrateDesign((await store.load(latest.id)).design);
-    const design = domain.migrateParams?.(stored) ?? stored;
-    evaluateDesign(design, domain, (key) => key);
-    return design;
+    const project = await store.load(OPEN_PROJECT_ID);
+    if (project.domain !== domain.id) return undefined;
+    return { design: readStoredDesign(project.design, domain), name: project.name };
   } catch {
     return undefined;
   }
 }
 
 export interface Autosave {
-  /** Sparar designen när den inte har ändrats på `AUTOSAVE_DELAY_MS`. */
-  schedule(design: Design): void;
+  /** Sparar huset när det inte har ändrats på `AUTOSAVE_DELAY_MS`. */
+  schedule(house: OpenHouse): void;
   /** Sparar det som väntar direkt, t.ex. när sidan göms. */
   flush(): void;
 }
 
-export function createAutosave(store: ProjectStore, name: string, now: () => Date = () => new Date()): Autosave {
-  let pending: Design | undefined;
+export function createAutosave(store: ProjectStore, now: () => Date = () => new Date()): Autosave {
+  let pending: OpenHouse | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const flush = () => {
     if (timer) clearTimeout(timer);
     timer = undefined;
-    const design = pending;
+    const house = pending;
     pending = undefined;
     // Går det inte att spara, t.ex. i privat läge, fortsätter appen utan.
-    if (design) void store.save({ id: OPEN_PROJECT_ID, name, domain: design.domain, updatedAt: now().toISOString(), design }).catch(() => undefined);
+    if (house) void store.save({ id: OPEN_PROJECT_ID, name: house.name, domain: house.design.domain, updatedAt: now().toISOString(), design: house.design }).catch(() => undefined);
   };
   return {
-    schedule: (design) => {
-      pending = design;
+    schedule: (house) => {
+      pending = house;
       if (timer) clearTimeout(timer);
       timer = setTimeout(flush, AUTOSAVE_DELAY_MS);
     },
