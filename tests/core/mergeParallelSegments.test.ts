@@ -25,6 +25,21 @@ describe('skarvar', () => {
     expect(lines[0]).toHaveLength(3);
   });
 
+  it('låter en rak kant behålla sin riktning när dess ände fogas till andra kanter', () => {
+    // Hörnkanten står lodrätt; takets hörn ligger 1,7 mm vid sidan. Kanten förlängs längs sig själv och blir inte sned.
+    const corner = [vec3(0, 0, 0), vec3(0, 100, 0)];
+    const eaves = [[vec3(1.2, 102, -3), vec3(1.2, 102, 40)], [vec3(1.2, 102, -3), vec3(40, 102, -3)]];
+    const lines = joinEdgeLines([corner, ...eaves], MERGE_DISTANCE_MM);
+    const cornerLine = lines.find((line) => line.some((point) => point.x === 0 && point.z === 0));
+    expect(cornerLine?.every((point) => point.x === 0 && point.z === 0)).toBe(true);
+  });
+
+  it('möts i skärningspunkten där två raka kanter korsar varandra', () => {
+    const lines = joinEdgeLines([[vec3(0, 0, 0), vec3(10, 0, 0)], [vec3(12, 2, 0), vec3(12, 10, 0)]], MERGE_DISTANCE_MM);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContainEqual(vec3(12, 0, 0));
+  });
+
   it('drar inte ihop korta bitar längs en båge till en klump', () => {
     // Fem korta bitar med små glapp: varje glapp fogas för sig.
     const pieces = Array.from({ length: 5 }, (_, index) => [vec3(index * 3, 0, 0), vec3(index * 3 + 2.5, 0, 0)]);

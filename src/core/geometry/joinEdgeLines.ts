@@ -3,8 +3,12 @@ import { length3, subtract3 } from './vector';
 
 /** Ändar närmare än så här är samma punkt, t.ex. två kanter i hörnet på samma del. */
 const SAME_POINT_MM = 0.5;
-/** En ände flyttas inte till en annan linje om kanten då lutar mer än så här, så att t.ex. ett hörn inte blir snett mot takutsprånget. */
-const MAX_TILT_DEGREES = 1.5;
+/** Två punkter närmare än så här räknas som samma när en kedja sätts ihop. */
+const IDENTICAL_POINT_MM = 1e-6;
+/** Två raka kanter möts där deras linjer kommer närmast, om ändarna då flyttas högst så här mycket. */
+const MAX_MEETING_SHIFT_MM = 10;
+/** Två raka kanter räknas som skärande om linjerna går så här nära varandra, t.ex. två kanter i ett hörn. */
+const CROSSING_TOLERANCE_MM = 0.5;
 
 interface LineEnd {
   lineIndex: number;
@@ -16,8 +20,11 @@ interface LineEnd {
  * Fogar ihop linjer som möts. Först slås ändar som sammanfaller ihop, sedan
  * fria ändar närmare än `joinDistance`, t.ex. där två takfall möts i nocken.
  * Ändarna flyttas till mitten av sin grupp, och där precis två linjer möts
- * blir de en linje, så att randen går obruten runt hörnet. En linje som går
- * runt och möter sig själv slutar i samma punkt som den börjar.
+ * blir de en linje, så att randen går obruten runt hörnet. En rak kant
+ * behåller alltid sin riktning (ägarens önskan): dess ände flyttas bara
+ * längs kanten, så att t.ex. ett hörn inte blir snett för att takets hörn
+ * ligger en bit vid sidan. En linje som går runt och möter sig själv slutar i
+ * samma punkt som den börjar.
  */
 export function joinEdgeLines(lines: readonly Vec3[][], joinDistance: Mm): Vec3[][] {
   const usable = lines.filter((line) => line.length >= 2).map((line) => [...line]);
@@ -30,9 +37,11 @@ export function joinEdgeLines(lines: readonly Vec3[][], joinDistance: Mm): Vec3[
   const groups = [...exact.filter((group) => group.length > 1), ...clusterEnds(free, joinDistance)];
   for (const group of groups) {
     const center = averageOf(group.map((end) => end.point));
+    const target = findStraightMeetingPoint(group, usable) ?? center;
     for (const end of group) {
       const line = usable[end.lineIndex] as Vec3[];
-      line[end.isStart ? 0 : line.length - 1] = center;
+      const endIndex = end.isStart ? 0 : line.length - 1;
+      line[endIndex] = line.length === 2 ? moveAlongLine(line[end.isStart ? 1 : 0] as Vec3, end.point, target) : target;
     }
   }
   const chains = chainLines(usable, groups);
@@ -60,16 +69,60 @@ function snapLooseEnds(chains: Vec3[][], distance: Mm): void {
         }
       });
       const neighbor = chain[endIndex === 0 ? 1 : chain.length - 2] as Vec3;
-      if (nearest && nearest.gap > SAME_POINT_MM && !isTilted(neighbor, end, nearest.point)) chain[endIndex] = nearest.point;
+      if (nearest && nearest.gap > SAME_POINT_MM) chain[endIndex] = moveAlongLine(neighbor, end, nearest.point);
     }
   });
 }
 
-/** Sant när kanten från grannpunkten lutar mer än tillåtet om änden flyttas från `from` till `to`. */
-function isTilted(neighbor: Vec3, from: Vec3, to: Vec3): boolean {
-  const [before, after] = [subtract3(from, neighbor), subtract3(to, neighbor)];
-  const cosine = (before.x * after.x + before.y * after.y + before.z * after.z) / ((length3(before) * length3(after)) || 1);
-  return Math.acos(Math.min(1, cosine)) > (MAX_TILT_DEGREES * Math.PI) / 180;
+/**
+ * Där raka kanter möts är mötespunkten där två av dem skär varandra, så att
+ * kanterna behåller sin riktning och ändå möts i hörnet. Skär flera par
+ * varandra väljs paret vars ändar flyttas minst. Ger inget om inget par skär
+ * varandra, t.ex. om någon kant är en kurva eller alla är parallella.
+ */
+function findStraightMeetingPoint(group: readonly LineEnd[], lines: readonly Vec3[][]): Vec3 | undefined {
+  let best: { point: Vec3; shift: Mm } | undefined;
+  group.forEach((first, index) => {
+    for (const second of group.slice(index + 1)) {
+      const point = findCrossingPoint(lines[first.lineIndex] as Vec3[], lines[second.lineIndex] as Vec3[]);
+      if (!point) continue;
+      const shift = Math.max(length3(subtract3(point, first.point)), length3(subtract3(point, second.point)));
+      if (shift <= MAX_MEETING_SHIFT_MM && (!best || shift < best.shift)) best = { point, shift };
+    }
+  });
+  return best?.point;
+}
+
+/** Punkten där två raka kanters linjer skär varandra, om de gör det (på högst `CROSSING_TOLERANCE_MM` när). */
+function findCrossingPoint(lineA: readonly Vec3[], lineB: readonly Vec3[]): Vec3 | undefined {
+  if (lineA.length !== 2 || lineB.length !== 2) return undefined;
+  const [a0, a1, b0, b1] = [lineA[0] as Vec3, lineA[1] as Vec3, lineB[0] as Vec3, lineB[1] as Vec3];
+  const [d1, d2, r] = [subtract3(a1, a0), subtract3(b1, b0), subtract3(a0, b0)];
+  const dot = (p: Vec3, q: Vec3) => p.x * q.x + p.y * q.y + p.z * q.z;
+  const [a, b, c, d, e] = [dot(d1, d1), dot(d1, d2), dot(d2, d2), dot(d1, r), dot(d2, r)];
+  const denominator = a * c - b * b;
+  if (a === 0 || c === 0 || denominator < 0.01 * a * c) return undefined;
+  const [s, t] = [(b * e - c * d) / denominator, (a * e - b * d) / denominator];
+  const onA = { x: a0.x + d1.x * s, y: a0.y + d1.y * s, z: a0.z + d1.z * s };
+  const onB = { x: b0.x + d2.x * t, y: b0.y + d2.y * t, z: b0.z + d2.z * t };
+  if (length3(subtract3(onA, onB)) > CROSSING_TOLERANCE_MM) return undefined;
+  // Skär linjerna varandra är det samma punkt, som får exakt samma värden så att en sluten linje stänger.
+  return { x: (onA.x + onB.x) / 2, y: (onA.y + onB.y) / 2, z: (onA.z + onB.z) / 2 };
+}
+
+/**
+ * Flyttar änden `end` av kanten från `neighbor` så nära `target` som möjligt
+ * utan att kanten byter riktning: bara längs kanten, och aldrig förbi grannen.
+ */
+function moveAlongLine(neighbor: Vec3, end: Vec3, target: Vec3): Vec3 {
+  const direction = subtract3(end, neighbor);
+  const lengthSquared = direction.x * direction.x + direction.y * direction.y + direction.z * direction.z;
+  if (lengthSquared === 0) return end;
+  const offset = subtract3(target, neighbor);
+  const t = Math.max(0.1, (offset.x * direction.x + offset.y * direction.y + offset.z * direction.z) / lengthSquared);
+  const moved = { x: neighbor.x + direction.x * t, y: neighbor.y + direction.y * t, z: neighbor.z + direction.z * t };
+  // Ligger målet redan på kanten används det som det är, så att en sluten linje fortfarande slutar där den börjar.
+  return length3(subtract3(moved, target)) < IDENTICAL_POINT_MM ? target : moved;
 }
 
 function closestPointOnSegment(point: Vec3, start: Vec3, end: Vec3): Vec3 {
@@ -152,7 +205,10 @@ function chainLines(lines: readonly Vec3[][], groups: readonly LineEnd[][]): Vec
     while (tail && !isUsed[tail.lineIndex]) {
       isUsed[tail.lineIndex] = true;
       const next = lines[tail.lineIndex] as Vec3[];
-      chain.push(...(tail.isStart ? next : [...next].reverse()).slice(1));
+      const continuation = tail.isStart ? next : [...next].reverse();
+      // Ändarna som möts kan ligga en aning isär när kanterna behåller sin riktning; då behålls båda punkterna.
+      const isSamePoint = length3(subtract3(continuation[0] as Vec3, chain[chain.length - 1] as Vec3)) < IDENTICAL_POINT_MM;
+      chain.push(...(isSamePoint ? continuation.slice(1) : continuation));
       tail = partnerOf.get(endKey(tail.lineIndex, !tail.isStart));
     }
     chains.push(chain);
