@@ -135,6 +135,22 @@ describe('fönster', () => {
     }
   });
 
+  it.each([
+    ['slanted', false],
+    ['slanted', true],
+  ] as const)('rutorna intill den lodräta spröjsen är lika höga mot den, spröjsen borträknad (%s, inverterad %s)', (shape, isInverted) => {
+    const size = { shape, width: 60, height: 90, bottom: 10, isInverted };
+    const panes = listPanes(size, 'two').map(boundsOf);
+    expect(panes).toHaveLength(2);
+    const [leftPane, rightPane] = panes.sort((a, b) => a.minX - b.minX);
+    const sideHeight = (pane: ReturnType<typeof boundsOf>, x: number) => {
+      const points = listPanes(size, 'two').flat().filter((point) => Math.abs(point.x - x) < 1e-6);
+      expect(points.length).toBeGreaterThan(0);
+      return Math.max(...points.map((point) => point.y)) - pane.minY;
+    };
+    expect(sideHeight(leftPane!, leftPane!.maxX)).toBeCloseTo(sideHeight(rightPane!, rightPane!.minX));
+  });
+
   it('heightAtCenter är hälften för trekantigt och mellan sidorna för snedskuret', () => {
     expect(heightAtCenter({ shape: 'triangle', width: 40, height: 60, bottom: 0 })).toBe(30);
     expect(heightAtCenter({ shape: 'slanted', width: 40, height: 60, bottom: 0 })).toBe(50);

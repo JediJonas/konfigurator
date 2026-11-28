@@ -93,6 +93,19 @@ function slantedOutline(half: Mm, bottom: Mm, top: Mm): Vec2[] {
  * att korset hamnar på samma höjd i alla rutor (ägarens val): trekantigt är
  * hälften så högt där som vid sin höga sida, och snedskuret så högt som medelvärdet av sidorna.
  */
+/**
+ * Den sneda överkantens lutning (mm i höjd per mm åt höger) och dess höjd vid
+ * x, för snedskuret och trekantigt; andra former har ingen sned överkant.
+ */
+function slopedTopOf(size: OpeningSize): { slope: Mm; topAt: (x: Mm) => Mm } | undefined {
+  if (size.shape !== 'slanted' && size.shape !== 'triangle') return undefined;
+  const rise = size.shape === 'triangle' ? size.height : slantDrop(size.width, size.height);
+  const direction = size.isInverted ? -1 : 1;
+  const slope = (direction * rise) / size.width;
+  const top = size.bottom + size.height;
+  return { slope, topAt: (x) => top + slope * (x - direction * (size.width / 2)) };
+}
+
 export function heightAtCenter(size: OpeningSize): Mm {
   if (size.shape === 'triangle') return size.height / 2;
   if (size.shape === 'slanted') return size.height - slantDrop(size.width, size.height) / 2;
@@ -173,10 +186,30 @@ export function listPanes(size: OpeningSize, style: MullionStyle): Vec2[][] {
         { normal: vec2(0, -1), offset: -minY },
         { normal: vec2(0, 1), offset: maxY },
       ]);
-      if (pane.length >= 3 && isCuttable(pane)) panes.push(pane);
+      const levelled = row === rows - 1 ? levelBarSide(pane, size, { minX, maxX }, bar) : pane;
+      if (levelled.length >= 3 && isCuttable(levelled)) panes.push(levelled);
     }
   }
   return panes;
+}
+
+/**
+ * Sidan på en ruta som ligger intill den lodräta spröjsen ska vara lika hög som
+ * grannrutans, spröjsen borträknad (ägarens val). Där överkanten är sned sänks
+ * den högre rutans överkant parallellt, så att båda sidorna mot spröjsen slutar
+ * på den lägre höjden.
+ */
+function levelBarSide(pane: Vec2[], size: OpeningSize, edges: { minX: Mm; maxX: Mm }, bar: Mm): Vec2[] {
+  // Trekantigt är för brant: sidorna skulle sänkas flera mm och lämna ett brett band av vägg längs hypotenusan.
+  const sloped = size.shape === 'slanted' ? slopedTopOf(size) : undefined;
+  if (!sloped) return pane;
+  const isLeftOfBar = edges.maxX < 0;
+  const isRightOfBar = edges.minX > 0;
+  if (!isLeftOfBar && !isRightOfBar) return pane;
+  const ownX = isLeftOfBar ? -bar : bar;
+  const lowest = Math.min(sloped.topAt(-bar), sloped.topAt(bar));
+  if (sloped.topAt(ownX) <= lowest + 1e-9) return pane;
+  return clipByHalfPlanes(pane, [{ normal: vec2(-sloped.slope, 1), offset: lowest - sloped.slope * ownX }]);
 }
 
 function isCuttable(pane: Vec2[]): boolean {
