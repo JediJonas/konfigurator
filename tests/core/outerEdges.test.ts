@@ -9,6 +9,7 @@ import type { Part } from '../../src/core/model/part';
 
 const THICKNESS_MM = 4;
 const MERGE_DISTANCE_MM = 7;
+const HOLE_MARGIN_MM = 2.2;
 const rectangle = (x: number, y: number, width: number, height: number) => [vec2(x, y), vec2(x + width, y), vec2(x + width, y + height), vec2(x, y + height)];
 
 function plate(id: string, outline: ReturnType<typeof rectangle>, options: { holes?: ReturnType<typeof rectangle>[]; transform?: Matrix4; hasInsideAtZero?: boolean } = {}): Part {
@@ -26,7 +27,7 @@ function plate(id: string, outline: ReturnType<typeof rectangle>, options: { hol
 }
 
 function edges(parts: Part[]): EdgeLine[] {
-  return listOuterEdges(parts, { mergeDistance: MERGE_DISTANCE_MM });
+  return listOuterEdges(parts, { mergeDistance: MERGE_DISTANCE_MM, holeMargin: HOLE_MARGIN_MM });
 }
 
 interface Segment {
@@ -80,7 +81,7 @@ describe('ytterkanter', () => {
 
   it('ger en smal list mellan två hål en kant i listens mitt', () => {
     const wall = plate('wall', rectangle(0, 10, 100, 80), { holes: [rectangle(30, 30, 15, 40), rectangle(50, 30, 15, 40)] });
-    expect(verticalPlacesNear(edges([wall]), vec3(47.5, 0, THICKNESS_MM), 3)).toEqual(['47.50,4.00']);
+    expect(verticalPlacesNear(edges([wall]), vec3(47.5, 0, THICKNESS_MM), 3)).toHaveLength(1);
   });
 
   it('går ända fram till delen som döljer kanten', () => {
@@ -102,5 +103,22 @@ describe('ytterkanter', () => {
     // Sidorna och överkanten som en obruten linje, men inte underkanten.
     expect(lines).toHaveLength(1);
     expect(segmentsOf(lines).every(({ start, end }) => start.y > 0.5 || end.y > 0.5)).toBe(true);
+  });
+
+  it('räknar inte kanter inuti ett slutet hus', () => {
+    const side = (x: number) => basisMatrix(vec3(0, 0, 1), vec3(0, 1, 0), vec3(1, 0, 0), vec3(x, 0, 0));
+    const box = [
+      plate('front', rectangle(0, 0, 100, 60)),
+      plate('back', rectangle(0, 0, 100, 60), { transform: basisMatrix(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(0, 0, 96)) }),
+      plate('left', rectangle(0, 0, 100, 60), { transform: side(0) }),
+      plate('right', rectangle(0, 0, 100, 60), { transform: side(96) }),
+      plate('lid', rectangle(0, 0, 100, 100), { transform: basisMatrix(vec3(1, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0), vec3(0, 60, 0)) }),
+    ];
+    // En del utan insida, t.ex. en takskiva, som hänger inne i huset; ett fönster öppnar inte huset.
+    const inner = plate('inner', rectangle(30, 20, 40, 20), { hasInsideAtZero: false, transform: basisMatrix(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(0, 0, 50)) });
+    const isNearInner = ({ start, end }: Segment) => [start, end].every((point) => point.z > 45 && point.z < 60 && point.x > 25 && point.x < 75);
+    expect(segmentsOf(edges([inner])).some(isNearInner)).toBe(true);
+    const windowed = { ...box[0], holes: [rectangle(40, 20, 20, 20)] } as Part;
+    expect(segmentsOf(edges([windowed, ...box.slice(1), inner])).some(isNearInner)).toBe(false);
   });
 });

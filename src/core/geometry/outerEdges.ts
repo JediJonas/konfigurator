@@ -1,4 +1,6 @@
 import type { Part } from '../model/part';
+import { isEnclosed, prepareEnclosureParts } from './enclosure';
+import { growPolygon } from './growPolygon';
 import { distanceToBoundary, isPointInPolygon } from './hull';
 import { joinEdgeLines } from './joinEdgeLines';
 import { invertRigidMatrix, transformPoint } from './matrix';
@@ -27,6 +29,11 @@ export interface OuterEdgeOptions {
    * varandra fogas ihop, t.ex. där två takfall möts i nocken.
    */
   mergeDistance: Mm;
+  /**
+   * Kanterna runt hål flyttas så här långt ut från hålet, in på delens yta,
+   * så att randen ligger på ytan runt hålet och inte syns inifrån huset.
+   */
+  holeMargin: Mm;
 }
 
 /** En sammanhängande ytterkant i världen, som punkter i ordning. */
@@ -42,19 +49,23 @@ interface PreparedPart {
 
 /**
  * Ytterkanterna på delarna i världen: konturens och hålens kanter på delens
- * utsida (båda sidor när delen inte har någon insida). En kant som ligger i
+ * utsida (båda sidor när delen inte har någon insida); hålens kanter flyttas
+ * ut på ytan runt hålet. En kant som ligger i
  * eller mot en annan del är dold, t.ex. en väggs ände i ett hörn där den andra
  * väggen går ut, eller väggens överkant under taket; synliga kanter går ända
  * fram till delen som döljer resten. Kanter som sammanfaller eller ligger tätt
  * parallellt blir en, så att en fog mellan två delar bara får en kant. Kanter
- * som möts fogas ihop till obrutna linjer. Kanter som ligger på fatet räknas inte.
+ * som möts fogas ihop till obrutna linjer. Kanter som ligger på fatet eller
+ * inuti huset (instängda av delarna) räknas inte.
  */
 export function listOuterEdges(parts: readonly Part[], options: OuterEdgeOptions): EdgeLine[] {
   const prepared = parts.map(preparePart);
+  const enclosureParts = prepareEnclosureParts(parts);
   const segments: Segment3[] = [];
   prepared.forEach((owner, ownerIndex) => {
-    const isCovered = (point: Vec3) => point.y <= GROUND_LEVEL_MM || isHidden(point, prepared, ownerIndex);
-    for (const ring of [owner.part.outline, ...owner.part.holes]) {
+    const isCovered = (point: Vec3) => point.y <= GROUND_LEVEL_MM || isHidden(point, prepared, ownerIndex) || isEnclosed(point, enclosureParts);
+    const holes = owner.part.holes.map((hole) => growPolygon(hole, options.holeMargin));
+    for (const ring of [owner.part.outline, ...holes]) {
       for (const z of owner.outerZs) {
         ring.forEach((point, index) => {
           const next = ring[(index + 1) % ring.length] ?? point;
