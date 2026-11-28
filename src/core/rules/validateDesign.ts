@@ -66,6 +66,8 @@ function findFailingInstances(rule: Rule, entries: PlacedInstance[], design: Des
       return [...new Set([...findOffSolidPart(entries, design.parts), ...findCoveringOthers(entries, design.placed, design.parts)])];
     case 'maxCountPerSocket':
       return findBeyondCount(entries, rule.max);
+    case 'validParams':
+      return entries.filter((entry) => entry.objectType.isParamsValid?.(entry.params) === false).map((entry) => entry.instance.id);
   }
 }
 

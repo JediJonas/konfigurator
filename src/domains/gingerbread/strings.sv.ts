@@ -27,6 +27,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'param.openingShape': 'Form',
   'param.mullions': 'Spröjs',
   'param.hasShutters': 'Fönsterluckor',
+  'param.isInverted': 'Invertera',
   'param.doorKind': 'Typ',
   'param.eaveDistance': 'Avstånd från takfoten',
   'param.chimneyEaveDistance': 'Avstånd från takfoten (0 = mot väggen)',
@@ -34,7 +35,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'param.chimneyHeight': 'Höjd över taket',
   'group.dormerRoof': 'Kupans tak',
   'shape.rect': 'Fyrkantigt',
-  'shape.arch': 'Båge',
+  'shape.arch': 'Rundbåge',
   'shape.circle': 'Runt',
   'shape.halfMoon': 'Halvmåne',
   'shape.slanted': 'Snedskuret',
@@ -116,6 +117,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'rule.openingUpright': 'Fönster och dörrar sitter rakt i väggen och kan inte vridas.',
   'rule.windowOnWall':
     'Fönstret behöver 15 mm hel vägg runt sig, och luckorna behöver vägg att ligga mot. Flytta det, gör det mindre eller håll det borta från kanter, andra öppningar och väggar där andra sektioner möts.',
+  'rule.windowPanesTooSmall': 'Rutorna är för små. Varje ruta måste vara minst 5 mm bred och hög, lika mycket som spröjsen. Gör fönstret större eller välj färre rutor.',
   'rule.doorOnWall':
     'Dörren behöver 15 mm hel vägg på sidorna och ovanför. Flytta den, gör den mindre eller håll den borta från kanter, andra öppningar och väggar där andra sektioner möts.',
   'rule.oneDoorPerWall': 'Det får bara finnas en dörr på varje vägg.',
