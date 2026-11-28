@@ -17,9 +17,11 @@ test('lägger en takkupa på taket och visar den under Tak', async ({ page }) =>
   const eaveDistance = page.getByLabel(/^Avstånd från takfoten/);
   // Gränserna räknas vid sidan av; vänta tills de är kända, annars gäller schemats.
   await expect(eaveDistance).toHaveAttribute('min', '15', { timeout: 15_000 });
+  // Ett värde utanför gränserna används inte; kupan står kvar där den föreslogs.
+  const proposed = await eaveDistance.inputValue();
   await eaveDistance.fill('0');
   await eaveDistance.blur();
-  await expect(eaveDistance).toHaveValue('15');
+  await expect(eaveDistance).toHaveValue(proposed);
 
   // En ny kupa får ett fönster i framväggen direkt, under kupan.
   const dormer = page.locator('[data-instance-id="K1"]');

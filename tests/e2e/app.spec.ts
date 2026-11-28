@@ -45,7 +45,8 @@ test('ändrar huset när ett mått ändras', async ({ page }) => {
   await openWall(page, 'Vägg 1');
   const width = page.getByLabel(/^Längd/);
   await width.fill('500');
-  await expect(page.getByText('Välj ett värde mellan 60 och 400.')).toBeVisible();
+  // Gaveln ryms på plåten (400 × 300 mm) upp till 360 mm bredd med mallens vägghöjd och tak.
+  await expect(page.getByText('Välj ett värde mellan 60 och 360.')).toBeVisible();
   await width.fill('200');
   await expect(width).toHaveAttribute('aria-invalid', 'false');
 });
@@ -60,7 +61,7 @@ test('ändrar ett mått med − och +', async ({ page }) => {
   await stepButton(page, 'Längd', 'Minska').click();
   await stepButton(page, 'Längd', 'Minska').click();
   await expect(width).toHaveValue(String(start - 5));
-  await width.fill('400');
+  await width.fill('360');
   await expect(stepButton(page, 'Längd', 'Öka')).toBeDisabled();
 });
 
