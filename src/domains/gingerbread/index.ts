@@ -1,6 +1,6 @@
 import type { Domain } from '../../core/model/domain';
 import { GINGERBREAD_DOMAIN_ID, GINGERBREAD_DOMAIN_VERSION } from './identity';
-import { GINGERBREAD_DOUGH } from './materials';
+import { GINGERBREAD_DOUGH, ICING } from './materials';
 import { plateType } from './objects/plate';
 import { doorType } from './objects/openings/door';
 import { dormerType } from './objects/dormer/dormer';
@@ -27,5 +27,6 @@ export const gingerbreadDomain: Domain = {
   jointStyles: [buttJoint],
   presets: [simpleHousePreset],
   strings: gingerbreadStrings,
+  edgeBead: ICING,
   migrateParams: migrateGingerbreadParams,
 };

@@ -6,6 +6,8 @@ import type { Camera, DirectionalLight, Group } from 'three';
 import type { RefObject } from 'react';
 import type { Polygon } from '../../core/geometry/polygon';
 import type { Part } from '../../core/model/part';
+import type { EdgeBead } from '../../core/model/domain';
+import { EdgeBeadMesh } from './EdgeBeadMesh';
 import { listInsideFloors } from './insideFloor';
 import { PartMesh } from './PartMesh';
 import type { PickArea } from './pickAreas';
@@ -37,6 +39,8 @@ interface DesignViewProps {
   pickAreas: PickArea[];
   /** Anropas när man trycker på en sådan yta. */
   onSelectInstance: (instanceId: string) => void;
+  /** Randen längs ytterkanterna, t.ex. kristyr, när den ska visas. */
+  edgeBead?: EdgeBead;
   /** Anropas när man själv vrider, zoomar eller flyttar vyn, inte när vyn centreras. */
   onUserMoveView: () => void;
 }
@@ -55,7 +59,7 @@ const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 /** Närmaste avstånd till vyns mittpunkt. Husets egna väggar och tak stoppar zoomen långt innan dess. */
 const MIN_ORBIT_DISTANCE_MM = 20;
 
-export function DesignView({ parts: designParts, color, captureRef, fitRef, fitCount, highlight, onSelectPart, pickAreas: designPickAreas, onSelectInstance, onUserMoveView }: DesignViewProps) {
+export function DesignView({ parts: designParts, color, captureRef, fitRef, fitCount, highlight, onSelectPart, pickAreas: designPickAreas, onSelectInstance, edgeBead, onUserMoveView }: DesignViewProps) {
   // Huset med alla tillbyggnader och sektioner står alltid mitt på fatet (ägarens önskan).
   const offset = useMemo(() => measurePlateCenteringOffset(designParts), [designParts]);
   const parts = useMemo(() => shiftParts(designParts, offset), [designParts, offset]);
@@ -99,6 +103,7 @@ export function DesignView({ parts: designParts, color, captureRef, fitRef, fitC
           ))}
         </group>
       </Bounds>
+      {edgeBead ? <EdgeBeadMesh parts={parts} bead={edgeBead} /> : null}
       {pickAreas.map((area, index) => (
         <PickAreaMesh key={`${area.instanceId}/${index}`} area={area} isSelected={area.instanceId === highlight.pickInstanceId} onSelect={onSelectInstance} />
       ))}

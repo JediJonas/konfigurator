@@ -7,6 +7,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'object.dormer': 'Takkupa',
   'object.chimney': 'Skorsten',
   'material.dough': 'Pepparkaksdeg',
+  'setting.icing': 'Visa kristyr',
   'joint.butt': 'Stumfog',
   'param.width': 'Bredd',
   'param.depth': 'Längd',

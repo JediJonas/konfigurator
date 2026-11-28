@@ -27,6 +27,8 @@ import { SavedHouses } from './SavedHouses';
 import { useHouseNotice } from '../state/houseNotice';
 import { NumberInput } from './NumberInput';
 import { uiStrings } from './strings.sv';
+import { activeDomain, translate } from '../activeDomain';
+import { useViewSettings } from '../state/viewSettings';
 
 interface SettingsPanelProps {
   evaluation: DesignEvaluation;
@@ -46,6 +48,8 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   const contentId = useId();
   const thicknessId = useId();
   const paperId = useId();
+  const edgeBeadId = useId();
+  const { isEdgeBeadShown, setEdgeBeadShown } = useViewSettings();
   const rootId = design.root.id;
   const canDownload = !error && !hasErrors(evaluation.violations);
   const instanceEntries = evaluation.placed.filter((entry) => entry.parentId !== undefined);
@@ -188,6 +192,12 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
         <section className="panel-section">
           <FieldGroup label={uiStrings.settings} headingLevel={2} isOpen={panelGroup.isOpen('settings')} onToggle={() => togglePanelGroup('settings')}>
             <NumberInput id={thicknessId} label={uiStrings.thickness} field={THICKNESS_FIELD} value={design.material.thickness} onChange={setThickness} />
+            {activeDomain.edgeBead ? (
+              <label className="field field-checkbox" htmlFor={edgeBeadId}>
+                <input id={edgeBeadId} type="checkbox" checked={isEdgeBeadShown} onChange={(event) => setEdgeBeadShown(event.target.checked)} />
+                <span>{translate(activeDomain.edgeBead.labelKey)}</span>
+              </label>
+            ) : null}
             <div className="field">
               <label htmlFor={paperId}>{uiStrings.paper}</label>
               <select id={paperId} value={paper} onChange={(event) => setPaper(event.target.value as PaperFormat['id'])}>
