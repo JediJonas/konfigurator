@@ -38,6 +38,12 @@ export interface Part {
    * på delen i 3D-vyn öppnas den gruppen.
    */
   paramGroupKey?: string;
+  /**
+   * Sant när delen är förlängd så att samverkan ska klippa den, t.ex. en
+   * tillbyggnads tak in över värden till vinkelrännan. Måtten är inte färdiga
+   * förrän samverkan har körts, så regler som mäter delen väntar till dess.
+   */
+  isAwaitingTrim?: boolean;
 }
 
 /**

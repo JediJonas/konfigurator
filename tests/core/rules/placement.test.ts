@@ -67,7 +67,8 @@ describe('nya objekt i en kopplingspunkt', () => {
     const design = designWithExtensions(extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 60 }));
     const depth = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'depth', current: 180, step: 5, min: 60, max: 400 });
     // Blir huset kortare än tillbyggnaden står den bredvid i stället, ända ner till schemats minsta längd.
-    expect(depth).toEqual({ min: 60, max: 400, gaps: [] });
+    // Uppåt stannar det vid 380 mm, där takfallen med 10 mm utsprång vid gavlarna blir lika långa som plåten.
+    expect(depth).toEqual({ min: 60, max: 380, gaps: [] });
     const wallHeight = findAllowedParamRange(design, gingerbreadDomain, { instanceId: 'S1', param: 'wallHeight', current: 100, step: 5, min: 40, max: 300 });
     // Blir huset lägre än tillbyggnaden står den bredvid i stället.
     expect(wallHeight.min).toBe(40);

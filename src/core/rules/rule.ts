@@ -1,3 +1,4 @@
+import type { Mm } from '../geometry/vector';
 import type { SocketKind } from '../model/objectType';
 
 /**
@@ -66,6 +67,15 @@ export interface ValidParamsRule extends RuleBase {
   kind: 'validParams';
 }
 
+/**
+ * Varje del av objektet ska rymmas på materialets skiva eller plåt, som den
+ * ligger eller vriden 90°. Prövas på de färdiga delarna, efter samverkan.
+ */
+export interface FitsOnSheetRule extends RuleBase {
+  kind: 'fitsOnSheet';
+  sheet: { width: Mm; height: Mm };
+}
+
 /** Kopplingsregler som data i domänpaketet, SPEC.md avsnitt 5. */
 export type Rule =
   | AllowedRotationsRule
@@ -75,7 +85,8 @@ export type Rule =
   | AllowedParamValuesRule
   | OnSolidPartRule
   | MaxCountPerSocketRule
-  | ValidParamsRule;
+  | ValidParamsRule
+  | FitsOnSheetRule;
 
 export interface RuleViolation {
   level: RuleLevel;

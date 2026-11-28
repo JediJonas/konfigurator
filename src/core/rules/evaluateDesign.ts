@@ -22,7 +22,7 @@ export interface DesignEvaluation {
 export function evaluateDesign(design: Design, domain: Domain, resolveLabel: (key: string) => string): DesignEvaluation {
   const placed = placeInstances(design, domain);
   const { parts, failedInstanceIds } = collectParts(placed, domain.interactions);
-  return { placed, parts, violations: [...validateDesign(placed, parts, domain.rules, resolveLabel), ...describeFailures(failedInstanceIds), ...listConflicts(placed, domain.interactions, resolveLabel)] };
+  return { placed, parts, violations: [...validateDesign({ placed, parts, hasAllInteractions: true }, domain.rules, resolveLabel), ...describeFailures(failedInstanceIds), ...listConflicts(placed, domain.interactions, resolveLabel)] };
 }
 
 /**
@@ -37,7 +37,8 @@ export function listViolations(design: Design, domain: Domain, resolveLabel: (ke
   const hasSurfaceObjects = placed.some((entry) => entry.surfaceAreas.length > 0);
   const interactions = hasSurfaceObjects ? domain.interactions.filter((interaction) => interaction.affectsSurfaces) : [];
   const { parts, failedInstanceIds } = collectParts(placed, interactions);
-  return [...validateDesign(placed, parts, domain.rules, resolveLabel), ...describeFailures(failedInstanceIds), ...listConflicts(placed, domain.interactions, resolveLabel)];
+  const hasAllInteractions = interactions.length === domain.interactions.length;
+  return [...validateDesign({ placed, parts, hasAllInteractions }, domain.rules, resolveLabel), ...describeFailures(failedInstanceIds), ...listConflicts(placed, domain.interactions, resolveLabel)];
 }
 
 function listConflicts(placed: readonly PlacedInstance[], interactions: readonly InteractionResolver[], resolveLabel: (key: string) => string): RuleViolation[] {

@@ -215,6 +215,7 @@ Delar (platta polygoner i mm + placering i 3D)
 ## 10. Packning
 
 - Skivans eller plåtens mått kommer från materialet och kan ändras av användaren, liksom kantmarginal och avstånd mellan delar.
+- Varje del måste rymmas på en skiva eller plåt, som den ligger eller vriden 90°. Annars är det ett fel, och fälten stannar före.
 - En enkel packningsalgoritm (t.ex. "bottom-left" på omslutande rektanglar, rotation 0° och 90°) räcker till en början.
 - Resultat: antal skivor/plåtar och en bild per skiva.
 

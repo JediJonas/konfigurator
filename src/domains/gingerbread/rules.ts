@@ -5,6 +5,7 @@ import { DORMER_TYPE_ID } from './objects/dormer/dormer';
 import { CHIMNEY_TYPE_ID } from './objects/chimney/chimney';
 import { WINDOW_TYPE_ID } from './objects/openings/window';
 import { SECTION_TYPE_ID } from './objects/section';
+import { GINGERBREAD_DOUGH } from './materials';
 import { DORMER_WALL, GROUND, ROOF_SURFACE, WALL_BESIDE, WALL_SURFACE } from './socketKinds';
 
 /** Kopplingsreglerna för pepparkakshus, SPEC.md avsnitt 5. */
@@ -31,4 +32,14 @@ export const gingerbreadRules: Rule[] = [
   { kind: 'allowedRotations', level: 'error', objectType: CHIMNEY_TYPE_ID, socketKind: WALL_SURFACE, degrees: [0], messageKey: 'rule.chimneyUpright' },
   // Mot väggen står skorstenen nedanför takfoten; ett större avstånd flyttar upp den på takfallet ovanför, om det går.
   { kind: 'allowedParamValues', level: 'error', objectType: CHIMNEY_TYPE_ID, socketKind: WALL_SURFACE, param: 'eaveDistance', values: ['0'], messageKey: 'rule.chimneyOnWallAtEave' },
+  // Ägarens val: varje bit ska rymmas på plåten, så att den går att baka i ett stycke.
+  ...sheetRule(SECTION_TYPE_ID, 'rule.sectionFitsSheet'),
+  ...sheetRule(DORMER_TYPE_ID, 'rule.dormerFitsSheet'),
+  ...sheetRule(CHIMNEY_TYPE_ID, 'rule.chimneyFitsSheet'),
+  ...sheetRule(WINDOW_TYPE_ID, 'rule.openingFitsSheet'),
+  ...sheetRule(DOOR_TYPE_ID, 'rule.openingFitsSheet'),
 ];
+
+function sheetRule(objectType: string, messageKey: string): Rule[] {
+  return [{ kind: 'fitsOnSheet', level: 'error', objectType, sheet: GINGERBREAD_DOUGH.sheet, messageKey }];
+}
