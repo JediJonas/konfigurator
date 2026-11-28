@@ -34,6 +34,8 @@ export const chimneyType: ObjectType<ChimneyParams> = {
   params: chimneyParams,
   instanceIdPrefix: 'SK',
   attachesTo: [ROOF_SURFACE, WALL_SURFACE],
+  // Läggs bara till på taket (ägarens val) och flyttas ut till väggen med avståndet 0 från takfoten.
+  addsTo: [ROOF_SURFACE],
   sockets: () => [],
   parts: (instance, params, context) => buildChimneyParts(instance, params, context),
   socketOutline: (params, context) => (isOnWall(context) ? wallChimneyBase(params) : []),

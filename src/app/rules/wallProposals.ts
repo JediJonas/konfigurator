@@ -33,10 +33,10 @@ export function wallKey(parentId: string, socketId: string): string {
   return `${parentId}|${socketId}`;
 }
 
-/** Objekttyperna som kan fästa på väggen, i någon av dess kopplingspunkter. */
+/** Objekttyperna som kan läggas till på väggen, i någon av dess kopplingspunkter (`addsTo`, annars `attachesTo`). */
 export function listWallObjectTypes(domain: Domain, entry: PlacedInstance, wall: Socket) {
   const onWall = entry.sockets.filter((socket) => socket.id === wall.id || (wall.ownerPartId !== undefined && socket.ownerPartId === wall.ownerPartId));
-  return domain.objectTypes.filter((objectType) => onWall.some((socket) => objectType.attachesTo.includes(socket.kind)));
+  return domain.objectTypes.filter((objectType) => onWall.some((socket) => (objectType.addsTo ?? objectType.attachesTo).includes(socket.kind)));
 }
 
 /**
