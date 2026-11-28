@@ -51,8 +51,10 @@ export function proposeChild(design: Design, domain: Domain, request: ChildReque
   const socket = parent?.sockets.find((candidate) => candidate.id === request.socketId);
   if (!parent || !socket) throw new Error(`Kopplingspunkten "${request.socketId}" finns inte på "${request.parentId}".`);
   // En vägg kan ha flera punkter, t.ex. för tillbyggnad och för sektion bredvid; den första som ger ett förslag som går används.
+  // Punkten man bad om prövas först, så att t.ex. en skorsten som läggs till på en vägg inte hamnar på taket ovanför.
   const alternatives = listAlternativeSockets(parent.sockets, socket, objectType);
-  const proposals = (alternatives.length > 0 ? alternatives : [socket]).map((alternative) =>
+  const ordered = alternatives.some((alternative) => alternative.id === socket.id) ? [socket, ...alternatives.filter((alternative) => alternative.id !== socket.id)] : alternatives;
+  const proposals = (ordered.length > 0 ? ordered : [socket]).map((alternative) =>
     proposeInSocket(design, domain, { parent, socket: alternative, objectType, resolveLabel }),
   );
   const first = proposals[0];

@@ -6,13 +6,19 @@ import { placeInstances } from '../pipeline/placeInstances';
 import { listViolationKeysRemembered } from './ruleCheck';
 
 /**
- * Kopplingspunkterna på samma del som `socket`, i förälderns ordning, som
- * objekttypen kan fästa i. En vägg kan t.ex. ha en punkt för en tillbyggnad
- * och en för en sektion som står bredvid. Punkter utan del har inga alternativ.
+ * Kopplingspunkterna på samma del som `socket`, och på delarna i dess
+ * `alternativePartIds`, som objekttypen kan fästa i. En vägg kan t.ex. ha en
+ * punkt för en tillbyggnad och en för en sektion som står bredvid. Ordningen
+ * följer objekttypens `attachesTo` och sedan förälderns ordning, så att det
+ * objekttypen helst fäster i prövas först. Punkter utan del har inga alternativ.
  */
 export function listAlternativeSockets(parentSockets: readonly Socket[], socket: Socket, objectType: ObjectType<unknown>): Socket[] {
   if (!socket.ownerPartId) return [socket];
-  return parentSockets.filter((candidate) => candidate.ownerPartId === socket.ownerPartId && objectType.attachesTo.includes(candidate.kind));
+  const partIds = [socket.ownerPartId, ...(socket.alternativePartIds ?? [])];
+  const preference = (candidate: Socket) => objectType.attachesTo.indexOf(candidate.kind);
+  return parentSockets
+    .filter((candidate) => candidate.ownerPartId !== undefined && partIds.includes(candidate.ownerPartId) && objectType.attachesTo.includes(candidate.kind))
+    .sort((a, b) => preference(a) - preference(b));
 }
 
 /**

@@ -66,12 +66,19 @@ function wallLabelKey(sideId: string, sides: readonly WallSide[]): string {
  * torn kan stå bredvid ett block som sitter på ett annat torn i en borg.
  */
 export function buildSectionSockets(instance: Instance, params: SectionParams, context: BuildContext): Socket[] {
-  const surfaces = buildWallSurfaceSockets(instance, params, context);
+  const roofs = buildRoofSurfaceSockets(instance, params, context);
+  const surfaces = buildWallSurfaceSockets(instance, params, context).map((socket) => withRoofsAbove(socket, roofs));
   return [
     ...surfaces,
-    ...surfaces.map((socket) => ({ ...socket, id: `${BESIDE_SOCKET_PREFIX}${socket.id}`, kind: WALL_BESIDE, topBounds: undefined })),
-    ...buildRoofSurfaceSockets(instance, params, context),
+    ...surfaces.map((socket) => ({ ...socket, id: `${BESIDE_SOCKET_PREFIX}${socket.id}`, kind: WALL_BESIDE, topBounds: undefined, alternativePartIds: undefined })),
+    ...roofs,
   ];
+}
+
+/** Väggen får takfallen ovanför sig som alternativ, så att en skorsten mot väggen kan flyttas upp på taket igen. */
+function withRoofsAbove(wall: Socket, roofs: readonly Socket[]): Socket {
+  const above = roofs.filter((roof) => wall.ownerPartId !== undefined && roof.alternativePartIds?.includes(wall.ownerPartId)).flatMap((roof) => roof.ownerPartId ?? []);
+  return above.length > 0 ? { ...wall, alternativePartIds: above } : wall;
 }
 
 /** Början på id:t för punkterna där en sektion kan stå bredvid, t.ex. "beside-side-right". */

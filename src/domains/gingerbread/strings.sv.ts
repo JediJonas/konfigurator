@@ -29,6 +29,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'param.hasShutters': 'Fönsterluckor',
   'param.doorKind': 'Typ',
   'param.eaveDistance': 'Avstånd från takfoten',
+  'param.chimneyEaveDistance': 'Avstånd från takfoten (0 = mot väggen)',
   'param.chimneyDepth': 'Djup',
   'param.chimneyHeight': 'Höjd över taket',
   'group.dormerRoof': 'Kupans tak',
@@ -119,11 +120,12 @@ export const gingerbreadStrings: Record<string, string> = {
   'rule.dormerMeetsRoof': 'Takkupan går in i ett annat tak, t.ex. en tillbyggnads eller en annan kupas. Flytta den eller gör den mindre.',
   'rule.chimneyUpright': 'En skorsten står rakt upp på takfallet och kan inte vridas.',
   'rule.chimneyOnRoof':
-    'Skorstenen behöver 5 mm helt tak runt sig och måste ligga under nocken. Flytta den, gör den mindre eller håll den borta från takets kanter, nocken, takkupor och andra skorstenar.',
-  'rule.chimneyMeetsRoof': 'Skorstenen går in i ett annat tak, t.ex. en tillbyggnads eller en takkupas. Flytta den eller gör den mindre.',
+    'Skorstenen behöver 5 mm helt tak runt sig och måste ligga under nocken. Mot en vägg behöver den minst en tjocklek kontakt med väggen och får inte täcka ett fönster eller en dörr. Flytta den eller gör den mindre.',
+  'rule.chimneyOnWallAtEave': 'Skorstenen ryms inte på takfallet här. Mot väggen står den med avståndet 0 från takfoten. Flytta den eller gör den mindre.',
+  'rule.chimneyMeetsRoof': 'Skorstenen går in i något annat, t.ex. en tillbyggnad eller en takkupa. Flytta den eller gör den mindre.',
   'preset.simpleHouse': 'Enkelt hus',
   'drawing.note.joints':
-    'Väggar med sned överkant går hela vägen ut i hörnen och de andra står mellan dem. Tillbyggnadens väggar går stumt mot huset, och dess tak läggs ovanpå huvudhusets tak i vinkelrännan. Takkupans väggar står på takfallet runt hålet, och dess tak läggs ovanpå husets tak på samma sätt. Skorstenens sidor har sned nederkant mot takfallet och fram- och baksidan står mellan dem. Fyll glipor och skåror i nock och valmar med glasyr.',
+    'Väggar med sned överkant går hela vägen ut i hörnen och de andra står mellan dem. Tillbyggnadens väggar går stumt mot huset, och dess tak läggs ovanpå huvudhusets tak i vinkelrännan. Takkupans väggar står på takfallet runt hålet, och dess tak läggs ovanpå husets tak på samma sätt. Skorstenens sidor har sned nederkant mot takfallet och fram- och baksidan står mellan dem. En skorsten mot en vägg står på fatet, och takutsprånget har ett urtag där den går upp. Fyll glipor och skåror i nock och valmar med glasyr.',
   'buildStep.1': 'Väggar',
   'buildStep.2': 'Tillbyggnadernas väggar',
   'buildStep.3': 'Tak',

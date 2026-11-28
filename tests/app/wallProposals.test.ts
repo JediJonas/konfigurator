@@ -5,13 +5,14 @@ import { designWithExtensions } from '../domains/extensionFixtures';
 import { doorOn } from '../domains/openingFixtures';
 
 describe('knapparna under en vägg, räknade vid sidan av', () => {
-  it('ger sektion, fönster och dörr på en tom vägg', () => {
+  it('ger sektion, fönster, dörr och skorsten på en tom vägg', () => {
     const result = computeWallProposals({ id: 7, design: designWithExtensions(), parentId: 'S1', socketId: 'gable-front' }, gingerbreadDomain, (key) => key);
     expect(result).toMatchObject({ requestId: 7, wallKey: 'S1|gable-front' });
     expect(result.states.map((state) => [state.objectTypeId, state.canAdd])).toEqual([
       ['gb.section', true],
       ['gb.window', true],
       ['gb.door', true],
+      ['gb.chimney', true],
     ]);
   });
 
