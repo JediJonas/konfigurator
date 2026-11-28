@@ -35,6 +35,12 @@ interface DesignState {
    * så att objektet och gruppen öppnas igen om man har stängt dem.
    */
   focusedInstance?: FocusedInstance;
+  /**
+   * Kopplingspunkten i en fältgrupp som knapparna i gruppen lägger till på,
+   * t.ex. takfallet man tryckte på för + Takkupa och + Skorsten. Står kvar
+   * när annat väljs, så att samma takfall gäller när Tak öppnas igen.
+   */
+  selectedGroupSocket?: SocketRef;
   /** Objektet som är öppet i panelen; det visas markerat i 3D-vyn när det är ett fönster eller en dörr. */
   openInstanceId?: string;
   /** Falskt efter ett tryck utanför huset: det öppna fönstret visas då inte längre markerat. */
@@ -44,8 +50,13 @@ interface DesignState {
   setThickness: (thickness: number) => void;
   setPaper: (paper: PaperFormat['id']) => void;
   selectSocket: (socket: SocketRef | undefined) => void;
-  /** Öppnar ett objekt i panelen, t.ex. fönstret man tryckte på. Väljer bort vald kopplingspunkt. */
-  focusInstance: (instanceId: string, groupKey?: string) => void;
+  /**
+   * Öppnar ett objekt i panelen, t.ex. fönstret man tryckte på. Väljer bort vald kopplingspunkt.
+   * Med `groupSocketId` väljs också kopplingspunkten i gruppen, t.ex. takfallet man tryckte på.
+   */
+  focusInstance: (instanceId: string, groupKey?: string, groupSocketId?: string) => void;
+  /** Väljer takfallet som knapparna under Tak lägger till på, utan att öppna eller rulla något. */
+  selectGroupSocket: (socket: SocketRef) => void;
   setOpenInstanceId: (instanceId: string | undefined) => void;
   /** Lägger till ett objekt som snäpper mitt i kopplingspunkten. Gör inget om reglerna inte tillåter det. */
   addChild: (request: ChildRequest) => void;
@@ -78,12 +89,14 @@ export const useDesignStore = create<DesignState>((set) => ({
       // Inget valt, t.ex. ett tryck utanför huset, släcker också det öppna fönstrets markering.
       isOpenInstanceHighlighted: socket !== undefined,
     })),
-  focusInstance: (instanceId, groupKey) =>
+  focusInstance: (instanceId, groupKey, groupSocketId) =>
     set((state) => ({
       selectedSocket: undefined,
       focusedInstance: { instanceId, groupKey, count: (state.focusedInstance?.count ?? 0) + 1 },
       isOpenInstanceHighlighted: true,
+      selectedGroupSocket: groupSocketId ? { instanceId, socketId: groupSocketId } : state.selectedGroupSocket,
     })),
+  selectGroupSocket: (selectedGroupSocket) => set({ selectedGroupSocket, isOpenInstanceHighlighted: true }),
   setOpenInstanceId: (openInstanceId) => set({ openInstanceId, isOpenInstanceHighlighted: true }),
   addChild: (request) =>
     set((state) => {
@@ -97,6 +110,6 @@ export const useDesignStore = create<DesignState>((set) => ({
       focusedInstance: state.focusedInstance?.instanceId === instanceId ? undefined : state.focusedInstance,
     })),
   moveAlongSocket: (instanceId, u) => set((state) => ({ design: snapAttachmentOffset(state.design, activeDomain, instanceId, u) })),
-  replaceDesign: (design) => set({ design, selectedSocket: undefined, focusedInstance: undefined }),
-  resetDesign: () => set({ design: createStartDesign(), selectedSocket: undefined, focusedInstance: undefined }),
+  replaceDesign: (design) => set({ design, selectedSocket: undefined, focusedInstance: undefined, selectedGroupSocket: undefined }),
+  resetDesign: () => set({ design: createStartDesign(), selectedSocket: undefined, focusedInstance: undefined, selectedGroupSocket: undefined }),
 }));

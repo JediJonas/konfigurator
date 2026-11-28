@@ -11,7 +11,11 @@ interface AddToWallProps {
   entry: PlacedInstance;
   /** Väggens första kopplingspunkt; förslaget väljer den punkt på väggen där objektet ryms. */
   wall: Socket;
-  /** Skrivs efter objektets namn på knappen när en rubrik inte redan säger var objektet hamnar, t.ex. vilket takfall. */
+  /**
+   * Var objektet hamnar när ingen rubrik säger det, t.ex. takfallet. Det står i
+   * knappens namn för skärmläsare och i texten när inget ryms; själva knappen
+   * är kort, eftersom takfallet visas valt i listan och markerat i 3D-vyn.
+   */
   placeLabel?: string;
 }
 
@@ -45,7 +49,7 @@ export function AddToWall({ entry, wall, placeLabel }: AddToWallProps) {
               <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18">
                 <path d="M5 12h14M12 5v14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
               </svg>
-              {placeLabel ? uiStrings.objectAt(translate(objectType.labelKey), placeLabel) : translate(objectType.labelKey)}
+              {translate(objectType.labelKey)}
             </button>
           );
         })}

@@ -43,6 +43,16 @@ export function listGroupSockets(entry: PlacedInstance, nested: readonly PlacedI
   };
 }
 
+/**
+ * Kopplingspunkten i gruppen som knapparna lägger till på: den valda, t.ex.
+ * takfallet man tryckte på, annars den första, t.ex. takfallet mot Vägg 1
+ * eller närmaste nummer efter. Saknas när gruppen inte har några.
+ */
+export function findChosenGroupSocket(sockets: readonly Socket[], instanceId: string, selected: { instanceId: string; socketId: string } | undefined): Socket | undefined {
+  const chosen = selected?.instanceId === instanceId ? sockets.find((socket) => socket.id === selected.socketId) : undefined;
+  return chosen ?? sockets[0];
+}
+
 /** Fältgruppen som objektet sitter under i panelen, t.ex. Tak för en takkupa. Saknas för det som sitter på en vägg. */
 export function groupKeyOfPlace(entry: PlacedInstance): string | undefined {
   return entry.socket?.paramGroupKey;

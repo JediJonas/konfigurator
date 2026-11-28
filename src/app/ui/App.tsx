@@ -11,7 +11,7 @@ import type { CaptureOverview } from '../three/OverviewCapture';
 import { ViewportProbe } from '../device/ViewportProbe';
 import { listPickAreas } from '../three/pickAreas';
 import { describeHighlight } from './selectionHighlight';
-import { findLeafInstanceOf, findSocketOwnedBy } from './socketSelection';
+import { findGroupSocketOwning, findLeafInstanceOf, findSocketOwnedBy } from './socketSelection';
 import { SettingsPanel } from './SettingsPanel';
 import { uiStrings } from './strings.sv';
 
@@ -27,6 +27,7 @@ export function App() {
   const focusedInstance = useDesignStore((state) => state.focusedInstance);
   const openInstanceId = useDesignStore((state) => state.openInstanceId);
   const isOpenInstanceHighlighted = useDesignStore((state) => state.isOpenInstanceHighlighted);
+  const selectedGroupSocket = useDesignStore((state) => state.selectedGroupSocket);
   const hasMovedView = useSeenHints((state) => state.seen.view);
   const markHintSeen = useSeenHints((state) => state.markHintSeen);
   const captureRef = useRef<CaptureOverview>(null);
@@ -45,8 +46,8 @@ export function App() {
   const pickAreas = useMemo(() => listPickAreas(evaluation.placed), [evaluation.placed]);
   const material = activeDomain.materials.find((candidate) => candidate.id === design.material.id);
   const highlight = useMemo(
-    () => describeHighlight(evaluation.placed, evaluation.parts, { selectedSocket, focusedInstance, openInstanceId, isOpenInstanceHighlighted }),
-    [evaluation, selectedSocket, focusedInstance, openInstanceId, isOpenInstanceHighlighted],
+    () => describeHighlight(evaluation.placed, evaluation.parts, { selectedSocket, focusedInstance, openInstanceId, isOpenInstanceHighlighted, selectedGroupSocket }),
+    [evaluation, selectedSocket, focusedInstance, openInstanceId, isOpenInstanceHighlighted, selectedGroupSocket],
   );
 
   return (
@@ -69,8 +70,8 @@ export function App() {
               if (leafId) return focusInstance(leafId);
               const part = evaluation.parts.find((candidate) => candidate.id === partId);
               const socket = findSocketOwnedBy(evaluation.placed, partId);
-              // Taket öppnar takets fält på sektionen det hör till; en vägg väljs och öppnas i panelen.
-              if (!socket && part?.paramGroupKey) return focusInstance(part.sourceInstanceId, part.paramGroupKey);
+              // Taket öppnar takets fält på sektionen det hör till och väljer takfallet man tryckte på; en vägg väljs och öppnas i panelen.
+              if (!socket && part?.paramGroupKey) return focusInstance(part.sourceInstanceId, part.paramGroupKey, findGroupSocketOwning(evaluation.placed, part)?.socketId);
               selectSocket(socket);
             }}
             pickAreas={result.error ? [] : pickAreas}
