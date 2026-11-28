@@ -119,8 +119,17 @@ body {
   position: absolute;
   top: 0.75rem;
   right: 0.75rem;
+  left: 0.75rem;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.5rem;
+  /* Bara knapparna tar emot tryck, inte raden runt dem. */
+  pointer-events: none;
+}
+
+.view-actions > * {
+  pointer-events: auto;
 }
 
 .view-button {
@@ -138,11 +147,6 @@ body {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-}
-
-/* Ångra och Gör om har bara en ikon och är fyrkantiga. */
-.view-button[aria-label] {
-  padding: 0;
 }
 
 .view-button:hover:not(:disabled) {
