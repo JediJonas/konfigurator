@@ -5,6 +5,7 @@ import { distanceToBoundary, isPointInPolygon } from './hull';
 import { joinEdgeLines } from './joinEdgeLines';
 import { invertRigidMatrix, transformPoint } from './matrix';
 import type { Matrix4 } from './matrix';
+import { shiftIntoCorners } from './cornerOffsets';
 import { mergeParallelSegments } from './mergeParallelSegments';
 import type { Segment3 } from './mergeParallelSegments';
 import type { Mm, Vec3 } from './vector';
@@ -77,7 +78,10 @@ export function listOuterEdges(parts: readonly Part[], options: OuterEdgeOptions
           const next = ring[(index + 1) % ring.length] ?? point;
           const start = transformPoint(owner.part.transform, { x: point.x, y: point.y, z });
           const end = transformPoint(owner.part.transform, { x: next.x, y: next.y, z });
-          segments.push(...listVisibleSegments(start, end, isCovered));
+          const ownerNormal = isOnFace ? undefined : findOuterNormal(owner, z);
+          for (const visible of listVisibleSegments(start, end, isCovered)) {
+            segments.push(...(ownerNormal ? shiftIntoCorners(visible, ownerNormal, (point) => findInwardCornerNormal(point, prepared, ownerIndex), options.holeMargin) : [visible]));
+          }
         });
       }
     }
@@ -124,6 +128,37 @@ function findCoverBoundary(visibleT: number, coveredT: number, pointAt: (t: numb
     else inside = middle;
   }
   return inside;
+}
+
+/** Utåtriktningen på delens yta vid z, i världen. */
+function findOuterNormal(prepared: PreparedPart, z: Mm): Vec3 {
+  const sign = z > prepared.part.thickness / 2 ? 1 : -1;
+  return rotateDirection(prepared.part.transform, { x: 0, y: 0, z: sign });
+}
+
+function rotateDirection(matrix: Matrix4, direction: Vec3): Vec3 {
+  const origin = transformPoint(matrix, { x: 0, y: 0, z: 0 });
+  const moved = transformPoint(matrix, direction);
+  return { x: moved.x - origin.x, y: moved.y - origin.y, z: moved.z - origin.z };
+}
+
+/**
+ * Utåtriktningen på en annan dels yta när punkten ligger mitt på den, alltså i ett hörn som går inåt.
+ * Annars inget.
+ */
+function findInwardCornerNormal(point: Vec3, parts: readonly PreparedPart[], ownerIndex: number): Vec3 | undefined {
+  for (const [otherIndex, other] of parts.entries()) {
+    if (otherIndex === ownerIndex || !isInBox(point, other)) continue;
+    const local = transformPoint(other.toLocal, point);
+    const { part } = other;
+    const flat = { x: local.x, y: local.y };
+    const face = other.outerZs.find((z) => Math.abs(local.z - z) <= TOUCH_TOLERANCE_MM);
+    if (face === undefined || !isPointInPolygon(flat, part.outline, 0)) continue;
+    if (part.holes.some((hole) => isPointInPolygon(flat, hole, 0))) continue;
+    if ([part.outline, ...part.holes].some((ring) => distanceToBoundary(flat, ring) <= TOUCH_TOLERANCE_MM)) continue;
+    return findOuterNormal(other, face);
+  }
+  return undefined;
 }
 
 function preparePart(part: Part): PreparedPart {
