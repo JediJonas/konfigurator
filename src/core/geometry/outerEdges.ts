@@ -65,6 +65,8 @@ export function listOuterEdges(parts: readonly Part[], options: OuterEdgeOptions
   const prepared = parts.map(preparePart);
   const enclosureParts = prepareEnclosureParts(parts);
   const segments: Segment3[] = [];
+  // Delar med rand på framsidan hålls för sig: deras rand ska stanna på delen och inte slås ihop med eller knytas till andra kanter.
+  const faceSegments: Segment3[] = [];
   prepared.forEach((owner, ownerIndex) => {
     const isCovered = (point: Vec3) => point.y <= GROUND_LEVEL_MM || isHidden(point, prepared, ownerIndex) || isEnclosed(point, enclosureParts);
     const isOnFace = owner.part.hasEdgeBeadOnFront === true;
@@ -80,16 +82,19 @@ export function listOuterEdges(parts: readonly Part[], options: OuterEdgeOptions
           const end = transformPoint(owner.part.transform, { x: next.x, y: next.y, z });
           const ownerNormal = isOnFace ? undefined : findOuterNormal(owner, z);
           for (const visible of listVisibleSegments(start, end, isCovered)) {
-            segments.push(...(ownerNormal ? shiftIntoCorners(visible, ownerNormal, (point) => findInwardCornerNormal(point, prepared, ownerIndex), options.holeMargin) : [visible]));
+            if (isOnFace) faceSegments.push(visible);
+            else segments.push(...(ownerNormal ? shiftIntoCorners(visible, ownerNormal, (point) => findInwardCornerNormal(point, prepared, ownerIndex), options.holeMargin) : [visible]));
           }
         });
       }
     }
   });
-  return joinEdgeLines(
+  const edges = joinEdgeLines(
     mergeParallelSegments(segments, options.mergeDistance).map((segment) => [segment.start, segment.end]),
     options.mergeDistance,
   );
+  const faceEdges = joinEdgeLines(faceSegments.map((segment) => [segment.start, segment.end]), 0);
+  return [...edges, ...faceEdges];
 }
 
 /**

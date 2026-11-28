@@ -151,3 +151,18 @@ describe('ytterkanter på framsidan', () => {
     expect(Math.max(...points.map((point) => point.x))).toBeCloseTo(30 - HOLE_MARGIN_MM, 6);
   });
 });
+
+describe('ytterkanter på framsidan hålls för sig', () => {
+  it('knyter inte en lucka till kanten på ett fönster som ligger några mm bredvid', () => {
+    // Väggen har ett hål; luckan ligger över väggen precis intill hålet.
+    const wall = plate('wall', rectangle(0, 0, 100, 80), { holes: [rectangle(40, 20, 20, 40)] });
+    const shutter = { ...plate('shutter', rectangle(60, 20, 10, 40), { hasInsideAtZero: false, transform: basisMatrix(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(0, 0, THICKNESS_MM)) }), hasEdgeBeadOnFront: true };
+    const lines = edges([wall, shutter]);
+    const shutterLines = lines.filter((line) => line.every((point) => Math.abs(point.z - (2 * THICKNESS_MM + HOLE_MARGIN_MM)) < 1e-9));
+    expect(shutterLines).toHaveLength(1);
+    const loop = shutterLines[0] ?? [];
+    expect(loop[0]).toEqual(loop[loop.length - 1]);
+    // Luckans rand ligger kvar på luckan: innanför dess kant, inte flyttad mot hålets rand.
+    expect(Math.min(...loop.map((point) => point.x))).toBeCloseTo(60 + HOLE_MARGIN_MM, 6);
+  });
+});
