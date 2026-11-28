@@ -16,7 +16,7 @@ interface EdgeBeadMeshProps {
  */
 export function EdgeBeadMesh({ parts, bead }: EdgeBeadMeshProps) {
   const geometry = useMemo(() => {
-    const data = buildBeadGeometry(listOuterEdges(parts, { mergeDistance: bead.mergeDistance }), bead.radius);
+    const data = buildBeadGeometry(listOuterEdges(parts, { mergeDistance: bead.mergeDistance, holeMargin: bead.radius }), bead.radius);
     const result = new BufferGeometry();
     result.setAttribute('position', new Float32BufferAttribute(data.positions, 3));
     result.setAttribute('normal', new Float32BufferAttribute(data.normals, 3));

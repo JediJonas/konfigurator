@@ -257,7 +257,6 @@ describe('takkupa med pulpettak', () => {
 it('rättar taklutningen när man väljer pulpettak, så att taket möter husets tak', () => {
   const changed = setParamWithinRules(designWithExtensions(dormerOn('roof-right')), gingerbreadDomain, { instanceId: 'K1', key: 'roof', value: 'shed' });
   const dormer = changed.root.children[0]?.children[0];
-  expect(dormer?.params.roof).toBe('shed');
-  expect(Number(dormer?.params.roofPitch)).toBeLessThan(45);
+  expect(dormer?.params).toMatchObject({ roof: 'shed', roofPitch: 15 });
   expect(errorKeys(changed)).toEqual([]);
 });

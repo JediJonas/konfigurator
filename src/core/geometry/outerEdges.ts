@@ -1,4 +1,6 @@
 import type { Part } from '../model/part';
+import { isEnclosed, prepareEnclosureParts } from './enclosure';
+import { growPolygon } from './growPolygon';
 import { distanceToBoundary, isPointInPolygon } from './hull';
 import { joinEdgeLines } from './joinEdgeLines';
 import { invertRigidMatrix, transformPoint } from './matrix';
@@ -27,6 +29,11 @@ export interface OuterEdgeOptions {
    * varandra fogas ihop, t.ex. där två takfall möts i nocken.
    */
   mergeDistance: Mm;
+  /**
+   * Kanterna runt hål flyttas så här långt ut från hålet, in på delens yta,
+   * så att randen ligger på ytan runt hålet och inte syns inifrån huset.
+   */
+  holeMargin: Mm;
 }
 
 /** En sammanhängande ytterkant i världen, som punkter i ordning. */
@@ -42,19 +49,23 @@ interface PreparedPart {
 
 /**
  * Ytterkanterna på delarna i världen: konturens och hålens kanter på delens
- * utsida (båda sidor när delen inte har någon insida). En kant som ligger i
+ * utsida (båda sidor när delen inte har någon insida); hålens kanter flyttas
+ * ut på ytan runt hålet. En kant som ligger i
  * eller mot en annan del är dold, t.ex. en väggs ände i ett hörn där den andra
  * väggen går ut, eller väggens överkant under taket; synliga kanter går ända
  * fram till delen som döljer resten. Kanter som sammanfaller eller ligger tätt
  * parallellt blir en, så att en fog mellan två delar bara får en kant. Kanter
- * som möts fogas ihop till obrutna linjer. Kanter som ligger på fatet räknas inte.
+ * som möts fogas ihop till obrutna linjer. Kanter som ligger på fatet eller
+ * inuti huset (instängda av delarna) räknas inte.
  */
 export function listOuterEdges(parts: readonly Part[], options: OuterEdgeOptions): EdgeLine[] {
   const prepared = parts.map(preparePart);
+  const enclosureParts = prepareEnclosureParts(parts);
   const segments: Segment3[] = [];
   prepared.forEach((owner, ownerIndex) => {
-    const isCovered = (point: Vec3) => point.y <= GROUND_LEVEL_MM || isHidden(point, prepared, ownerIndex);
-    for (const ring of [owner.part.outline, ...owner.part.holes]) {
+    const isCovered = (point: Vec3) => point.y <= GROUND_LEVEL_MM || isHidden(point, prepared, ownerIndex) || isEnclosed(point, enclosureParts);
+    const holes = owner.part.holes.map((hole) => growPolygon(hole, options.holeMargin));
+    for (const ring of [owner.part.outline, ...holes]) {
       for (const z of owner.outerZs) {
         ring.forEach((point, index) => {
           const next = ring[(index + 1) % ring.length] ?? point;
@@ -118,7 +129,9 @@ function preparePart(part: Part): PreparedPart {
 }
 
 /**
- * Sant när punkten ligger i eller mot en annan del. Sammanfaller kanten med en
+ * Sant när punkten ligger i eller mot en annan del. En kant som ligger mot
+ * mitten av den andra delens utsida är ett hörn som går inåt och räknas som
+ * synlig. Sammanfaller kanten med en
  * ytterkant på en senare del räknas den inte som dold av den, eftersom den
  * senare delens kant då döljs av denna; så blir en av dem kvar.
  */
@@ -131,8 +144,11 @@ function isHidden(point: Vec3, parts: readonly PreparedPart[], ownerIndex: numbe
     const flat = { x: local.x, y: local.y };
     if (!isPointInPolygon(flat, part.outline, TOUCH_TOLERANCE_MM)) return false;
     if (part.holes.some((hole) => isPointInPolygon(flat, hole, 0) && distanceToBoundary(flat, hole) > TOUCH_TOLERANCE_MM)) return false;
-    const isOnOuterEdge = other.outerZs.some((z) => Math.abs(local.z - z) <= TOUCH_TOLERANCE_MM) && [part.outline, ...part.holes].some((ring) => distanceToBoundary(flat, ring) <= TOUCH_TOLERANCE_MM);
-    return !(isOnOuterEdge && otherIndex > ownerIndex);
+    const isOnOuterFace = other.outerZs.some((z) => Math.abs(local.z - z) <= TOUCH_TOLERANCE_MM);
+    const isNearRim = [part.outline, ...part.holes].some((ring) => distanceToBoundary(flat, ring) <= TOUCH_TOLERANCE_MM);
+    // Mitt på den andra delens utsida är det ett hörn som går inåt, t.ex. där en tillbyggnad möter väggen: det får också kristyr.
+    if (isOnOuterFace && !isNearRim) return false;
+    return !(isOnOuterFace && isNearRim && otherIndex > ownerIndex);
   });
 }
 

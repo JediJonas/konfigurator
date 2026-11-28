@@ -3,7 +3,7 @@ import { readShowEdgeBead, rememberShowEdgeBead } from '../../src/app/state/view
 import type { ViewSettingsStorage } from '../../src/app/state/viewSettings';
 import { createMemoryStorage } from './memoryStorage';
 import { buildBeadGeometry } from '../../src/app/three/edgeBeadGeometry';
-import { vec3 } from '../../src/core/geometry/vector';
+import { cross3, dot3, length3, subtract3, vec3 } from '../../src/core/geometry/vector';
 
 const blockedStorage: ViewSettingsStorage = {
   getItem: () => {
@@ -52,6 +52,20 @@ describe('randens geometri', () => {
     const straight = buildBeadGeometry([[vec3(0, 0, 0), vec3(10, 0, 0), vec3(20, 0, 0)]], radius);
     expect(square.positions.length).toBe(straight.positions.length);
     expect(sharp.positions.length).toBeGreaterThan(square.positions.length);
+  });
+
+  it('vänder kulornas trianglar utåt, så att de inte ser ihåliga ut', () => {
+    const sphere = buildBeadGeometry([[vec3(0, 0, 0), vec3(10, 0, 0)]], radius);
+    const at = (index: number) => vec3(sphere.positions[index * 3] ?? 0, sphere.positions[index * 3 + 1] ?? 0, sphere.positions[index * 3 + 2] ?? 0);
+    for (let index = 0; index < sphere.indices.length; index += 3) {
+      const [a, b, c] = [at(sphere.indices[index] ?? 0), at(sphere.indices[index + 1] ?? 0), at(sphere.indices[index + 2] ?? 0)];
+      const normal = cross3(subtract3(b, a), subtract3(c, a));
+      if (length3(normal) < 1e-9) continue;
+      // Triangelns normal pekar bort från närmaste punkt på sträckan.
+      const center = { x: (a.x + b.x + c.x) / 3, y: (a.y + b.y + c.y) / 3, z: (a.z + b.z + c.z) / 3 };
+      const axis = vec3(Math.min(10, Math.max(0, center.x)), 0, 0);
+      expect(dot3(normal, subtract3(center, axis))).toBeGreaterThan(0);
+    }
   });
 
   it('gör en sluten slinga utan kulor', () => {

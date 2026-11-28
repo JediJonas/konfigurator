@@ -10,6 +10,11 @@ export const SLOPED_ROOFS: readonly RoofType[] = ['gable', 'shed', 'hip', 'mansa
 /** Tak med gavlar eller sidor där takutsprånget vid gaveln gäller. */
 const ROOFS_WITH_GABLE_OVERHANG: readonly RoofType[] = ['gable', 'shed', 'mansard'];
 
+/** Lutningen ett pulpettak får när man väljer det (ägarens val); sadeltakets 45° blir för brant. */
+export const SHED_ROOF_PITCH_DEGREES = 15;
+/** Fält som sätts när man väljer en taktyp. */
+export const ROOF_VALUES_WHEN_CHOSEN = { shed: { roofPitch: SHED_ROOF_PITCH_DEGREES } } as const;
+
 /** Fältgruppen för taket; takets delar pekar på den. */
 export const ROOF_GROUP_KEY = 'group.roof';
 const roofField = { groupKey: ROOF_GROUP_KEY, isInherited: true } as const;
@@ -24,6 +29,7 @@ export const sectionParams = z.object({
     .meta({
       labelKey: 'param.roof',
       optionLabelKeys: Object.fromEntries(ROOF_TYPES.map((roof) => [roof, `roof.${roof}`])),
+      valuesWhenChosen: ROOF_VALUES_WHEN_CHOSEN,
       ...roofField,
     }),
   isRoofTurned: z
