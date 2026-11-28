@@ -38,10 +38,20 @@ export function buildRoofSurfaceSockets(instance: Instance, params: SectionParam
   const sides = listWallSides(params, isExtension(context));
   return buildRoofParts(params, roofContext(context, false))
     .filter((draft) => draft.id.startsWith('roof') && draft.id !== 'roof-plate')
-    .map((draft) => roofFaceSocket(instance, draft, context.thickness, faceLabelKey(draft, sides)));
+    .map((draft) => roofFaceSocket(instance, draft, context.thickness, sides));
 }
 
-function roofFaceSocket(instance: Instance, draft: PartDraft, thickness: number, labelKey: string): Socket {
+/**
+ * Väggen under takfoten på de takfall som går ner till väggarna, så att en
+ * skorsten som flyttas ut förbi takfoten kan stå mot väggen i stället. Ett
+ * övre takfall på ett mansardtak har ingen vägg under sig.
+ */
+function wallBelowPartIds(instance: Instance, draft: PartDraft, facing: WallSide | undefined): string[] | undefined {
+  return facing && draft.labelKey !== 'part.roofUpper' ? [`${instance.id}/${facing.id}`] : undefined;
+}
+
+function roofFaceSocket(instance: Instance, draft: PartDraft, thickness: number, sides: readonly WallSide[]): Socket {
+  const facing = findFacingWall(draft, sides);
   const bounds = boundsOf(draft.outline);
   const middle = (bounds.minX + bounds.maxX) / 2;
   const at = (x: number, y: number, z: number) => transformPoint(draft.transform, vec3(x, y, z));
@@ -51,11 +61,12 @@ function roofFaceSocket(instance: Instance, draft: PartDraft, thickness: number,
   return {
     id: draft.id,
     kind: ROOF_SURFACE,
-    labelKey,
+    labelKey: faceLabelKey(draft, facing, sides),
     frame: { origin, u: vec3(-along.x, -along.y, -along.z), normal },
     bounds: draft.outline.map((point) => vec2(middle - point.x, point.y - bounds.minY)),
     ownerPartId: `${instance.id}/${draft.id}`,
     paramGroupKey: ROOF_GROUP_KEY,
+    alternativePartIds: wallBelowPartIds(instance, draft, facing),
   };
 }
 
@@ -63,15 +74,20 @@ function roofFaceSocket(instance: Instance, draft: PartDraft, thickness: number,
  * "Takfall mot Vägg 2" efter väggen som takfallet lutar ner mot, så att
  * namnen följer väggarnas nummer. Ett takfall som lutar mot värden på en tillbyggnad heter "mot huset".
  */
-function faceLabelKey(draft: PartDraft, sides: readonly WallSide[]): string {
+function faceLabelKey(draft: PartDraft, facing: WallSide | undefined, sides: readonly WallSide[]): string {
   const base = LABEL_BASES[draft.labelKey] ?? 'socket.roofToward';
+  return facing ? `${base}${wallNumberOf(facing.id, sides)}` : `${base}Host`;
+}
+
+/** Väggen som takfallet lutar ner mot, om det lutar tydligt mot någon. */
+export function findFacingWall(draft: PartDraft, sides: readonly WallSide[]): WallSide | undefined {
   const origin = transformPoint(draft.transform, vec3(0, 0, 0));
   const upHill = subtract3(transformPoint(draft.transform, vec3(0, 1, 0)), origin);
   const downhill = normalizePlan(vec3(-upHill.x, 0, -upHill.z));
   const facing = sides
     .map((side) => ({ side, cosine: downhillCosine(side, downhill) }))
     .reduce<{ side?: WallSide; cosine: number }>((best, entry) => (entry.cosine > best.cosine ? entry : best), { cosine: FACING_WALL_MIN_COSINE });
-  return facing.side ? `${base}${wallNumberOf(facing.side.id, sides)}` : `${base}Host`;
+  return facing.side;
 }
 
 function downhillCosine(side: WallSide, downhill: Vec3): number {

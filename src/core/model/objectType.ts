@@ -43,6 +43,12 @@ export interface Socket {
    * Det som sitter i punkten visas då under gruppen och inte som en egen del.
    */
   paramGroupKey?: string;
+  /**
+   * Andra delar vars kopplingspunkter är alternativ för samma ställe, t.ex.
+   * väggen under ett takfall. Ett objekt som klarar reglerna där men inte här
+   * flyttas dit, på samma sätt som mellan punkterna på samma del.
+   */
+  alternativePartIds?: string[];
 }
 
 /**
