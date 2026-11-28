@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { placeInstances } from '../../src/core/pipeline/placeInstances';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { findOutermostNested, groupPanelEntries, listOpenChain } from '../../src/app/ui/panelEntries';
-import { groupKeyOfPlace, listGroupSockets, listPanelWalls } from '../../src/app/ui/panelWalls';
+import { findChosenGroupSocket, groupKeyOfPlace, listGroupSockets, listPanelWalls } from '../../src/app/ui/panelWalls';
 import { findSocketOwnedBy } from '../../src/app/ui/socketSelection';
 import { designWithExtensions } from '../domains/extensionFixtures';
 import { dormerOn } from '../domains/dormerFixtures';
@@ -30,6 +30,17 @@ describe('takkupor under Tak i panelen', () => {
     const byId = (id: string) => placed.find((entry) => entry.instance.id === id);
     expect(groupKeyOfPlace(byId('K1') ?? placed[0]!)).toBe('group.roof');
     expect(groupKeyOfPlace(byId('F1') ?? placed[0]!)).toBeUndefined();
+  });
+
+  it('lägger till på det valda takfallet, och annars på det första', () => {
+    if (!house) throw new Error('S1 saknas');
+    const { sockets } = listGroupSockets(house.entry, house.nested, 'group.roof');
+    expect(findChosenGroupSocket(sockets, 'S1', undefined)?.labelKey).toBe('socket.roofToward2');
+    expect(findChosenGroupSocket(sockets, 'S1', { instanceId: 'S1', socketId: 'roof-left' })?.id).toBe('roof-left');
+    // Ett takfall som hör till en annan sektion eller inte längre finns gäller inte.
+    expect(findChosenGroupSocket(sockets, 'S1', { instanceId: 'S2', socketId: 'roof-left' })?.labelKey).toBe('socket.roofToward2');
+    expect(findChosenGroupSocket(sockets, 'S1', { instanceId: 'S1', socketId: 'roof-lower-left' })?.labelKey).toBe('socket.roofToward2');
+    expect(findChosenGroupSocket([], 'S1', undefined)).toBeUndefined();
   });
 
   it('väljer ingen vägg när man trycker på taket, så att takets grupp öppnas', () => {

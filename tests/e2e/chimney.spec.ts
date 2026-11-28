@@ -38,6 +38,19 @@ test('flyttar skorstenen ut till väggen under takfoten och längs väggen', asy
   await expect(page.getByText('Sitter på S1 · takfall mot vägg 2')).toBeVisible();
 });
 
+test('lägger skorstenen på takfallet som är valt under Tak', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await openWall(page, 'Tak');
+  // Knapparna är korta; takfallet väljs i listan eller med ett tryck på taket i 3D-vyn.
+  const roofFace = page.getByLabel('Takfall', { exact: true });
+  await expect(roofFace.locator('option:checked')).toHaveText('Takfall mot Vägg 2');
+  await expect(page.getByRole('button', { name: 'Lägg till skorsten på takfall mot vägg 2' })).toHaveText('Skorsten');
+  await roofFace.selectOption({ label: 'Takfall mot Vägg 4' });
+  await page.getByRole('button', { name: 'Lägg till skorsten på takfall mot vägg 4' }).click();
+  await expect(page.getByText('Sitter på S1 · takfall mot vägg 4')).toBeVisible();
+});
+
 async function openWall(page: Page, name: string) {
   const wall = page.getByRole('button', { name, exact: true });
   if ((await wall.getAttribute('aria-expanded')) !== 'true') await wall.click();

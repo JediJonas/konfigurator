@@ -94,6 +94,7 @@ export const gingerbreadStrings: Record<string, string> = {
   'add.gb.door': 'Lägg till dörr',
   'add.gb.dormer': 'Lägg till takkupa',
   'add.gb.chimney': 'Lägg till skorsten',
+  'socketChoice.group.roof': 'Takfall',
   'offset.roof-surface': 'Läge längs taket (0 = mitten)',
   'cannotAdd.dormer-wall': 'Det finns ingen plats för ett fönster här. Gör kupan bredare eller högre.',
   'cannotAdd.gb.chimney': 'Det finns ingen plats här, inte ens för den minsta skorstenen. Välj ett annat takfall eller flytta en takkupa.',

@@ -6,7 +6,8 @@ import { useDesignStore } from '../state/designStore';
 import { translate } from '../activeDomain';
 import { AddToWall } from './AddToWall';
 import { InstanceHeading, InstanceSettings, OffsetInput, RemoveButton, useParamFieldsWithinRules, ViolationList } from './InstanceSettings';
-import { listGroupSockets, listPanelWalls, listPartFields } from './panelWalls';
+import { GroupSocketChoice } from './GroupSocketChoice';
+import { findChosenGroupSocket, listGroupSockets, listPanelWalls, listPartFields } from './panelWalls';
 import { ParamForm } from './ParamForm';
 import { WallSettings } from './WallSettings';
 
@@ -35,11 +36,12 @@ interface SectionSettingsProps {
  * En sektion i panelen: läget överst om den sitter på en annan sektion, sedan
  * vägghöjden som gäller alla väggar, taket och väggarna med egna rubriker
  * (ägarens val). Väggens längd ligger på väggen. Det som sitter på taket,
- * t.ex. takkupor, ligger sist under Tak med en knapp per takfall.
+ * t.ex. takkupor, ligger sist under Tak, med knappar som lägger till på
+ * takfallet man tryckte på i 3D-vyn eller valde i listan (ägarens val).
  */
 export function SectionSettings(props: SectionSettingsProps) {
   const { entry, nested, violations, isRemovable, isOpen, onToggle, openPart, onTogglePart } = props;
-  const { setParam } = useDesignStore();
+  const { setParam, selectedGroupSocket, selectGroupSocket } = useDesignStore();
   const bodyId = useId();
   const knownRanges = useRuleRanges(entry, isOpen, isRemovable);
   const paramFields = useParamFieldsWithinRules(entry, knownRanges);
@@ -53,7 +55,8 @@ export function SectionSettings(props: SectionSettingsProps) {
   const inClosedGroups = listInGroups(nested, (groupKey) => groupKey !== openPart.groupKey);
   const renderGroupExtra = (groupKey: string) => {
     const group = listGroupSockets(entry, nested, groupKey);
-    if (group.sockets.length === 0) return null;
+    const chosen = findChosenGroupSocket(group.sockets, instance.id, selectedGroupSocket);
+    if (!chosen) return null;
     return (
       <>
         {group.nested.length > 0 ? (
@@ -75,9 +78,13 @@ export function SectionSettings(props: SectionSettingsProps) {
             })}
           </div>
         ) : null}
-        {group.sockets.map((socket) => (
-          <AddToWall key={socket.id} entry={entry} wall={socket} placeLabel={translate(socket.labelKey)} />
-        ))}
+        <GroupSocketChoice
+          groupKey={groupKey}
+          sockets={group.sockets}
+          chosen={chosen}
+          onChoose={(socketId) => selectGroupSocket({ instanceId: instance.id, socketId })}
+        />
+        <AddToWall entry={entry} wall={chosen} placeLabel={translate(chosen.labelKey)} />
       </>
     );
   };
