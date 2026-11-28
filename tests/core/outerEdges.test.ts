@@ -29,14 +29,22 @@ function edges(parts: Part[]): EdgeLine[] {
   return listOuterEdges(parts, { mergeDistance: MERGE_DISTANCE_MM });
 }
 
-/** Linjerna som går längs y (lodrätt) och vars första punkt ligger nära `near` i x och z. */
-function verticalLinesNear(lines: EdgeLine[], near: Vec3, toleranceMm = 1): EdgeLine[] {
-  return lines.filter((line) => {
-    const [first, last] = [line[0], line[line.length - 1]];
-    if (!first || !last) return false;
-    const isVertical = Math.abs(first.x - last.x) < 1e-6 && Math.abs(first.z - last.z) < 1e-6 && first.y !== last.y;
-    return isVertical && Math.abs(first.x - near.x) <= toleranceMm && Math.abs(first.z - near.z) <= toleranceMm;
-  });
+interface Segment {
+  start: Vec3;
+  end: Vec3;
+}
+
+function segmentsOf(lines: EdgeLine[]): Segment[] {
+  return lines.flatMap((line) => line.slice(1).map((end, index) => ({ start: line[index] as Vec3, end })));
+}
+
+/** Lodräta sträckor (längs y) som ligger nära `near` i x och z, med varje x/z-läge räknat en gång. */
+function verticalPlacesNear(lines: EdgeLine[], near: Vec3, toleranceMm = 1): string[] {
+  const places = segmentsOf(lines)
+    .filter(({ start, end }) => Math.abs(start.x - end.x) < 1e-6 && Math.abs(start.z - end.z) < 1e-6 && start.y !== end.y)
+    .filter(({ start }) => Math.abs(start.x - near.x) <= toleranceMm && Math.abs(start.z - near.z) <= toleranceMm)
+    .map(({ start }) => `${start.x.toFixed(2)},${start.z.toFixed(2)}`);
+  return [...new Set(places)];
 }
 
 describe('ytterkanter', () => {
@@ -45,32 +53,47 @@ describe('ytterkanter', () => {
     const wallA = plate('A', rectangle(0, 10, 100, 50));
     const wallB = plate('B', rectangle(0, 10, 50, 50), { transform: basisMatrix(vec3(0, 0, -1), vec3(0, 1, 0), vec3(-1, 0, 0), vec3(THICKNESS_MM, 0, 0)) });
     const lines = edges([wallA, wallB]);
-    expect(verticalLinesNear(lines, vec3(0, 0, 0), THICKNESS_MM + 1)).toHaveLength(1);
-    expect(verticalLinesNear(lines, vec3(0, 0, THICKNESS_MM))).toHaveLength(1);
+    expect(verticalPlacesNear(lines, vec3(0, 0, 0), THICKNESS_MM + 1)).toEqual(['0.00,4.00']);
   });
 
   it('ger en fog mellan två delar som möts kant mot kant en kant', () => {
     const lines = edges([plate('A', rectangle(0, 10, 50, 50)), plate('B', rectangle(50, 10, 50, 50))]);
-    expect(verticalLinesNear(lines, vec3(50, 0, THICKNESS_MM))).toHaveLength(1);
+    expect(verticalPlacesNear(lines, vec3(50, 0, THICKNESS_MM))).toHaveLength(1);
   });
 
-  it('ger en fri del utan insida en kant mitt på varje kant i stället för en på varje sida', () => {
+  it('ger en fri del utan insida en sluten kant mitt på kanterna i stället för en på varje sida', () => {
     const lines = edges([plate('leaf', rectangle(0, 10, 30, 50), { hasInsideAtZero: false })]);
-    expect(lines).toHaveLength(4);
-    expect(verticalLinesNear(lines, vec3(0, 0, THICKNESS_MM / 2), 0.01)).toHaveLength(1);
+    expect(lines).toHaveLength(1);
+    const loop = lines[0] ?? [];
+    expect(loop[0]).toEqual(loop[loop.length - 1]);
+    expect(verticalPlacesNear(lines, vec3(0, 0, THICKNESS_MM / 2), 0.01)).toHaveLength(1);
+    // Hörnen ligger kvar i hörnen; de skärs inte av.
+    expect(loop.some((point) => Math.hypot(point.x, point.y - 10, point.z - THICKNESS_MM / 2) < 1e-6)).toBe(true);
   });
 
   it('ger en smal list mellan två hål en kant i listens mitt', () => {
     const wall = plate('wall', rectangle(0, 10, 100, 80), { holes: [rectangle(30, 30, 15, 40), rectangle(50, 30, 15, 40)] });
-    const lines = verticalLinesNear(edges([wall]), vec3(47.5, 0, THICKNESS_MM), 3);
-    expect(lines).toHaveLength(1);
-    expect(lines[0]?.[0]?.x).toBeCloseTo(47.5);
+    expect(verticalPlacesNear(edges([wall]), vec3(47.5, 0, THICKNESS_MM), 3)).toEqual(['47.50,4.00']);
+  });
+
+  it('går ända fram till delen som döljer kanten', () => {
+    // En skiva ligger tvärs över väggens överkant; väggens hörnkant ska gå ända upp till den.
+    const wall = plate('wall', rectangle(0, 10, 100, 53));
+    const roof = plate('roof', rectangle(-10, -20, 120, 40), { transform: basisMatrix(vec3(1, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0), vec3(0, 63, 0)) });
+    const corner = segmentsOf(edges([wall, roof])).filter(({ start, end }) => start.x === 0 && end.x === 0 && start.z === THICKNESS_MM && end.z === THICKNESS_MM);
+    expect(Math.max(...corner.flatMap(({ start, end }) => [start.y, end.y]))).toBeCloseTo(63, 1);
+  });
+
+  it('fogar ihop kanterna runt en del till en slinga', () => {
+    const lines = edges([plate('wall', rectangle(0, 10, 100, 50), { holes: [rectangle(30, 20, 20, 20)] })]);
+    expect(lines).toHaveLength(2);
+    for (const line of lines) expect(line[0]).toEqual(line[line.length - 1]);
   });
 
   it('räknar inte kanter som ligger på fatet', () => {
     const lines = edges([plate('wall', rectangle(0, 0, 100, 50))]);
-    // Sidorna och överkanten, men inte underkanten.
-    expect(lines).toHaveLength(3);
-    expect(lines.every((line) => line.some((point) => point.y > 1))).toBe(true);
+    // Sidorna och överkanten som en obruten linje, men inte underkanten.
+    expect(lines).toHaveLength(1);
+    expect(segmentsOf(lines).every(({ start, end }) => start.y > 0.5 || end.y > 0.5)).toBe(true);
   });
 });

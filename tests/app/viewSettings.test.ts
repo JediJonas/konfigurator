@@ -32,18 +32,32 @@ describe('kristyr som inställning i vyn', () => {
 });
 
 describe('randens geometri', () => {
-  it('lägger randen på radiens avstånd runt linjen, med kulor bara i ändarna när linjen går rakt', () => {
-    const radius = 2;
+  const radius = 2;
+
+  it('lägger röret på radiens avstånd från linjen', () => {
     const straight = buildBeadGeometry([[vec3(0, 0, 0), vec3(10, 0, 0), vec3(20, 0, 0)]], radius);
-    const bent = buildBeadGeometry([[vec3(0, 0, 0), vec3(10, 0, 0), vec3(10, 10, 0)]], radius);
-    expect(bent.positions.length).toBeGreaterThan(straight.positions.length);
     for (let index = 0; index < straight.positions.length; index += 3) {
-      const [y, z] = [straight.positions[index + 1] ?? 0, straight.positions[index + 2] ?? 0];
-      const x = straight.positions[index] ?? 0;
-      // Röret ligger på radien från x-axeln; kulornas punkter på radien från ändarna.
-      const distance = x >= 0 && x <= 20 ? Math.hypot(y, z) : Math.hypot(x < 0 ? x : x - 20, y, z);
+      const [x, y, z] = [straight.positions[index] ?? 0, straight.positions[index + 1] ?? 0, straight.positions[index + 2] ?? 0];
+      // Röret och kulorna i ändarna ligger på radien från sträckan, kulornas insida närmare.
+      const distance = Math.hypot(x - Math.min(20, Math.max(0, x)), y, z);
       expect(distance).toBeLessThanOrEqual(radius + 1e-9);
+      if (x > 0 && x < 20) expect(Math.hypot(y, z)).toBeLessThanOrEqual(radius + 1e-9);
     }
     expect(Math.max(...straight.indices)).toBeLessThan(straight.positions.length / 3);
+  });
+
+  it('fogar ett rätt hörn i gering utan kula, men sätter en kula i ett spetsigt', () => {
+    const square = buildBeadGeometry([[vec3(0, 0, 0), vec3(10, 0, 0), vec3(10, 10, 0)]], radius);
+    const sharp = buildBeadGeometry([[vec3(0, 0, 0), vec3(10, 0, 0), vec3(0, 2, 0)]], radius);
+    const straight = buildBeadGeometry([[vec3(0, 0, 0), vec3(10, 0, 0), vec3(20, 0, 0)]], radius);
+    expect(square.positions.length).toBe(straight.positions.length);
+    expect(sharp.positions.length).toBeGreaterThan(square.positions.length);
+  });
+
+  it('gör en sluten slinga utan kulor', () => {
+    const loop = buildBeadGeometry([[vec3(0, 0, 0), vec3(10, 0, 0), vec3(10, 10, 0), vec3(0, 10, 0), vec3(0, 0, 0)]], radius);
+    const open = buildBeadGeometry([[vec3(0, 0, 0), vec3(10, 0, 0)]], radius);
+    // Fyra ringar i hörnen och inga kulor, mot två ringar och två kulor för en öppen sträcka.
+    expect(loop.positions.length).toBeLessThan(open.positions.length);
   });
 });
