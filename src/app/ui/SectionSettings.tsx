@@ -114,7 +114,7 @@ export function SectionSettings(props: SectionSettingsProps) {
               />
             );
           })}
-          {isRemovable ? <RemoveButton instanceId={instance.id} /> : null}
+          {isRemovable ? <RemoveButton instance={instance} /> : null}
         </div>
       ) : null}
       {/* Felen syns även när sektionen är stängd, så att inget som stoppar ritningen göms. */}

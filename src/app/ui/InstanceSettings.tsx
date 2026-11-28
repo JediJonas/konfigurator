@@ -1,4 +1,5 @@
 import { useId, useMemo } from 'react';
+import type { Instance } from '../../core/model/design';
 import type { ParamField } from '../../core/model/paramForm';
 import { describeParams } from '../../core/model/paramForm';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
@@ -12,6 +13,7 @@ import type { KnownRanges } from '../rules/useRuleRanges';
 import { useRuleRanges } from '../rules/useRuleRanges';
 import { useDesignStore } from '../state/designStore';
 import { AddToWall } from './AddToWall';
+import { ConfirmAction } from './ConfirmAction';
 import { NumberInput } from './NumberInput';
 import { ParamForm } from './ParamForm';
 import { uiStrings } from './strings.sv';
@@ -68,7 +70,7 @@ export function InstanceSettings(props: InstanceSettingsProps) {
           {entry.sockets.map((socket) => (
             <AddToWall key={socket.id} entry={entry} wall={socket} />
           ))}
-          <RemoveButton instanceId={instance.id} />
+          <RemoveButton instance={instance} />
         </div>
       ) : null}
       {/* Felen syns även när objektet är stängt, så att inget som stoppar ritningen göms. */}
@@ -119,13 +121,20 @@ export function OffsetInput({ entry, knownRanges }: { entry: PlacedInstance; kno
   );
 }
 
-/** "Ta bort F1" sist i det utfällda objektet, så att listan inte har en knapp på varje rad (ägarens val). */
-export function RemoveButton({ instanceId }: { instanceId: string }) {
+/**
+ * "Ta bort F1" sist i det utfällda objektet, så att listan inte har en knapp på varje rad (ägarens val).
+ * Man bekräftar först, som för "Börja om" (ägarens val).
+ */
+export function RemoveButton({ instance }: { instance: Instance }) {
   const { removeChild } = useDesignStore();
   return (
-    <button type="button" className="secondary-button remove-button" onClick={() => removeChild(instanceId)}>
-      {uiStrings.remove(instanceId)}
-    </button>
+    <ConfirmAction
+      label={uiStrings.remove(instance.id)}
+      question={uiStrings.removeQuestion(instance.id, instance.children.length > 0)}
+      confirmLabel={uiStrings.confirmRemove(instance.id)}
+      onConfirm={() => removeChild(instance.id)}
+      className="remove-button"
+    />
   );
 }
 

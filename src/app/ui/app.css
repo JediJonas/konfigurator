@@ -487,12 +487,12 @@ body {
   justify-self: start;
 }
 
-.start-over-confirm {
+.confirm-action {
   display: grid;
   gap: 0.5rem;
 }
 
-.start-over-actions {
+.confirm-action-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
