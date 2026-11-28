@@ -107,6 +107,12 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 
 - Huset med alla tillbyggnader, sektioner och takutsprång står alltid mitt på fatet (ägarens önskan). 3D-vyn flyttar delarna så att mitten av rutan runt dem sett uppifrån hamnar i fatets mitt (`app/three/plateCentering.ts`). Ritningen och regelkontrollen räknar som förut; bara vyn flyttar.
 
+## Kristyr
+
+- Kryssrutan "Visa kristyr" under Inställningar (ägarens önskan) lägger en vit rand längs husets ytterkanter i 3D-vyn: hörnen, takets kanter, runt fönster, dörrar och luckor och längs spröjs. Den är av från början, gäller vyn och inte huset, och sparas i webbläsaren (`app/state/viewSettings.ts`), inte med huset eller i länken. Ritningen påverkas inte, men översiktsbilden i PDF:en visar den när den är på.
+- Kanterna räknas generellt ur delarnas konturer och hål (`core/geometry/outerEdges.ts`), så nya former följer med av sig själva. Bara utsidans kanter räknas (båda sidor på delar utan insida, t.ex. luckor och dörrblad). En kant som ligger i eller mot en annan del är dold, t.ex. en väggs ände i ett hörn eller väggens överkant under taket, så att en fog bara får en rand. Sammanfaller två kanter blir den första kvar. Parallella kanter närmare än spröjsens bredd + 2 mm blir en rand i mitten. Kanter på fatet får ingen rand.
+- Domänen anger randen som data (`Domain.edgeBead`: text, färg, radie 2,2 mm och avståndet för hopslagning). Vyn ritar den som en enda geometri med få sidor (`app/three/edgeBeadGeometry.ts`) och den går inte att trycka på.
+
 ## Lagring
 
 - Det öppna huset sparas av sig självt (`app/storage/`), 0,4 s efter senaste ändringen och direkt när sidan göms, via `ProjectStore` i webbläsarens lokala lagring. Vid start öppnas det senast sparade; går det inte att migrera (`core/model/migrateDesign.ts`) eller räkna börjar appen med mallen. "Börja om" under Inställningar ersätter huset med mallen efter en bekräftelse i panelen, och autosparet skriver över det sparade (ägarens önskan).

@@ -14,6 +14,17 @@ export interface Material {
   color: string;
 }
 
+/** En rand som kan visas längs delarnas ytterkanter i 3D-vyn. Den påverkar inte ritningen. */
+export interface EdgeBead {
+  /** Text för kryssrutan som visar randen. */
+  labelKey: string;
+  /** Som CSS-färg. */
+  color: string;
+  radius: Mm;
+  /** Parallella kanter närmare varandra än så här får en gemensam rand, t.ex. på båda sidor om en smal list. */
+  mergeDistance: Mm;
+}
+
 export interface Preset {
   id: string;
   labelKey: string;
@@ -35,6 +46,8 @@ export interface Domain {
   jointStyles: JointStyle[];
   presets: Preset[];
   strings: Record<string, string>;
+  /** Randen längs ytterkanterna, om domänen har någon. */
+  edgeBead?: EdgeBead;
   /**
    * Gör om parametrarna i en design från en äldre `domainVersion` till dagens.
    * Körs efter `migrateDesign`; varje höjning av domänens version får ett steg här.

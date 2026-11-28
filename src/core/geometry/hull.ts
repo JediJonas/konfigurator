@@ -42,7 +42,8 @@ export function isPointInPolygon(point: Vec2, polygon: Polygon, toleranceMm: num
   return isInside;
 }
 
-function distanceToBoundary(point: Vec2, polygon: Polygon): number {
+/** Kortaste avståndet från punkten till polygonens kant, i mm. */
+export function distanceToBoundary(point: Vec2, polygon: Polygon): number {
   return Math.min(
     ...polygon.map((a, index) => distanceToSegment(point, a, polygon[(index + 1) % polygon.length] ?? a)),
   );

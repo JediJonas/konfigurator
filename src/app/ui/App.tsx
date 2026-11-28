@@ -5,6 +5,7 @@ import { evaluateDesign } from '../../core/rules/evaluateDesign';
 import { activeDomain, translate } from '../activeDomain';
 import { useDesignStore } from '../state/designStore';
 import { useSeenHints } from '../state/seenHints';
+import { useViewSettings } from '../state/viewSettings';
 import { DesignView } from '../three/DesignView';
 import type { FitView } from '../three/DesignView';
 import type { CaptureOverview } from '../three/OverviewCapture';
@@ -31,6 +32,7 @@ export function App() {
   const selectedGroupSocket = useDesignStore((state) => state.selectedGroupSocket);
   const hasMovedView = useSeenHints((state) => state.seen.view);
   const markHintSeen = useSeenHints((state) => state.markHintSeen);
+  const isEdgeBeadShown = useViewSettings((state) => state.isEdgeBeadShown);
   const captureRef = useRef<CaptureOverview>(null);
   const fitRef = useRef<FitView>(null);
   const [lastGoodParts, setLastGoodParts] = useState<Part[]>([]);
@@ -77,6 +79,7 @@ export function App() {
             }}
             pickAreas={result.error ? [] : pickAreas}
             onSelectInstance={focusInstance}
+            edgeBead={isEdgeBeadShown ? activeDomain.edgeBead : undefined}
             onUserMoveView={() => markHintSeen('view')}
           />
           {hasMovedView ? null : <p className="viewport-hint">{uiStrings.viewHint}</p>}
