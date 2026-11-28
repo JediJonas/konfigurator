@@ -8,9 +8,196 @@
     <meta name="theme-color" content="#1f1915" media="(prefers-color-scheme: dark)" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <title>Konfigurator – pepparkakshus</title>
+    <!--
+      Felrutan: visar fel längst ner på sidan, så att de går att läsa där det inte finns
+      någon konsol, t.ex. i Safari på iPad. Skriptet står här och inte i appen, eftersom
+      appen aldrig visas om webbläsaren inte kan tolka eller ladda paketet. Därför är det
+      skrivet i gammal JavaScript (var, function) som även äldre Safari förstår, och
+      texterna står här i stället för i strings.sv.ts. ?fel visar rutan även utan fel.
+    -->
+    <script>
+      (function () {
+        var STARTUP_TIMEOUT_MS = 15000;
+        var MAX_ENTRIES = 50;
+        var SAVED_KEY_PREFIX = 'konfigurator.';
+        var entries = [];
+        var box, textArea, isShownAlways = /[?&]fel\b/.test(location.search);
+
+        function describeValue(value) {
+          if (value instanceof Error) return value.name + ': ' + value.message + (value.stack ? '\n' + value.stack : '');
+          if (typeof value === 'string') return value;
+          try {
+            return JSON.stringify(value);
+          } catch (e) {
+            return String(value);
+          }
+        }
+
+        function describeEnvironment() {
+          var lines = ['Webbläsare: ' + navigator.userAgent, 'Skärm: ' + screen.width + ' × ' + screen.height + ', fönster ' + innerWidth + ' × ' + innerHeight];
+          try {
+            var canvas = document.createElement('canvas');
+            lines.push('WebGL 2: ' + (canvas.getContext('webgl2') ? 'ja' : 'nej') + ', WebGL 1: ' + (canvas.getContext('webgl') ? 'ja' : 'nej'));
+          } catch (e) {
+            lines.push('WebGL: fel vid kontrollen, ' + describeValue(e));
+          }
+          try {
+            var savedBytes = 0;
+            for (var index = 0; index < localStorage.length; index++) {
+              var key = localStorage.key(index);
+              if (key && key.indexOf(SAVED_KEY_PREFIX) === 0) savedBytes += (localStorage.getItem(key) || '').length;
+            }
+            lines.push('Sparat hus: ' + (savedBytes ? Math.round(savedBytes / 1024) + ' kB' : 'inget'));
+          } catch (e) {
+            lines.push('Lokal lagring: går inte att läsa, ' + describeValue(e));
+          }
+          return lines.join('\n');
+        }
+
+        function renderText() {
+          if (!textArea) return;
+          textArea.value = describeEnvironment() + '\n\n' + (entries.length ? entries.join('\n\n') : 'Inga fel än.');
+        }
+
+        function createButton(label, onPress) {
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = label;
+          button.style.cssText = 'min-height:44px;min-width:44px;padding:0 1rem;font:inherit;border:1px solid #fff;border-radius:6px;background:#3a2a20;color:#fff;cursor:pointer';
+          button.addEventListener('click', onPress);
+          return button;
+        }
+
+        function copyText() {
+          renderText();
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(textArea.value).catch(selectText);
+          } else {
+            selectText();
+          }
+        }
+
+        function selectText() {
+          textArea.focus();
+          textArea.select();
+          try {
+            document.execCommand('copy');
+          } catch (e) {
+            // Texten är markerad, så den går att kopiera för hand.
+          }
+        }
+
+        function createClearButton() {
+          var isConfirming = false;
+          var button = createButton('Radera sparat hus', function () {
+            if (!isConfirming) {
+              isConfirming = true;
+              button.textContent = 'Tryck igen för att radera';
+              return;
+            }
+            try {
+              for (var index = localStorage.length - 1; index >= 0; index--) {
+                var key = localStorage.key(index);
+                if (key && key.indexOf(SAVED_KEY_PREFIX) === 0) localStorage.removeItem(key);
+              }
+              button.textContent = 'Raderat, laddar om …';
+              location.reload();
+            } catch (e) {
+              report('Kunde inte radera det sparade huset: ' + describeValue(e));
+            }
+          });
+          return button;
+        }
+
+        function showBox() {
+          if (box) {
+            box.style.display = 'flex';
+            renderText();
+            return;
+          }
+          if (!document.body) {
+            document.addEventListener('DOMContentLoaded', showBox);
+            return;
+          }
+          box = document.createElement('section');
+          box.id = 'error-report';
+          box.setAttribute('aria-label', 'Felmeddelanden');
+          box.style.cssText =
+            'position:fixed;left:0;right:0;bottom:0;z-index:2147483647;max-height:45dvh;display:flex;flex-direction:column;gap:0.5rem;' +
+            'padding:0.75rem 1rem var(--bottom-gap, 1rem);background:#1f1915;color:#fff;font:14px/1.4 system-ui,sans-serif;box-shadow:0 -2px 12px rgba(0,0,0,0.4)';
+          var heading = document.createElement('h2');
+          heading.textContent = 'Felmeddelanden';
+          heading.style.cssText = 'margin:0;font-size:1rem';
+          textArea = document.createElement('textarea');
+          textArea.readOnly = true;
+          textArea.setAttribute('aria-label', 'Felmeddelanden och webbläsarens uppgifter');
+          textArea.style.cssText = 'flex:1;min-height:8rem;width:100%;box-sizing:border-box;font:12px/1.4 ui-monospace,Menlo,monospace;background:#000;color:#fff;border:1px solid #888;border-radius:6px;padding:0.5rem';
+          var buttons = document.createElement('div');
+          buttons.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem';
+          buttons.appendChild(createButton('Kopiera', copyText));
+          buttons.appendChild(createClearButton());
+          buttons.appendChild(
+            createButton('Stäng', function () {
+              box.style.display = 'none';
+            }),
+          );
+          box.appendChild(heading);
+          box.appendChild(textArea);
+          box.appendChild(buttons);
+          document.body.appendChild(box);
+          renderText();
+        }
+
+        /** Varningar skrivs in men öppnar inte rutan, eftersom three.js och React varnar även när allt går bra. */
+        function report(message, isWarning) {
+          var time = new Date().toTimeString().slice(0, 8);
+          entries.push(time + ' ' + message);
+          if (entries.length > MAX_ENTRIES) entries.shift();
+          if (isWarning) renderText();
+          else showBox();
+        }
+
+        window.addEventListener(
+          'error',
+          function (event) {
+            var target = event.target;
+            // Ett skript, en stilmall eller en modul som inte gick att ladda.
+            if (target && target !== window && (target.src || target.href)) {
+              report('Kunde inte ladda ' + (target.src || target.href));
+              return;
+            }
+            var where = event.filename ? ' (' + event.filename + ':' + event.lineno + ':' + event.colno + ')' : '';
+            report((event.error ? describeValue(event.error) : event.message) + where);
+          },
+          true,
+        );
+        window.addEventListener('unhandledrejection', function (event) {
+          report('Ohanterat löfte: ' + describeValue(event.reason));
+        });
+        ['error', 'warn'].forEach(function (level) {
+          var original = console[level];
+          console[level] = function () {
+            var parts = [];
+            for (var index = 0; index < arguments.length; index++) parts.push(describeValue(arguments[index]));
+            report('console.' + level + ': ' + parts.join(' '), level === 'warn');
+            return original.apply(console, arguments);
+          };
+        });
+
+        // Startar appen inte syns det bara som en tom sida, även utan fel.
+        setTimeout(function () {
+          var root = document.getElementById('root');
+          if (root && !root.firstChild) report('Appen har inte startat efter ' + STARTUP_TIMEOUT_MS / 1000 + ' s.');
+        }, STARTUP_TIMEOUT_MS);
+        if (isShownAlways) showBox();
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <script nomodule>
+      document.getElementById('root').textContent = 'Den här webbläsaren är för gammal för appen (saknar stöd för JavaScript-moduler).';
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
