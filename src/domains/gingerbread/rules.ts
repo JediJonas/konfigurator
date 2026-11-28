@@ -26,6 +26,7 @@ export const gingerbreadRules: Rule[] = [
   { kind: 'onSolidPart', level: 'error', objectType: DORMER_TYPE_ID, messageKey: 'rule.dormerOnRoof' },
   { kind: 'allowedRotations', level: 'error', objectType: CHIMNEY_TYPE_ID, socketKind: ROOF_SURFACE, degrees: [0], messageKey: 'rule.chimneyUpright' },
   { kind: 'onSolidPart', level: 'error', objectType: CHIMNEY_TYPE_ID, messageKey: 'rule.chimneyOnRoof' },
+  { kind: 'withinSocketBounds', level: 'error', objectType: CHIMNEY_TYPE_ID, messageKey: 'rule.chimneyWithinWall' },
   { kind: 'allowedRotations', level: 'error', objectType: CHIMNEY_TYPE_ID, socketKind: WALL_SURFACE, degrees: [0], messageKey: 'rule.chimneyUpright' },
   // Mot väggen står skorstenen nedanför takfoten; ett större avstånd flyttar upp den på takfallet ovanför, om det går.
   { kind: 'allowedParamValues', level: 'error', objectType: CHIMNEY_TYPE_ID, socketKind: WALL_SURFACE, param: 'eaveDistance', values: ['0'], messageKey: 'rule.chimneyOnWallAtEave' },

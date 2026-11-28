@@ -121,8 +121,10 @@ export const gingerbreadStrings: Record<string, string> = {
   'rule.dormerMeetsRoof': 'Takkupan går in i ett annat tak, t.ex. en tillbyggnads eller en annan kupas. Flytta den eller gör den mindre.',
   'rule.chimneyUpright': 'En skorsten står rakt upp på takfallet och kan inte vridas.',
   'rule.chimneyOnRoof':
-    'Skorstenen behöver 5 mm helt tak runt sig och måste ligga under nocken. Mot en vägg behöver den minst en tjocklek kontakt med väggen och får inte täcka ett fönster eller en dörr. Flytta den eller gör den mindre.',
+    'Skorstenen behöver 5 mm helt tak runt sig och måste ligga under nocken. Mot en vägg får den inte täcka ett fönster eller en dörr. Flytta den eller gör den mindre.',
   'rule.chimneyOnWallAtEave': 'Skorstenen ryms inte på takfallet här. Mot väggen står den med avståndet 0 från takfoten. Flytta den eller gör den mindre.',
+  'rule.chimneyOverWalls': 'Skorstenen står på takutsprånget. Den får bara stå ovanför väggarna; flytta den längre in på taket.',
+  'rule.chimneyWithinWall': 'Mot väggen får skorstenen inte gå förbi väggens hörn. Flytta den närmare väggens mitt eller gör den smalare.',
   'rule.chimneyMeetsRoof': 'Skorstenen går in i något annat, t.ex. en tillbyggnad eller en takkupa. Flytta den eller gör den mindre.',
   'preset.simpleHouse': 'Enkelt hus',
   'drawing.note.joints':

@@ -1,7 +1,9 @@
 import { overlapArea } from '../../../core/geometry/clipping';
+import { isPointInPolygon } from '../../../core/geometry/hull';
+import type { Polygon } from '../../../core/geometry/polygon';
 import { transformPoint } from '../../../core/geometry/matrix';
 import type { Vec3 } from '../../../core/geometry/vector';
-import { dot3, subtract3, vec3 } from '../../../core/geometry/vector';
+import { dot3, subtract3, vec2, vec3 } from '../../../core/geometry/vector';
 import type { Part } from '../../../core/model/part';
 import type { InteractionConflict, InteractionResolver } from '../../../core/pipeline/interaction';
 import type { WorldHalfSpace } from '../../../core/pipeline/partRegions';
@@ -11,12 +13,15 @@ import { CHIMNEY_TYPE_ID, isOnWall } from '../objects/chimney/chimney';
 import { wallChimneyBody, wallChimneyTop } from '../objects/chimney/chimneyOnWall';
 import type { ChimneyParams } from '../objects/chimney/chimneyParams';
 import type { ChimneyHalfSpace } from '../objects/chimney/chimneyShape';
-import { chimneyBody } from '../objects/chimney/chimneyShape';
+import { chimneyBody, chimneyFootprintOnRoof } from '../objects/chimney/chimneyShape';
+import { SECTION_TYPE_ID } from '../objects/section';
 import { measureHostPitch } from '../objects/roofMount';
-import { isUpright } from './valleys';
+import { hostWallPlan, isUpright } from './valleys';
 
 /** Ett annat objekts del som tar mindre än så av skorstenens kropp räknas som att den bara nuddar den. */
 const CONFLICT_AREA_MM2 = 1;
+/** Så mycket får skorstenen gå utanför väggarna för avrundning. */
+const WALL_PLAN_TOLERANCE_MM = 0.01;
 
 type WorldSpace = Pick<WorldHalfSpace, 'normal' | 'offset'>;
 
@@ -31,7 +36,7 @@ export const chimneyResolver: InteractionResolver = {
   id: 'gb.chimneys',
   affectsSurfaces: false,
   resolve: (placed, parts) => placed.filter(isWallChimney).reduce<Part[]>((current, entry) => notchHostRoof(entry, current), [...parts]),
-  listConflicts: (placed) => placed.flatMap((entry) => findChimneyConflicts(placed, entry)),
+  listConflicts: (placed) => placed.flatMap((entry) => [...findOverhangConflicts(placed, entry), ...findChimneyConflicts(placed, entry)]),
 };
 
 function isWallChimney(entry: PlacedInstance): boolean {
@@ -49,6 +54,20 @@ function notchHostRoof(entry: PlacedInstance, parts: readonly Part[]): Part[] {
     const clipped = removeRegionsFromPart(part, [regionThroughPart(part, body)], reachInward);
     return clipped ? [clipped] : [];
   });
+}
+
+/**
+ * En skorsten på taket står ovanför väggarna, inte på takutsprången (ägarens
+ * val): den får flyttas längs taket och mot takfoten bara så långt som väggen under.
+ */
+function findOverhangConflicts(placed: readonly PlacedInstance[], entry: PlacedInstance): InteractionConflict[] {
+  if (entry.instance.type !== CHIMNEY_TYPE_ID || !entry.socket || isOnWall(entry.context)) return [];
+  const host = placed.find((candidate) => candidate.instance.id === entry.parentId);
+  if (host?.instance.type !== SECTION_TYPE_ID) return [];
+  const plan: Polygon = hostWallPlan(host);
+  const footprint = chimneyFootprintOnRoof(entry.params as ChimneyParams, measureHostPitch(entry.context), 0).map((point) => transformPoint(entry.matrix, point));
+  const isOverWalls = footprint.every((point) => isPointInPolygon(vec2(point.x, point.z), plan, WALL_PLAN_TOLERANCE_MM));
+  return isOverWalls ? [] : [{ instanceId: entry.instance.id, messageKey: 'rule.chimneyOverWalls' }];
 }
 
 function findChimneyConflicts(placed: readonly PlacedInstance[], entry: PlacedInstance): InteractionConflict[] {

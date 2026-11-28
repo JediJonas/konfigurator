@@ -7,7 +7,7 @@ import { ROOF_SURFACE, WALL_SURFACE } from '../../socketKinds';
 import { measureHostPitch, pitchOfNormal, uprightOnRoofMatrix } from '../roofMount';
 import type { ChimneyParams } from './chimneyParams';
 import { chimneyParams } from './chimneyParams';
-import { buildWallChimneyDrafts, describeWallChimneySurface, wallChimneyMountMatrix, wallChimneyTop } from './chimneyOnWall';
+import { buildWallChimneyDrafts, describeWallChimneySurface, wallChimneyBase, wallChimneyMountMatrix, wallChimneyTop } from './chimneyOnWall';
 import { buildChimneyDrafts, CHIMNEY_MARGIN_MM, chimneyFootprintOnRoof } from './chimneyShape';
 
 export const CHIMNEY_TYPE_ID = 'gb.chimney';
@@ -36,6 +36,7 @@ export const chimneyType: ObjectType<ChimneyParams> = {
   attachesTo: [ROOF_SURFACE, WALL_SURFACE],
   sockets: () => [],
   parts: (instance, params, context) => buildChimneyParts(instance, params, context),
+  socketOutline: (params, context) => (isOnWall(context) ? wallChimneyBase(params) : []),
   mountMatrix: (params, context) => (isOnWall(context) ? wallChimneyMountMatrix() : uprightOnRoofMatrix(params.eaveDistance, context)),
   surfaceAreas: (params, context) => describeChimneySurface(params, context),
   prefersSizeOverCenter: true,
