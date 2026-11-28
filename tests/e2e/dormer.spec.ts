@@ -33,6 +33,7 @@ test('lägger en takkupa på taket och visar den under Tak', async ({ page }) =>
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ladda ner ritning (PDF)' }).click()]);
   expect(download.suggestedFilename()).toBe('ritning.pdf');
   await page.getByRole('button', { name: 'Ta bort K1' }).click();
+  await page.getByRole('button', { name: 'Ja, ta bort K1' }).click();
   await expect(page.getByRole('heading', { name: 'Takkupa K1' })).toHaveCount(0);
 });
 

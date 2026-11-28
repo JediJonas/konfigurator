@@ -21,6 +21,8 @@ export const uiStrings = {
   offsetAlongSocket: 'Läge längs väggen (0 = mitten)',
   noRoomToMove: 'Ingen plats att flytta den. Gör den smalare eller lägre så går den att flytta.',
   remove: (instanceId: string) => `Ta bort ${instanceId}`,
+  removeQuestion: (instanceId: string, hasChildren: boolean) => (hasChildren ? `${instanceId} tas bort, och allt som sitter på den.` : `${instanceId} tas bort.`),
+  confirmRemove: (instanceId: string) => `Ja, ta bort ${instanceId}`,
   warning: 'Varning:',
   fixErrorsFirst: 'Rätta det som inte går att bygga för att kunna ladda ner ritningen.',
   cannotBuild: 'Går inte att bygga:',

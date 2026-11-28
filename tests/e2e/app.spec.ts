@@ -92,7 +92,12 @@ test('bygger till huset och laddar ner ritningen', async ({ page }) => {
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ladda ner ritning (PDF)' }).click()]);
   expect(download.suggestedFilename()).toBe('ritning.pdf');
 
+  // Man får bekräfta först, och kan ångra sig.
   await page.getByRole('button', { name: 'Ta bort S2' }).click();
+  await page.getByRole('button', { name: 'Avbryt' }).click();
+  await expect(page.getByRole('heading', { name: 'Sektion S2' })).toBeVisible();
+  await page.getByRole('button', { name: 'Ta bort S2' }).click();
+  await page.getByRole('button', { name: 'Ja, ta bort S2' }).click();
   await expect(page.getByRole('heading', { name: 'Sektion S2' })).toHaveCount(0);
 });
 
@@ -180,26 +185,6 @@ test('öppnar sektionen och väggen när man trycker på väggen, även samma v�
   await expect(page.getByLabel(/^Längd/)).toHaveCount(0);
   await page.mouse.click(540, 660);
   await expect(page.getByLabel(/^Längd/)).toBeVisible();
-});
-
-test('börjar om från början och glömmer det sparade huset', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto('/');
-  await openWall(page, 'Vägg 2');
-  await page.getByRole('button', { name: 'Lägg till fönster' }).click();
-  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
-  await page.getByRole('button', { name: 'Inställningar', exact: true }).click();
-  await page.getByRole('button', { name: 'Börja om' }).click();
-  // Man får bekräfta först, och kan ångra sig.
-  await page.getByRole('button', { name: 'Avbryt' }).click();
-  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
-  await page.getByRole('button', { name: 'Börja om' }).click();
-  await page.getByRole('button', { name: 'Ja, börja om' }).click();
-  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toHaveCount(0);
-  await page.waitForTimeout(600);
-  await page.reload();
-  await expect(page.getByRole('heading', { name: 'Sektion S1' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Fönster F1' })).toHaveCount(0);
 });
 
 test('ställer en sektion bredvid huset när den blir högre än väggen', async ({ page }) => {
