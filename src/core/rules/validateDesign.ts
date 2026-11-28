@@ -6,6 +6,7 @@ import type { Vec2, Vec3 } from '../geometry/vector';
 import { vec3 } from '../geometry/vector';
 import type { Socket } from '../model/objectType';
 import type { Part } from '../model/part';
+import { findTooBigForSheet } from './sheetFit';
 import { findBeyondCount, findCoveringOthers, findOffSolidPart } from './surfaceRules';
 import { projectOntoFrame } from '../pipeline/frame';
 import type { PlacedInstance } from '../pipeline/placeInstances';
@@ -23,12 +24,14 @@ type ResolveLabel = (key: string) => string;
 /**
  * Prövar designen mot domänens regler. Samma kontroll används för att visa
  * fel i panelen, gråa ut val och stoppa ritningen när huset inte går att bygga.
+ * Utan all samverkan mäts inte delar som väntar på att klippas.
  */
-export function validateDesign(placed: readonly PlacedInstance[], parts: readonly Part[], rules: readonly Rule[], resolveLabel: ResolveLabel): RuleViolation[] {
+export function validateDesign(design: DesignState, rules: readonly Rule[], resolveLabel: ResolveLabel): RuleViolation[] {
+  const { placed } = design;
   const violations = placed.flatMap((entry) => checkAttachesTo(entry));
   for (const rule of rules) {
     const matching = placed.filter((entry) => entry.instance.type === rule.objectType);
-    const failing = findFailingInstances(rule, matching, { placed, parts });
+    const failing = findFailingInstances(rule, matching, design);
     violations.push(...failing.map((instanceId) => ({ level: rule.level, instanceId, message: resolveLabel(rule.messageKey) })));
   }
   return violations;
@@ -45,9 +48,11 @@ function checkAttachesTo(entry: PlacedInstance): RuleViolation[] {
 }
 
 /** Hela designen, för regler som prövar ett objekt mot andra objekt eller mot de färdiga delarna. */
-interface DesignState {
+export interface DesignState {
   placed: readonly PlacedInstance[];
   parts: readonly Part[];
+  /** Falskt när delarna räknats utan all samverkan, t.ex. utan vinkelrännor. */
+  hasAllInteractions: boolean;
 }
 
 function findFailingInstances(rule: Rule, entries: PlacedInstance[], design: DesignState): string[] {
@@ -68,6 +73,8 @@ function findFailingInstances(rule: Rule, entries: PlacedInstance[], design: Des
       return findBeyondCount(entries, rule.max);
     case 'validParams':
       return entries.filter((entry) => entry.objectType.isParamsValid?.(entry.params) === false).map((entry) => entry.instance.id);
+    case 'fitsOnSheet':
+      return findTooBigForSheet(entries, design.parts, rule.sheet, design.hasAllInteractions);
   }
 }
 

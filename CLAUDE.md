@@ -104,6 +104,13 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 - Avstånd från takfoten 0 betyder mot väggen. Takfallet och väggen under takfoten är alternativ för varandra (`Socket.alternativePartIds`, `listAlternativeSockets`), så sätts avståndet till 0 flyttar skorstenen ner till väggen, och ökas det flyttar den upp på takfallet igen om den ryms där. Alternativen prövas i objekttypens `attachesTo`-ordning; ett nytt objekt prövas först i punkten man tryckte på. Skorstenen läggs bara till från Tak (ägarens val, `ObjectType.addsTo`), så väggarna har ingen knapp för den och en gavel kan inte få någon. Sparade hus med skorsten mot en vägg öppnas som förut, eftersom den fortfarande fäster där (`attachesTo`).
 - Förslaget ställer baksidan strax nedanför nocken. Panelen visar skorstenarna under Tak, med knappen "+ Skorsten" för valt takfall. Texten när inget ryms kan anges per objekttyp (`cannotAdd.gb.chimney`) före sorten av kopplingspunkt.
 
+## Plåten
+
+- Varje bit ska rymmas på plåten, 400 × 300 mm (ägarens val, materialets `sheet`), som den ligger eller vriden 90° som i packningen. Ingen kantmarginal räknas än. Regeln `fitsOnSheet` (`core/rules/sheetFit.ts`) mäter delens omslutande rektangel på de färdiga delarna och gäller sektioner, kupor, skorstenar, fönster och dörrar, så att fältens gränser stannar där en bit slutar rymmas, t.ex. husets längd vid 380 mm med 10 mm takutsprång vid gavlarna.
+- Schemats gränser är plåtens långsida: bredd, längd och vägghöjd högst 400 mm (`MAX_WALL_HEIGHT_MM`), så att ett smalt torn kan ha 400 mm höga väggar. Regeln stoppar det som ändå inte ryms.
+- En tillbyggnads eller kupas tak är förlängt in över värden tills vinkelrännan klipper det (`Part.isAwaitingTrim`). `listViolations` kör inte rännorna och mäter inte de delarna; den fullständiga kontrollen gör det och visar felet.
+- Sparade hus och länkar med för stora bitar öppnas som förut och visar felet, och fälten släpper sina gränser så att man kan ändra sig ur det.
+
 ## 3D-vyn
 
 - Huset med alla tillbyggnader, sektioner och takutsprång står alltid mitt på fatet (ägarens önskan). 3D-vyn flyttar delarna så att mitten av rutan runt dem sett uppifrån hamnar i fatets mitt (`app/three/plateCentering.ts`). Ritningen och regelkontrollen räknar som förut; bara vyn flyttar.

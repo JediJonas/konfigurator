@@ -134,6 +134,11 @@ export const gingerbreadStrings: Record<string, string> = {
   'rule.chimneyOverWalls': 'Skorstenen står på takutsprånget. Den får bara stå ovanför väggarna; flytta den längre in på taket.',
   'rule.chimneyWithinWall': 'Mot väggen får skorstenen inte gå förbi väggens hörn. Flytta den närmare väggens mitt eller gör den smalare.',
   'rule.chimneyMeetsRoof': 'Skorstenen går in i något annat, t.ex. en tillbyggnad eller en takkupa. Flytta den eller gör den mindre.',
+  'rule.sectionFitsSheet':
+    'En bit av sektionen ryms inte på plåten, som är 40 × 30 cm. Gör sektionen kortare, smalare eller lägre, eller minska takutsprången eller taklutningen.',
+  'rule.dormerFitsSheet': 'En bit av takkupan ryms inte på plåten, som är 40 × 30 cm. Gör kupan mindre.',
+  'rule.chimneyFitsSheet': 'En bit av skorstenen ryms inte på plåten, som är 40 × 30 cm. Gör skorstenen lägre.',
+  'rule.openingFitsSheet': 'En lucka eller ett dörrblad ryms inte på plåten, som är 40 × 30 cm. Gör öppningen mindre.',
   'preset.simpleHouse': 'Enkelt hus',
   'drawing.note.joints':
     'Väggar med sned överkant går hela vägen ut i hörnen och de andra står mellan dem. Tillbyggnadens väggar går stumt mot huset, och dess tak läggs ovanpå huvudhusets tak i vinkelrännan. Takkupans väggar står på takfallet runt hålet, och dess tak läggs ovanpå husets tak på samma sätt. Skorstenens sidor har sned nederkant mot takfallet och fram- och baksidan står mellan dem. En skorsten mot en vägg står på fatet, och takutsprånget har ett urtag där den går upp. Fyll glipor och skåror i nock och valmar med glasyr.',

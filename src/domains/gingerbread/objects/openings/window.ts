@@ -10,6 +10,7 @@ import type { OpeningShape, OpeningSize } from './openingShape';
 import { arePanesBigEnough, listPanes, MULLION_STYLES, WINDOW_SHAPES, shutterOutlines, toWallPlane, wallRectangle } from './openingShape';
 import { eaveHeightOf, openingMarginOf, roundToStep, targetWallId, wallOpeningMountMatrix } from './wallOpening';
 import { DOOR_TYPE_ID } from './door';
+import { MAX_WALL_HEIGHT_MM } from '../sectionParams';
 import { MIN_SILL_HEIGHT_MM, MIN_WINDOW_SIZE_MM, proposeWindowSize, windowOpeningHeight } from './openingProposal';
 
 export const WINDOW_TYPE_ID = 'gb.window';
@@ -27,7 +28,7 @@ export const windowParams = z.object({
     .max(250)
     .default(40)
     .meta({ labelKey: 'param.openingHeight', unit: 'mm', step: 5, isInherited: true, visibleWhen: { shape: SHAPES_WITH_HEIGHT } }),
-  sillHeight: z.number().min(MIN_SILL_HEIGHT_MM).max(300).default(30).meta({ labelKey: 'param.sillHeight', unit: 'mm', step: 5, isInherited: true }),
+  sillHeight: z.number().min(MIN_SILL_HEIGHT_MM).max(MAX_WALL_HEIGHT_MM).default(30).meta({ labelKey: 'param.sillHeight', unit: 'mm', step: 5, isInherited: true }),
   shape: z
     .enum(WINDOW_SHAPES)
     .default('rect')

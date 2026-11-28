@@ -19,10 +19,16 @@ export const ROOF_VALUES_WHEN_CHOSEN = { shed: { roofPitch: SHED_ROOF_PITCH_DEGR
 export const ROOF_GROUP_KEY = 'group.roof';
 const roofField = { groupKey: ROOF_GROUP_KEY, isInherited: true } as const;
 
+/**
+ * Plåtens långsida. En vägg kan vara så hög när den är högst plåtens kortsida
+ * lång; regeln om plåten (`fitsOnSheet`) stoppar det som ändå inte ryms.
+ */
+export const MAX_WALL_HEIGHT_MM = 400;
+
 export const sectionParams = z.object({
   width: z.number().min(60).max(400).default(140).meta({ labelKey: 'param.width', unit: 'mm', step: 5 }),
   depth: z.number().min(60).max(400).default(180).meta({ labelKey: 'param.depth', unit: 'mm', step: 5 }),
-  wallHeight: z.number().min(40).max(300).default(100).meta({ labelKey: 'param.wallHeight', unit: 'mm', step: 5 }),
+  wallHeight: z.number().min(40).max(MAX_WALL_HEIGHT_MM).default(100).meta({ labelKey: 'param.wallHeight', unit: 'mm', step: 5 }),
   roof: z
     .enum(ROOF_TYPES)
     .default('gable')

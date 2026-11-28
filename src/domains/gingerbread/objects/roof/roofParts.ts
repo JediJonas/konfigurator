@@ -14,27 +14,39 @@ import { buildRoofLayout } from './roofLayout';
 
 /** Ytor mindre än så blir ingen del, t.ex. ett takfall som bara nuddar de andra. */
 const MIN_FACE_AREA_MM2 = 1;
+/** Hur långt förbi värdens vägg en takyta får gå innan den räknas som förlängd in mot vinkelrännan. */
+const AWAITING_TRIM_TOLERANCE_MM = 0.5;
 
 /** Alla takets delar: takytor, takskiva och kant. Varje del ligger med undersidan i lokalt z = 0. */
 export function buildRoofParts(params: SectionParams, context: RoofContext): PartDraft[] {
   const layout = buildRoofLayout(params, context);
-  return [...buildFaceParts(layout), ...buildPlatePart(params, layout), ...buildRimParts(params, layout, context)];
+  return [...buildFaceParts(layout, params, context), ...buildPlatePart(params, layout, context), ...buildRimParts(params, layout, context)];
 }
 
-function buildFaceParts(layout: RoofLayout): PartDraft[] {
+function buildFaceParts(layout: RoofLayout, params: SectionParams, context: RoofContext): PartDraft[] {
   const planes = layout.faces.map((face) => face.plane);
   return layout.faces.flatMap((face, index) => {
     const region = lowestPlaneRegion(planes, index, layout.plan);
     const placed = placePlanarPolygon(region);
     if (!placed) return [];
-    return [{ id: face.id, labelKey: face.labelKey, buildStep: BUILD_STEP.roof, ...placed }];
+    return [{ id: face.id, labelKey: face.labelKey, buildStep: BUILD_STEP.roof, ...placed, ...markAwaitingTrim(region, params, context) }];
   });
 }
 
-function buildPlatePart(params: SectionParams, layout: RoofLayout): PartDraft[] {
+function buildPlatePart(params: SectionParams, layout: RoofLayout, context: RoofContext): PartDraft[] {
   if (!layout.plate) return [];
-  const placed = placePlanarPolygon(layout.plate.map((point) => vec3(point.x, params.wallHeight, point.y)));
-  return placed ? [{ id: 'roof-plate', labelKey: 'part.roofPlate', buildStep: BUILD_STEP.roof, ...placed }] : [];
+  const region = layout.plate.map((point) => vec3(point.x, params.wallHeight, point.y));
+  const placed = placePlanarPolygon(region);
+  return placed ? [{ id: 'roof-plate', labelKey: 'part.roofPlate', buildStep: BUILD_STEP.roof, ...placed, ...markAwaitingTrim(region, params, context) }] : [];
+}
+
+/**
+ * `isAwaitingTrim` för en takdel som går förbi tillbyggnadens bakre kant mot
+ * värdens vägg, in över värden; vinkelrännan klipper den sedan.
+ */
+function markAwaitingTrim(region: readonly Vec3[], params: SectionParams, context: RoofContext): Pick<PartDraft, 'isAwaitingTrim'> {
+  const hostWallZ = -params.depth / 2 - AWAITING_TRIM_TOLERANCE_MM;
+  return context.isExtension && context.reachesIntoHost && region.some((point) => point.z < hostWallZ) ? { isAwaitingTrim: true } : {};
 }
 
 /**
