@@ -118,7 +118,9 @@ function preparePart(part: Part): PreparedPart {
 }
 
 /**
- * Sant när punkten ligger i eller mot en annan del. Sammanfaller kanten med en
+ * Sant när punkten ligger i eller mot en annan del. En kant som ligger mot
+ * mitten av den andra delens utsida är ett hörn som går inåt och räknas som
+ * synlig. Sammanfaller kanten med en
  * ytterkant på en senare del räknas den inte som dold av den, eftersom den
  * senare delens kant då döljs av denna; så blir en av dem kvar.
  */
@@ -131,8 +133,11 @@ function isHidden(point: Vec3, parts: readonly PreparedPart[], ownerIndex: numbe
     const flat = { x: local.x, y: local.y };
     if (!isPointInPolygon(flat, part.outline, TOUCH_TOLERANCE_MM)) return false;
     if (part.holes.some((hole) => isPointInPolygon(flat, hole, 0) && distanceToBoundary(flat, hole) > TOUCH_TOLERANCE_MM)) return false;
-    const isOnOuterEdge = other.outerZs.some((z) => Math.abs(local.z - z) <= TOUCH_TOLERANCE_MM) && [part.outline, ...part.holes].some((ring) => distanceToBoundary(flat, ring) <= TOUCH_TOLERANCE_MM);
-    return !(isOnOuterEdge && otherIndex > ownerIndex);
+    const isOnOuterFace = other.outerZs.some((z) => Math.abs(local.z - z) <= TOUCH_TOLERANCE_MM);
+    const isNearRim = [part.outline, ...part.holes].some((ring) => distanceToBoundary(flat, ring) <= TOUCH_TOLERANCE_MM);
+    // Mitt på den andra delens utsida är det ett hörn som går inåt, t.ex. där en tillbyggnad möter väggen: det får också kristyr.
+    if (isOnOuterFace && !isNearRim) return false;
+    return !(isOnOuterFace && isNearRim && otherIndex > ownerIndex);
   });
 }
 

@@ -143,7 +143,8 @@ function addSphere(data: BeadGeometryData, center: Vec3, radius: Mm): void {
     for (let step = 0; step < SIDES; step++) {
       const a = first + ring * perRing + step;
       const b = a + perRing;
-      data.indices.push(a, b, a + 1, a + 1, b, b + 1);
+      // Moturs sett utifrån, annars syns kulan inifrån och ser ihålig ut.
+      data.indices.push(a, a + 1, b, a + 1, b + 1, b);
     }
   }
 }

@@ -19,12 +19,12 @@ function cornersIn(part: Part, frame: Part) {
   return [0, part.thickness].flatMap((z) => part.outline.map((point) => transformPoint(toFrame, transformPoint(part.transform, vec3(point.x, point.y, z)))));
 }
 
-/** Dörren står alltid 30° öppen. */
-const OPEN_ANGLE = Math.PI / 6;
+/** Dörren står alltid 45° öppen. */
+const OPEN_ANGLE = Math.PI / 4;
 
 /**
- * Ett blad som står 30° ut från väggens utsida (z = tjockleken): den yttre
- * kanten når bladets bredd · sin 30° utanför väggen, och inget går in i huset.
+ * Ett blad som står 45° ut från väggens utsida (z = tjockleken): den yttre
+ * kanten når bladets bredd · sin 45° utanför väggen, och inget går in i huset.
  */
 function expectOpenLeaf(leaf: { z: number }[], thickness: number, leafWidth: number) {
   const reach = Math.max(...leaf.map((point) => point.z)) - thickness;

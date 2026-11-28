@@ -56,6 +56,13 @@ describe('ytterkanter', () => {
     expect(verticalPlacesNear(lines, vec3(0, 0, 0), THICKNESS_MM + 1)).toEqual(['0.00,4.00']);
   });
 
+  it('ger ett hörn som går inåt en kant, t.ex. där en vägg står mot mitten av en annan', () => {
+    const wallA = plate('A', rectangle(0, 10, 100, 50));
+    // Vägg B står ut från A:s utsida (z = tjockleken) vid x = 50, med sin utsida mot x = 54.
+    const wallB = plate('B', rectangle(0, 10, 50, 50), { transform: basisMatrix(vec3(0, 0, 1), vec3(0, 1, 0), vec3(1, 0, 0), vec3(50, 0, THICKNESS_MM)) });
+    expect(verticalPlacesNear(edges([wallA, wallB]), vec3(50 + THICKNESS_MM, 0, THICKNESS_MM), 0.5)).toHaveLength(1);
+  });
+
   it('ger en fog mellan två delar som möts kant mot kant en kant', () => {
     const lines = edges([plate('A', rectangle(0, 10, 50, 50)), plate('B', rectangle(50, 10, 50, 50))]);
     expect(verticalPlacesNear(lines, vec3(50, 0, THICKNESS_MM))).toHaveLength(1);
