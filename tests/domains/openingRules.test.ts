@@ -139,6 +139,28 @@ describe('förslag för fönster och dörrar', () => {
     expect(proposal.instance.params.sillHeight).toBeGreaterThanOrEqual(70 + 15);
   });
 
+  it('föreslår en dörr som slutar i samma höjd som fönstret som skulle föreslås', () => {
+    const design = designWithExtensions();
+    const window = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: 'gb.window' }).instance.params;
+    const door = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: 'gb.door' });
+    expect(door.violations).toEqual([]);
+    expect(door.instance.params.height).toBe(Number(window.sillHeight) + Number(window.height));
+  });
+
+  it('föreslår en dörr som slutar i överkant på fönstret som sektionen redan har', () => {
+    const design = designWithExtensions(windowOn('side-right', { width: 30, height: 35, sillHeight: 40 }));
+    const door = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: 'gb.door' });
+    expect(door.violations).toEqual([]);
+    expect(door.instance.params.height).toBe(75);
+  });
+
+  it('föreslår ett första fönster som slutar i överkant på dörren', () => {
+    const design = designWithExtensions(doorOn('gable-front', { height: 75 }));
+    const window = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'side-right', objectTypeId: 'gb.window' });
+    expect(window.violations).toEqual([]);
+    expect(Number(window.instance.params.sillHeight) + Number(window.instance.params.height)).toBe(75);
+  });
+
   it('säger varför en andra dörr inte går att lägga till', () => {
     const design = designWithExtensions(doorOn('gable-front'));
     const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: 'gb.door' }, (key) => key);
