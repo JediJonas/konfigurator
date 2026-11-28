@@ -1,12 +1,14 @@
 import { create } from 'zustand';
 import type { Design } from '../../core/model/design';
 import type { PaperFormat } from '../../core/layout/paper';
-import { removeInstance } from '../../core/model/instanceTree';
+import { findInstance, removeInstance } from '../../core/model/instanceTree';
 import type { ChildRequest } from '../../core/rules/placement';
 import { setParamWithinRules } from '../../core/rules/paramAdjustment';
 import { snapAttachmentOffset } from '../../core/rules/placement';
 import { addProposedChild } from '../../core/rules/addProposedChild';
 import { activeDomain } from '../activeDomain';
+import type { DesignHistory } from './designHistory';
+import { EMPTY_HISTORY, recordChange, redoChange, undoChange } from './designHistory';
 
 /** Objektet eller fältgruppen som öppnades med ett tryck i 3D-vyn. */
 export interface FocusedInstance {
@@ -52,10 +54,36 @@ interface DesignState {
   removeChild: (instanceId: string) => void;
   /** Flyttar ett objekt längs sin kopplingspunkt till närmaste tillåtna snäppläge. */
   moveAlongSocket: (instanceId: string, u: number) => void;
-  /** Byter hela designen, t.ex. mot den som sparades senast. */
+  /** Byter hela designen, t.ex. mot den som sparades senast. Historiken töms, eftersom det är ett annat hus. */
   replaceDesign: (design: Design) => void;
-  /** Börjar om med domänens mall. Autosparet sparar mallen över det som var sparat. */
+  /** Börjar om med domänens mall. Autosparet sparar mallen över det som var sparat. Går att ångra. */
   resetDesign: () => void;
+  /** Tidigare och ångrade designer för Ångra och Gör om. */
+  history: DesignHistory;
+  /** Går tillbaka till designen före senaste ändringen. */
+  undo: () => void;
+  /** Gör om det som senast ångrades. */
+  redo: () => void;
+}
+
+type DesignStateUpdate = Partial<DesignState>;
+
+/** Ny design och historik efter en ändring; `mergeKey` slår ihop täta ändringar av samma sak till ett steg. */
+function changeDesign(state: DesignState, design: Design, mergeKey?: string): DesignStateUpdate {
+  if (design === state.design) return {};
+  return { design, history: recordChange(state.history, state.design, design, { mergeKey, at: Date.now() }) };
+}
+
+/** Byter till en design ur historiken och släpper valen som pekar på objekt som inte finns i den. */
+function showDesignFromHistory(state: DesignState, step: { design: Design; history: DesignHistory } | undefined): DesignStateUpdate {
+  if (!step) return {};
+  const exists = (instanceId: string | undefined) => instanceId !== undefined && findInstance(step.design.root, instanceId) !== undefined;
+  return {
+    design: step.design,
+    history: step.history,
+    selectedSocket: exists(state.selectedSocket?.instanceId) ? state.selectedSocket : undefined,
+    focusedInstance: exists(state.focusedInstance?.instanceId) ? state.focusedInstance : undefined,
+  };
 }
 
 function createStartDesign(): Design {
@@ -67,8 +95,11 @@ function createStartDesign(): Design {
 export const useDesignStore = create<DesignState>((set) => ({
   design: createStartDesign(),
   paper: 'A4',
-  setParam: (instanceId, key, value) => set((state) => ({ design: setParamWithinRules(state.design, activeDomain, { instanceId, key, value }) })),
-  setThickness: (thickness) => set((state) => ({ design: { ...state.design, material: { ...state.design.material, thickness } } })),
+  history: EMPTY_HISTORY,
+  setParam: (instanceId, key, value) =>
+    set((state) => changeDesign(state, setParamWithinRules(state.design, activeDomain, { instanceId, key, value }), `param:${instanceId}:${key}`)),
+  setThickness: (thickness) =>
+    set((state) => changeDesign(state, { ...state.design, material: { ...state.design.material, thickness } }, 'thickness')),
   setPaper: (paper) => set({ paper }),
   isOpenInstanceHighlighted: true,
   selectSocket: (socket) =>
@@ -85,18 +116,17 @@ export const useDesignStore = create<DesignState>((set) => ({
       isOpenInstanceHighlighted: true,
     })),
   setOpenInstanceId: (openInstanceId) => set({ openInstanceId, isOpenInstanceHighlighted: true }),
-  addChild: (request) =>
-    set((state) => {
-      const design = addProposedChild(state.design, activeDomain, request);
-      return design === state.design ? {} : { design };
-    }),
+  addChild: (request) => set((state) => changeDesign(state, addProposedChild(state.design, activeDomain, request))),
   removeChild: (instanceId) =>
     set((state) => ({
-      design: { ...state.design, root: removeInstance(state.design.root, instanceId) },
+      ...changeDesign(state, { ...state.design, root: removeInstance(state.design.root, instanceId) }),
       selectedSocket: state.selectedSocket?.instanceId === instanceId ? undefined : state.selectedSocket,
       focusedInstance: state.focusedInstance?.instanceId === instanceId ? undefined : state.focusedInstance,
     })),
-  moveAlongSocket: (instanceId, u) => set((state) => ({ design: snapAttachmentOffset(state.design, activeDomain, instanceId, u) })),
-  replaceDesign: (design) => set({ design, selectedSocket: undefined, focusedInstance: undefined }),
-  resetDesign: () => set({ design: createStartDesign(), selectedSocket: undefined, focusedInstance: undefined }),
+  moveAlongSocket: (instanceId, u) =>
+    set((state) => changeDesign(state, snapAttachmentOffset(state.design, activeDomain, instanceId, u), `move:${instanceId}`)),
+  replaceDesign: (design) => set({ design, history: EMPTY_HISTORY, selectedSocket: undefined, focusedInstance: undefined }),
+  resetDesign: () => set((state) => ({ ...changeDesign(state, createStartDesign()), selectedSocket: undefined, focusedInstance: undefined })),
+  undo: () => set((state) => showDesignFromHistory(state, undoChange(state.history, state.design))),
+  redo: () => set((state) => showDesignFromHistory(state, redoChange(state.history, state.design))),
 }));
