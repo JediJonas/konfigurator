@@ -56,6 +56,8 @@ const SHADOW_MAP_SIZE_PX = 2048;
 const FLOOR_SHADOW_OPACITY = 0.2;
 /** Golvet inne i huset: mörkare än fatet, som i skugga, och strax ovanför fatet (som ligger på −0,5 mm). */
 const INSIDE_FLOOR_COLOR = '#5a4a3c';
+/** 3D-vyns bakgrund: en aning mörkare beige än sidan, så att den vita kristyren syns mot den (ägarens önskan, tidigare #f3e9dc). */
+const BACKGROUND_COLOR = '#e6d5c1';
 const INSIDE_FLOOR_HEIGHT_MM = -0.25;
 const CAMERA_POSITION_MM: [number, number, number] = [260, 230, 340];
 const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
@@ -83,7 +85,7 @@ export function DesignView({ parts: designParts, color, captureRef, fitRef, view
       gl={{ preserveDrawingBuffer: true }}
       onPointerMissed={() => onSelectPart(undefined)}
     >
-      <color attach="background" args={['#f3e9dc']} />
+      <color attach="background" args={[BACKGROUND_COLOR]} />
       <hemisphereLight args={['#fff8ee', '#8a7560', 1.2]} />
       <ViewerLight shadowBox={shadowBox} />
       <mesh rotation-x={-Math.PI / 2} position-y={-0.5} receiveShadow>
