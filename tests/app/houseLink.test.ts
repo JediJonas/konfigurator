@@ -9,8 +9,8 @@ import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { simpleHousePreset } from '../../src/domains/gingerbread/presets/simpleHouse';
 
 const PAGE_URL = 'https://example.org/konfigurator/';
-/** En länk till ett hus med fönster, dörr, sektion, skorsten och takkupa ska rymmas i ett sms. */
-const MAX_LINK_LENGTH = 400;
+/** En länk till ett hus med fönster, dörr, sektion, skorsten och takkupa ska vara kort nog att skicka i ett meddelande. Mallens större hus (ägarens önskan) gav cirka 20 tecken till. */
+const MAX_LINK_LENGTH = 450;
 
 /** Mallens hus med fönster på tre väggar, en dörr, en sektion bredvid, en skorsten och en takkupa med fönster. */
 function createFurnishedHouse(): Design {

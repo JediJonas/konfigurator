@@ -31,9 +31,9 @@ test('flyttar skorstenen ut till väggen under takfoten och längs väggen', asy
   await eaveDistance.fill('0');
   await eaveDistance.blur();
   await expect(page.getByText('Sitter på S1 · vägg 2')).toBeVisible();
-  // Mot väggen får den flyttas till hörnet men inte förbi: väggen är 180 mm och skorstenen 25 mm bred.
+  // Mot väggen får den flyttas till hörnet men inte förbi: väggen är 215 mm och skorstenen 25 mm bred.
   const offset = page.locator('[data-instance-id="SK1"]').getByRole('spinbutton').first();
-  await expect(offset).toHaveAttribute('max', '75', { timeout: 15_000 });
+  await expect(offset).toHaveAttribute('max', '95', { timeout: 15_000 });
   await eaveDistance.fill('60');
   await eaveDistance.blur();
   await expect(page.getByText('Sitter på S1 · takfall mot vägg 2')).toBeVisible();
