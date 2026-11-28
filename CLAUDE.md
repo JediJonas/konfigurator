@@ -111,6 +111,11 @@ Beslut om de öppna frågorna i `docs/SPEC.md` avsnitt 18:
 
 - Det öppna huset sparas av sig självt (`app/storage/`), 0,4 s efter senaste ändringen och direkt när sidan göms, via `ProjectStore` i webbläsarens lokala lagring. Vid start öppnas det senast sparade; går det inte att migrera (`core/model/migrateDesign.ts`) eller räkna börjar appen med mallen. "Börja om" under Inställningar ersätter huset med mallen efter en bekräftelse i panelen, och autosparet skriver över det sparade (ägarens önskan).
 
+## Ångra och Gör om
+
+- Knapparna Ångra och Gör om står bredvid Centrera i 3D-vyns hörn, bara med ikon (`app/ui/HistoryButtons.tsx`). På dator ångrar Ctrl/Cmd+Z och Skift+Ctrl/Cmd+Z eller Ctrl+Y gör om, utom i ett textfält där webbläsaren ångrar det man skriver.
+- Historiken (`app/state/designHistory.ts`) gäller bara medan sidan är öppen, högst 100 steg. Ändringar av samma fält på samma objekt som kommer tätare än 1 s blir ett steg (`MERGE_WINDOW_MS`), så att snabba tryck på − och + ångras med ett tryck. Börja om går att ångra; att öppna det sparade huset vid start tömmer historiken.
+
 ## Ritningen
 
 - **Hörnregeln för stumfog** (ägarens val): en vägg med sned överkant går hela vägen ut, och väggar med rak överkant kortas med 2 × tjockleken och står mellan. Då följer den sneda väggen takets undersida ut till hörnet och inget hål syns under taket.

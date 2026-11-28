@@ -12,6 +12,7 @@ import { ViewportProbe } from '../device/ViewportProbe';
 import { listPickAreas } from '../three/pickAreas';
 import { describeHighlight } from './selectionHighlight';
 import { findGroupSocketOwning, findLeafInstanceOf, findSocketOwnedBy } from './socketSelection';
+import { HistoryButtons } from './HistoryButtons';
 import { SettingsPanel } from './SettingsPanel';
 import { uiStrings } from './strings.sv';
 
@@ -79,13 +80,16 @@ export function App() {
             onUserMoveView={() => markHintSeen('view')}
           />
           {hasMovedView ? null : <p className="viewport-hint">{uiStrings.viewHint}</p>}
-          <button type="button" className="fit-button" onClick={() => fitRef.current?.()}>
-            <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
-              <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-            </svg>
+          <div className="view-actions">
+            <HistoryButtons />
+            <button type="button" className="view-button" onClick={() => fitRef.current?.()}>
+              <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20">
+                <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+              </svg>
             {uiStrings.fitView}
-          </button>
+            </button>
+          </div>
         </section>
         <SettingsPanel evaluation={evaluation} error={result.error} captureOverview={captureRef} />
       </main>
