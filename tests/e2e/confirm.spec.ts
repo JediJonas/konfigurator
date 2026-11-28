@@ -11,7 +11,9 @@ test('börjar om från början och glömmer det sparade huset', async ({ page })
   await page.getByRole('button', { name: 'Börja om' }).click();
   // Man får bekräfta först, och kan ångra sig.
   await page.getByRole('button', { name: 'Avbryt' }).click();
+  await page.getByRole('button', { name: 'Sektion S1' }).click();
   await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
+  await page.getByRole('button', { name: 'Inställningar', exact: true }).click();
   await page.getByRole('button', { name: 'Börja om' }).click();
   await page.getByRole('button', { name: 'Ja, börja om' }).click();
   await expect(page.getByRole('heading', { name: 'Fönster F1' })).toHaveCount(0);

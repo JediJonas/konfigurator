@@ -15,8 +15,10 @@ test('sparar ett hus under ett namn och öppnar det igen', async ({ page }) => {
   await page.getByRole('button', { name: 'Börja om' }).click();
   await page.getByRole('button', { name: 'Ja, börja om' }).click();
   await expect(page.getByRole('heading', { name: 'Fönster F1' })).toHaveCount(0);
+  await openSavedHouses(page);
   await page.getByRole('button', { name: 'Öppna Kyrkan' }).click();
   await expect(page.getByText('Kyrkan är öppnat. Ångra tar tillbaka huset du hade.')).toBeVisible();
+  await page.getByRole('button', { name: 'Sektion S1' }).click();
   await openWall(page, 'Vägg 2');
   await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
   // Huset finns kvar efter en omladdning.

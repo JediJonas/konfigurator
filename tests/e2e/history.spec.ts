@@ -38,6 +38,8 @@ test('får tillbaka huset med Ångra efter Börja om', async ({ page }) => {
   await page.getByRole('button', { name: 'Ja, börja om' }).click();
   await expect(page.getByRole('heading', { name: 'Fönster F1' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Ångra', exact: true }).click();
+  // Inställningar står kvar öppen, så sektionen fälls ut först.
+  await page.getByRole('button', { name: 'Sektion S1' }).click();
   await openWall(page, 'Vägg 2');
   await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
 });
