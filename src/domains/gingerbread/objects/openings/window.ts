@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { ObjectType, Socket, SurfaceArea } from '../../../../core/model/objectType';
+import type { ObjectType, RelatedParamsLookup, Socket, SurfaceArea } from '../../../../core/model/objectType';
 import type { Modifier } from '../../../../core/model/modifier';
 import type { Part } from '../../../../core/model/part';
 import { identityMatrix } from '../../../../core/geometry/matrix';
@@ -9,12 +9,12 @@ import { DORMER_WALL, WALL_SURFACE } from '../../socketKinds';
 import type { OpeningShape, OpeningSize } from './openingShape';
 import { crossPanes, WINDOW_SHAPES, openingOutline, shutterOutlines, toWallPlane, wallRectangle } from './openingShape';
 import { eaveHeightOf, openingMarginOf, roundToStep, targetWallId, wallOpeningMountMatrix } from './wallOpening';
+import { DOOR_TYPE_ID } from './door';
+import { MIN_SILL_HEIGHT_MM, MIN_WINDOW_SIZE_MM, proposeWindowSize, windowOpeningHeight } from './openingProposal';
 
 export const WINDOW_TYPE_ID = 'gb.window';
 
 const MULLION_STYLES = ['none', 'cross'] as const;
-const MIN_WINDOW_SIZE_MM = 15;
-const MIN_SILL_HEIGHT_MM = 5;
 /** Formerna där höjden väljs fritt. Runt och halvmåne får höjden ur bredden. */
 const SHAPES_WITH_HEIGHT = ['rect', 'arch'] as const;
 /** Formerna som kan ha luckor. Två halvcirklar blir inga riktiga luckor. */
@@ -46,9 +46,6 @@ export type WindowParams = z.infer<typeof windowParams>;
 const STYLE_KEYS = ['shape', 'mullions', 'hasShutters'] as const;
 /** Förslagens storlekar i förhållande till den största, från störst till minst. */
 const PROPOSAL_SCALES = [1, 0.8, 0.6, 0.45];
-/** Det största förslaget är så högt i förhållande till väggens höjd vid hörnen. */
-const PROPOSED_HEIGHT_SHARE = 0.45;
-const PROPOSED_WIDTH_PER_HEIGHT = 0.7;
 /** Steget mellan höjderna över golvet som ett nytt fönster prövas på när det inte ryms på sin vanliga höjd. */
 const SILL_SEARCH_STEP_MM = 10;
 
@@ -70,21 +67,13 @@ export const windowType: ObjectType<WindowParams> = {
   socketOutline: (params) => wallRectangle(-params.width / 2, params.sillHeight, params.width / 2, params.sillHeight + windowSizeOf(params).height),
   surfaceAreas: (params, context) => describeWindowSurface(params, targetWallId(context), openingMarginOf(context.socket)),
   prefersSizeOverCenter: true,
-  paramCandidates: (socket, _context, inherited) => listCandidatesAtHeights(listWindowCandidates(eaveHeightOf(socket), inherited), wallTopOf(socket), openingMarginOf(socket)),
+  paramCandidates: (socket, _context, inherited, findRelated) =>
+    listCandidatesAtHeights(listWindowCandidates(eaveHeightOf(socket), inherited, doorHeadFor(socket, findRelated)), wallTopOf(socket), openingMarginOf(socket)),
 };
 
-/**
- * Fönstrets öppning. Bredden är diametern på ett runt fönster, och en
- * halvmåne är hälften så hög som bred, så att de alltid blir en cirkel och en halvcirkel.
- */
+/** Fönstrets öppning, med höjden ur bredden för runda fönster och halvmånar. */
 export function windowSizeOf(params: WindowParams): OpeningSize {
-  return { shape: params.shape, width: params.width, height: heightFor(params.shape, params.width, params.height), bottom: params.sillHeight };
-}
-
-function heightFor(shape: WindowParams['shape'], width: Mm, chosenHeight: Mm): Mm {
-  if (shape === 'circle') return width;
-  if (shape === 'halfMoon') return width / 2;
-  return chosenHeight;
+  return { shape: params.shape, width: params.width, height: windowOpeningHeight(params.shape, params.width, params.height), bottom: params.sillHeight };
 }
 
 function hasShutters(params: WindowParams): boolean {
@@ -129,16 +118,28 @@ function buildShutters(instanceId: string, params: WindowParams, thickness: Mm):
 }
 
 /**
- * Förslag från väggens höjd vid hörnen: ett fönster ungefär mitt på väggen, utan spröjs.
- * Finns det redan ett fönster på sektionen prövas dess värden först, och de mindre
- * förslagen får samma form, spröjs och luckor. Regeln om hel vägg runt fönstret väljer bland dem.
+ * Dörrens överkant när fönstret ska linjera med en dörr: när sektionen (eller
+ * närmaste förälder uppåt) har en dörr. Fönster i en takkupa rättar sig inte
+ * efter husets dörrar, eftersom kupans framvägg sitter högt upp på taket.
  */
-function listWindowCandidates(eaveHeight: Mm, inherited: Record<string, unknown>): Record<string, unknown>[] {
+function doorHeadFor(socket: Socket, findRelated: RelatedParamsLookup): Mm | undefined {
+  if (socket.kind === DORMER_WALL) return undefined;
+  const height = findRelated(DOOR_TYPE_ID)?.height;
+  return typeof height === 'number' ? height : undefined;
+}
+
+/**
+ * Förslag från väggens höjd vid hörnen: ett fönster ungefär mitt på väggen, utan spröjs.
+ * Finns det en dörr men inget fönster på sektionen slutar fönstret i dörrens
+ * överkant (ägarens önskan). Finns det redan ett fönster prövas dess värden först,
+ * och de mindre förslagen får samma form, spröjs och luckor. Regeln om hel vägg
+ * runt fönstret väljer bland dem.
+ */
+function listWindowCandidates(eaveHeight: Mm, inherited: Record<string, unknown>, doorHead: Mm | undefined): Record<string, unknown>[] {
   const scaled = PROPOSAL_SCALES.map((scale) => {
-    const height = roundToStep(eaveHeight * PROPOSED_HEIGHT_SHARE * scale, MIN_WINDOW_SIZE_MM);
-    const width = roundToStep(height * PROPOSED_WIDTH_PER_HEIGHT, MIN_WINDOW_SIZE_MM);
-    const sillHeight = roundToStep((eaveHeight - height) / 2, MIN_SILL_HEIGHT_MM);
-    return { width, height, sillHeight, shape: 'rect', mullions: 'none', hasShutters: false };
+    const { width, height, sillHeight } = proposeWindowSize(eaveHeight, scale);
+    const alignedSill = doorHead === undefined ? sillHeight : Math.max(MIN_SILL_HEIGHT_MM, doorHead - height);
+    return { width, height, sillHeight: alignedSill, shape: 'rect', mullions: 'none', hasShutters: false };
   });
   if (Object.keys(inherited).length === 0) return scaled;
   const style = Object.fromEntries(STYLE_KEYS.filter((key) => key in inherited).map((key) => [key, inherited[key]]));
@@ -153,7 +154,7 @@ function fitToShape(candidate: Record<string, unknown>, eaveHeight: Mm): Record<
   const { shape, height } = candidate as { shape: WindowParams['shape']; height: Mm };
   if (shape !== 'circle' && shape !== 'halfMoon') return candidate;
   const width = roundToStep(shape === 'circle' ? height : 2 * height, MIN_WINDOW_SIZE_MM);
-  const openingHeight = heightFor(shape, width, height);
+  const openingHeight = windowOpeningHeight(shape, width, height);
   return { ...candidate, width, sillHeight: roundToStep((eaveHeight - openingHeight) / 2, MIN_SILL_HEIGHT_MM) };
 }
 
@@ -175,7 +176,7 @@ function listCandidatesAtHeights(candidates: Record<string, unknown>[], wallTop:
  */
 function listSillHeights(candidate: Record<string, unknown>, wallTop: Mm, margin: Mm): Record<string, unknown>[] {
   const { shape, width, height, sillHeight } = candidate as Pick<WindowParams, 'shape' | 'width' | 'height' | 'sillHeight'>;
-  const highestSill = wallTop - heightFor(shape, width, height) - margin;
+  const highestSill = wallTop - windowOpeningHeight(shape, width, height) - margin;
   const others: Mm[] = [];
   for (let sill = MIN_SILL_HEIGHT_MM; sill <= highestSill; sill += SILL_SEARCH_STEP_MM) if (sill !== sillHeight) others.push(sill);
   others.sort((a, b) => Math.abs(a - sillHeight) - Math.abs(b - sillHeight));

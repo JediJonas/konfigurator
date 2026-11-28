@@ -121,13 +121,21 @@ export interface ObjectType<P = Record<string, unknown>> {
    * prövas alla storlekar i mitten innan objektet flyttas.
    */
   prefersSizeOverCenter?: boolean;
-  paramCandidates?(socket: Socket, context: BuildContext, inherited: Record<string, unknown>): Record<string, unknown>[];
+  paramCandidates?(socket: Socket, context: BuildContext, inherited: Record<string, unknown>, findRelated: RelatedParamsLookup): Record<string, unknown>[];
   /**
    * Objekt som ett nytt objekt av typen får direkt, i sina egna
    * kopplingspunkter, om de klarar reglerna, t.ex. ett fönster i en ny takkupa.
    */
   startsWith?: readonly StartingChild[];
 }
+
+/**
+ * Värdena för det objekt av en annan typ som ett nytt objekt kan rätta sig
+ * efter: det senast skapade av den typen på föräldern, och finns inget där
+ * på närmaste förälder uppåt som har ett. T.ex. ett nytt objekt som ska linjera
+ * med ett annat. `undefined` när det inte finns något.
+ */
+export type RelatedParamsLookup = (objectTypeId: string) => Record<string, unknown> | undefined;
 
 /** Ett objekt som ett nytt objekt får direkt: objekttypen och kopplingspunkten det sitter i. */
 export interface StartingChild {

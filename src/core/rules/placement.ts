@@ -72,7 +72,8 @@ function proposeInSocket(design: Design, domain: Domain, request: SocketProposal
   const source = findInheritanceSource(design.root, parent.instance.id, objectType.id);
   const inherited = source ? pickInheritedParams(objectType.params, source.params) : {};
   // Objekttypen lägger själv de ärvda värdena på sina förslag, och får byta ut ett ärvt värde som inte går här.
-  const candidates = objectType.paramCandidates?.(socket, { thickness: design.material.thickness, socket }, inherited) ?? [{ ...inherited }];
+  const findRelated = (typeId: string) => findInheritanceSource(design.root, parent.instance.id, typeId)?.params;
+  const candidates = objectType.paramCandidates?.(socket, { thickness: design.material.thickness, socket }, inherited, findRelated) ?? [{ ...inherited }];
   const id = nextInstanceId(design.root, objectType.instanceIdPrefix);
   const full = findFullCountRule(domain, parent.instance, socket, objectType);
   if (full) {

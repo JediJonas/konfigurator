@@ -11,6 +11,7 @@ import { WALL_SURFACE } from '../../socketKinds';
 import { planeMatrix } from '../uprightPart';
 import { DOOR_SHAPES, openingOutline, toWallPlane, wallRectangle } from './openingShape';
 import { eaveHeightOf, OPENING_MARGIN_MM, roundToStep, targetWallId, wallOpeningMountMatrix } from './wallOpening';
+import { proposedHeadHeight, windowHeadHeightOf } from './openingProposal';
 
 export const DOOR_TYPE_ID = 'gb.door';
 
@@ -31,7 +32,7 @@ export const doorParams = z.object({
     .default('single')
     .meta({ labelKey: 'param.doorKind', optionLabelKeys: Object.fromEntries(DOOR_KINDS.map((kind) => [kind, `doorKind.${kind}`])) }),
   width: z.number().min(MIN_DOOR_WIDTH_MM).max(150).default(35).meta({ labelKey: 'param.openingWidth', unit: 'mm', step: 5 }),
-  height: z.number().min(MIN_DOOR_HEIGHT_MM).max(250).default(65).meta({ labelKey: 'param.openingHeight', unit: 'mm', step: 5 }),
+  height: z.number().min(MIN_DOOR_HEIGHT_MM).max(250).default(70).meta({ labelKey: 'param.openingHeight', unit: 'mm', step: 5 }),
   shape: z
     .enum(DOOR_SHAPES)
     .default('rect')
@@ -46,9 +47,9 @@ export type DoorParams = z.infer<typeof doorParams>;
  */
 const DOOR_OVERCUT_MM = 1;
 const PROPOSAL_SCALES = [1, 0.8, 0.6, 0.45];
-/** Den största dörren som föreslås är så hög i förhållande till väggens höjd vid hörnen. */
-const PROPOSED_HEIGHT_SHARE = 0.65;
 const PROPOSED_WIDTH_PER_HEIGHT = 0.55;
+/** Fönstret som dörren linjerar med heter så i domänen. Dörren kan inte importera fönstret, som importerar dörren. */
+const WINDOW_TYPE_ID = 'gb.window';
 
 /**
  * Dörr: en öppning från golvet och ett dörrblad med samma form, som står på
@@ -69,7 +70,7 @@ export const doorType: ObjectType<DoorParams> = {
   socketOutline: (params) => wallRectangle(-params.width / 2, 0, params.width / 2, params.height),
   surfaceAreas: (params, context) => describeDoorSurface(params, targetWallId(context)),
   prefersSizeOverCenter: true,
-  paramCandidates: (socket) => listDoorCandidates(eaveHeightOf(socket)),
+  paramCandidates: (socket, _context, _inherited, findRelated) => listDoorCandidates(eaveHeightOf(socket), windowHeadOf(findRelated(WINDOW_TYPE_ID))),
 };
 
 function buildDoorOpening(params: DoorParams, targetPartId: string | undefined): Modifier[] {
@@ -160,11 +161,20 @@ function doorLeafTransform({ hinge, hingeX, angle: angleDegrees }: DoorLeaf, thi
   return planeMatrix(along, up, vec3(hingeX, 0, 0));
 }
 
-/** Förslag från väggens höjd vid hörnen, från den största dörren till den minsta. */
-function listDoorCandidates(eaveHeight: Mm): Record<string, unknown>[] {
+/**
+ * Förslag från den största dörren till den minsta. Den största slutar i samma
+ * höjd som fönstrens överkant (ägarens önskan): fönstret som sektionen redan har,
+ * eller annars fönstret som skulle föreslås på väggen.
+ */
+function listDoorCandidates(eaveHeight: Mm, windowHead: Mm | undefined): Record<string, unknown>[] {
+  const largestHeight = windowHead ?? proposedHeadHeight(eaveHeight);
   return PROPOSAL_SCALES.map((scale) => {
-    const height = roundToStep(eaveHeight * PROPOSED_HEIGHT_SHARE * scale, MIN_DOOR_HEIGHT_MM);
+    const height = roundToStep(largestHeight * scale, MIN_DOOR_HEIGHT_MM);
     const width = roundToStep(height * PROPOSED_WIDTH_PER_HEIGHT, MIN_DOOR_WIDTH_MM);
     return { kind: 'single', width, height, shape: 'rect' };
   });
+}
+
+function windowHeadOf(windowParams: Record<string, unknown> | undefined): Mm | undefined {
+  return windowParams ? windowHeadHeightOf(windowParams) : undefined;
 }
