@@ -4,6 +4,8 @@ import type { Page } from '@playwright/test';
 /** Så länge mellan två bilder av 3D-vyn när man väntar på att kameran står still. */
 const VIEW_SETTLE_INTERVAL_MS = 300;
 const VIEW_SETTLE_TIMEOUT_MS = 10_000;
+/** Så många lika bilder i rad krävs, så att en kamera som glider långsamt inte räknas som stilla. */
+const VIEW_SETTLE_STILL_COUNT = 3;
 
 /** Antal bruna bildpunkter i 3D-vyn, alltså hur stort huset syns. */
 export function countHousePixels(page: Page): Promise<number> {
@@ -32,16 +34,17 @@ export function countHousePixels(page: Page): Promise<number> {
  * inte när CI ritar långsamt.
  */
 export async function waitForViewToSettle(page: Page) {
-  const view = page.locator('.viewport canvas');
-  let previous = '';
+  let previous: number[] = [];
+  let stillCount = 0;
   await expect
     .poll(
       async () => {
         await page.waitForTimeout(VIEW_SETTLE_INTERVAL_MS);
-        const current = (await view.screenshot({ scale: 'css' })).toString('base64');
-        const isStill = current === previous;
+        const current = await takeViewSnapshot(page);
+        // Efter ett drag glider kameran ut, och i CI ritar den långsamt; ett grovt rutnät tål de sista bildpunkterna.
+        stillCount = isSameView(current, previous) ? stillCount + 1 : 0;
         previous = current;
-        return isStill;
+        return stillCount >= VIEW_SETTLE_STILL_COUNT;
       },
       { timeout: VIEW_SETTLE_TIMEOUT_MS, intervals: [0] },
     )

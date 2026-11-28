@@ -48,7 +48,11 @@ test('öppnar ett hus från en delad länk på en annan enhet', async ({ browser
   await phone.goto(link);
   await expect(phone.getByText('Huset från länken är öppnat.', { exact: false })).toBeVisible();
   expect(new URL(phone.url()).hash).toBe('');
+  // Ingen sektion står öppen och inget är markerat.
+  await expect(phone.getByRole('button', { name: 'Sektion S1' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(phone.getByRole('button', { name: /^Vägg \d$/ })).toHaveCount(0);
   await phone.getByRole('button', { name: 'Stäng', exact: true }).click();
+  await phone.getByRole('button', { name: 'Sektion S1' }).click();
   await openWall(phone, 'Vägg 2');
   await expect(phone.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
   await phone.getByRole('button', { name: 'Ångra', exact: true }).click();
@@ -96,6 +100,8 @@ test('öppnar ett sparat hus med vinkeln det sparades med', async ({ page }) => 
   await waitForViewToSettle(page);
   expect(isSameView(await takeViewSnapshot(page), saved)).toBe(false);
   await page.getByRole('button', { name: 'Öppna Kyrkan' }).click();
+  // Vyn ändras först när huset har öppnats.
+  await expect(page.getByText('Kyrkan är öppnat.', { exact: false })).toBeVisible();
   await waitForViewToSettle(page);
   expect(isSameView(await takeViewSnapshot(page), saved)).toBe(true);
 });
@@ -117,6 +123,7 @@ test('öppnar en delad länk med vinkeln den delades med', async ({ browser }) =
   const link = await page.getByLabel('Länk till huset').inputValue();
   const other = await (await browser.newContext({ viewport: { width: 1000, height: 700 } })).newPage();
   await other.goto(link);
+  await expect(other.getByText('Huset från länken är öppnat.', { exact: false })).toBeVisible();
   await waitForViewToSettle(other);
   expect(isSameView(await takeViewSnapshot(other), shared)).toBe(true);
   await context.close();

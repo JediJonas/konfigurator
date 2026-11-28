@@ -15,11 +15,12 @@ export interface OpenInstanceIdChange {
  * rubrik byter man till det. Byter objekten id, t.ex. när numren flyttas ner
  * efter en borttagning, står samma objekt öppet (`idChange`).
  */
-export function useOpenInstance(instanceIds: string[], focus: PanelFocus | undefined, idChange?: OpenInstanceIdChange) {
+export function useOpenInstance(instanceIds: string[], focus: PanelFocus | undefined, idChange?: OpenInstanceIdChange, isStartingClosed = false) {
   const focusedId = focus?.instanceId;
   const focusKey = focus?.key;
   const idsKey = instanceIds.join(' ');
-  const [openId, setOpenId] = useState<string | undefined>(instanceIds.at(-1));
+  // Det sista objektet står öppet från början, utom när huset kommer från en länk: då är inget valt.
+  const [openId, setOpenId] = useState<string | undefined>(isStartingClosed ? undefined : instanceIds.at(-1));
   const [known, setKnown] = useState({ instanceIds, idsKey, focusKey });
   // Ett nytt objekt varje gång, så att ett id som tas bort och läggs till igen också räknas.
   const [added, setAdded] = useState<{ instanceId: string }>();

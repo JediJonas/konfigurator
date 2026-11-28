@@ -42,7 +42,8 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   const { design, paper, setThickness, setPaper, selectSocket, selectedSocket, focusedInstance, focusInstance, setOpenInstanceId, instanceIdChange } = useDesignStore();
   // Id:n som byttes i senaste ändringen, t.ex. S3 → S2 när S2 togs bort, så att samma objekt står öppet.
   const idChange = instanceIdChange?.design === design ? instanceIdChange : undefined;
-  // Öppnades appen med en länk fälls arket upp, så att meddelandet om huset syns i mobilen.
+  // Öppnades appen med en länk fälls arket upp, så att meddelandet om huset syns i mobilen, men ingen sektion står öppen och inget är markerat.
+  const [isOpenedFromLink] = useState(() => useHouseNotice.getState().notice === 'linkOpened');
   const [isExpanded, setIsExpanded] = useState(() => useHouseNotice.getState().notice !== undefined);
   const [pdfState, setPdfState] = useState<'idle' | 'working' | 'failed'>('idle');
   const contentId = useId();
@@ -64,6 +65,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
     instanceEntries.map((entry) => entry.instance.id),
     focus,
     idChange,
+    isOpenedFromLink,
   );
   const openInstanceId = openInstance.openId;
   // Bara en toppnod är utfälld åt gången: en sektion, Mina hus eller Inställningar.
