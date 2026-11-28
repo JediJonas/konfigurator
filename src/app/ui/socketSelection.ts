@@ -1,4 +1,5 @@
 import type { Part } from '../../core/model/part';
+import { isPieceOf } from '../../core/model/part';
 import type { PlacedInstance } from '../../core/pipeline/placeInstances';
 import type { SocketRef } from '../state/designStore';
 
@@ -11,6 +12,16 @@ export function findSocketOwnedBy(placed: readonly PlacedInstance[], partId: str
     if (socket) return { instanceId: entry.instance.id, socketId: socket.id };
   }
   return undefined;
+}
+
+/**
+ * Kopplingspunkten i en fältgrupp som hör till delen man tryckte på, t.ex.
+ * takfallet, även när delen har delats i bitar av en vinkelränna.
+ */
+export function findGroupSocketOwning(placed: readonly PlacedInstance[], part: Part): SocketRef | undefined {
+  const entry = placed.find((candidate) => candidate.instance.id === part.sourceInstanceId);
+  const socket = entry?.sockets.find((candidate) => candidate.paramGroupKey !== undefined && candidate.paramGroupKey === part.paramGroupKey && candidate.ownerPartId !== undefined && isPieceOf(part, candidate.ownerPartId));
+  return entry && socket ? { instanceId: entry.instance.id, socketId: socket.id } : undefined;
 }
 
 /**

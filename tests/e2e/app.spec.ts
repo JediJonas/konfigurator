@@ -157,6 +157,12 @@ test('fäller ut takets fält när man trycker på taket i 3D-vyn', async ({ pag
   await page.mouse.click(500, 300);
   await expect(page.getByRole('button', { name: 'Tak', exact: true })).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByLabel('Taktyp')).toBeVisible();
+  // Takfallet man tryckte på blir det som + Takkupa och + Skorsten lägger till på.
+  const roofFace = page.getByLabel('Takfall', { exact: true });
+  await roofFace.selectOption({ label: 'Takfall mot Vägg 4' });
+  await page.mouse.click(500, 300);
+  await expect(roofFace.locator('option:checked')).toHaveText('Takfall mot Vägg 2');
+  await expect(page.getByRole('button', { name: 'Lägg till takkupa på takfall mot vägg 2' })).toBeVisible();
 });
 
 test('öppnar sektionen och väggen när man trycker på väggen, även samma vägg igen', async ({ page }) => {
