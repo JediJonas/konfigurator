@@ -112,7 +112,7 @@ test('sätter fönster och dörr i väggen och har kvar dem när sidan laddas om
   await page.getByRole('button', { name: 'Lägg till fönster' }).click();
   await expect(page.getByRole('heading', { name: 'Fönster F1' })).toBeVisible();
   await page.getByLabel('Fönsterluckor').check();
-  await page.getByLabel('Form').selectOption({ label: 'Bågformat' });
+  await page.getByLabel('Form').selectOption({ label: 'Båge' });
 
   await openWall(page, 'Vägg 1');
   // Fönstret fälls ihop med sin vägg när en annan vägg öppnas.

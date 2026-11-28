@@ -5,7 +5,7 @@ import { vec3 } from '../../src/core/geometry/vector';
 import type { Part } from '../../src/core/model/part';
 import { buildParts } from '../../src/core/pipeline/buildParts';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
-import { openingOutline } from '../../src/domains/gingerbread/objects/openings/openingShape';
+import { listPanes, openingOutline } from '../../src/domains/gingerbread/objects/openings/openingShape';
 import type { WindowParams } from '../../src/domains/gingerbread/objects/openings/window';
 import { windowSizeOf } from '../../src/domains/gingerbread/objects/openings/window';
 import { designWithExtensions } from './extensionFixtures';
@@ -45,8 +45,8 @@ describe('fönster', () => {
     expect([hole.minY, hole.maxY]).toEqual([WINDOW_PARAMS.sillHeight, WINDOW_PARAMS.sillHeight + WINDOW_PARAMS.height]);
   });
 
-  it('med spröjs skärs fyra rutor och spröjsen blir kvar av väggen', () => {
-    const wall = partById(buildParts(designWithExtensions(windowOn('side-right', { mullions: 'cross' })), gingerbreadDomain), 'S1/side-right');
+  it('med Fyra rutor skärs fyra rutor och spröjsen blir kvar av väggen', () => {
+    const wall = partById(buildParts(designWithExtensions(windowOn('side-right', { mullions: 'four' })), gingerbreadDomain), 'S1/side-right');
     expect(wall.holes).toHaveLength(4);
   });
 
@@ -76,7 +76,7 @@ describe('fönster', () => {
   });
 
   it('runt fönster med spröjs ger fyra rutor och aldrig luckor', () => {
-    const parts = buildParts(designWithExtensions(windowOn('side-right', { shape: 'circle', mullions: 'cross', hasShutters: true })), gingerbreadDomain);
+    const parts = buildParts(designWithExtensions(windowOn('side-right', { shape: 'circle', mullions: 'four', hasShutters: true })), gingerbreadDomain);
     expect(partById(parts, 'S1/side-right').holes).toHaveLength(4);
     expect(parts.filter((part) => part.id.startsWith('F1/shutter'))).toHaveLength(0);
   });
@@ -84,6 +84,86 @@ describe('fönster', () => {
   it('halvmåne kan ha luckor', () => {
     const parts = buildParts(designWithExtensions(windowOn('side-right', { shape: 'halfMoon', hasShutters: true })), gingerbreadDomain);
     expect(parts.filter((part) => part.id.startsWith('F1/shutter'))).toHaveLength(2);
+  });
+
+  it('spetsbåge har raka sidor och en spets mitt över som når fönstrets höjd', () => {
+    const outline = openingOutline({ shape: 'pointed', width: 30, height: 60, bottom: 20 });
+    const bounds = boundsOf(outline);
+    expect([bounds.minX, bounds.maxX]).toEqual([-15, 15]);
+    expect([bounds.minY, bounds.maxY]).toEqual([20, 80].map((value) => expect.closeTo(value)));
+    const top = outline.find((point) => Math.abs(point.y - 80) < 1e-6);
+    expect(top?.x).toBeCloseTo(0);
+    // Varje båge har radien lika med bredden, med medelpunkten i motsatta hörnet på bågens fot.
+    const spring = 80 - 30 * Math.sqrt(3) / 2;
+    for (const point of outline.filter((point) => point.y > spring + 1e-6 && point.x > 0.01)) expect(Math.hypot(point.x + 15, point.y - spring)).toBeCloseTo(30);
+  });
+
+  it('spetsbåge som är lägre än bågen trycks ihop så att spetsen når höjden', () => {
+    const outline = openingOutline({ shape: 'pointed', width: 40, height: 20, bottom: 10 });
+    expect(Math.max(...outline.map((point) => point.y))).toBeCloseTo(30);
+    expect(Math.min(...outline.map((point) => point.y))).toBeCloseTo(10);
+  });
+
+  it('trekantigt fönster har bottnen över hela bredden och spetsen mitt över', () => {
+    expect(openingOutline({ shape: 'triangle', width: 30, height: 40, bottom: 20 })).toEqual([
+      { x: -15, y: 20 },
+      { x: 15, y: 20 },
+      { x: 0, y: 60 },
+    ]);
+  });
+
+  it('snedskuret fönster har rak underkant och sidor och är lägre åt vänster', () => {
+    const outline = openingOutline({ shape: 'slanted', width: 30, height: 40, bottom: 20 });
+    expect(outline).toEqual([
+      { x: -15, y: 20 },
+      { x: 15, y: 20 },
+      { x: 15, y: 60 },
+      { x: -15, y: 45 },
+    ]);
+  });
+
+  it('två rutor har en lodrät spröjs i mitten, sex rutor två vågräta till', () => {
+    const size = { shape: 'rect' as const, width: 40, height: 60, bottom: 10 };
+    const two = listPanes(size, 'two').map(boundsOf);
+    expect(two.map((pane) => [pane.minX, pane.maxX])).toEqual([[-20, -2.5], [2.5, 20]].map((pair) => pair.map((value) => expect.closeTo(value))));
+    expect(two.every((pane) => pane.minY === 10 && pane.maxY === 70)).toBe(true);
+    const six = listPanes(size, 'six');
+    expect(six).toHaveLength(6);
+    expect(listPanes(size, 'four')).toHaveLength(4);
+    expect(listPanes(size, 'none')).toHaveLength(1);
+    // Rutorna går inte in i spröjsen: mellan två rutor över varandra är det minst en spröjs bred vägg.
+    const rows = [...new Set(six.map((pane) => boundsOf(pane).minY))].sort((a, b) => a - b);
+    const lower = six.map(boundsOf).filter((pane) => pane.minY === rows[0]);
+    expect(rows[1]! - lower[0]!.maxY).toBeGreaterThanOrEqual(5 - 1e-9);
+  });
+
+  it.each(['pointed', 'triangle', 'slanted', 'circle', 'halfMoon', 'arch'] as const)('%s går att sätta spröjs i, och rutorna ligger inom öppningen', (shape) => {
+    const size = { shape, width: 40, height: 60, bottom: 10 };
+    const outline = boundsOf(openingOutline(size));
+    for (const style of ['two', 'four', 'six'] as const) {
+      const panes = listPanes(size, style);
+      expect(panes.length).toBeGreaterThan(0);
+      for (const pane of panes.map(boundsOf)) {
+        expect(pane.minX).toBeGreaterThanOrEqual(outline.minX - 1e-9);
+        expect(pane.maxX).toBeLessThanOrEqual(outline.maxX + 1e-9);
+        expect(pane.minY).toBeGreaterThanOrEqual(outline.minY - 1e-9);
+        expect(pane.maxY).toBeLessThanOrEqual(outline.maxY + 1e-9);
+      }
+    }
+  });
+
+  it('hoppar över rutor som är för små att skära, t.ex. i spetsen på ett trekantigt fönster', () => {
+    const size = { shape: 'triangle' as const, width: 40, height: 60, bottom: 10 };
+    expect(listPanes(size, 'six').length).toBeLessThan(6);
+    for (const pane of listPanes(size, 'six').map(boundsOf)) expect(Math.min(pane.maxX - pane.minX, pane.maxY - pane.minY)).toBeGreaterThanOrEqual(6);
+  });
+
+  it('nya former bygger delar med hål och luckor i väggen', () => {
+    for (const shape of ['pointed', 'triangle', 'slanted'] as const) {
+      const parts = buildParts(designWithExtensions(windowOn('side-right', { shape, mullions: 'six', hasShutters: true })), gingerbreadDomain);
+      expect(partById(parts, 'S1/side-right').holes.length).toBeGreaterThan(1);
+      expect(parts.filter((part) => part.id.startsWith('F1/shutter'))).toHaveLength(2);
+    }
   });
 
   it('har luckorna uppslagna mot väggens utsida på var sin sida om fönstret', () => {

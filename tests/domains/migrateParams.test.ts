@@ -29,4 +29,12 @@ describe('migrering av pepparkakshusets parametrar', () => {
     const design = simpleHousePreset.create();
     expect(migrateGingerbreadParams(design)).toBe(design);
   });
+
+  it('gör om Spröjs (kors) till Fyra rutor i version 4 och låter andra värden vara', () => {
+    const design = simpleHousePreset.create();
+    const windows = ['cross', 'none'].map((mullions, index) => ({ id: `F${index + 1}`, type: 'gb.window', params: { width: 30, mullions }, children: [] }));
+    const section = { ...design.root.children[0]!, children: windows };
+    const migrated = migrateGingerbreadParams({ ...design, domainVersion: 3, root: { ...design.root, children: [section] } });
+    expect(migrated.root.children[0]?.children.map((window) => window.params.mullions)).toEqual(['four', 'none']);
+  });
 });

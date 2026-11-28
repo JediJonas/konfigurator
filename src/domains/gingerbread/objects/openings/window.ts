@@ -7,16 +7,15 @@ import type { Mm } from '../../../../core/geometry/vector';
 import { BUILD_STEP } from '../../buildOrder';
 import { DORMER_WALL, WALL_SURFACE } from '../../socketKinds';
 import type { OpeningShape, OpeningSize } from './openingShape';
-import { crossPanes, WINDOW_SHAPES, openingOutline, shutterOutlines, toWallPlane, wallRectangle } from './openingShape';
+import { listPanes, MULLION_STYLES, WINDOW_SHAPES, shutterOutlines, toWallPlane, wallRectangle } from './openingShape';
 import { eaveHeightOf, openingMarginOf, roundToStep, targetWallId, wallOpeningMountMatrix } from './wallOpening';
 import { DOOR_TYPE_ID } from './door';
 import { MIN_SILL_HEIGHT_MM, MIN_WINDOW_SIZE_MM, proposeWindowSize, windowOpeningHeight } from './openingProposal';
 
 export const WINDOW_TYPE_ID = 'gb.window';
 
-const MULLION_STYLES = ['none', 'cross'] as const;
 /** Formerna där höjden väljs fritt. Runt och halvmåne får höjden ur bredden. */
-const SHAPES_WITH_HEIGHT = ['rect', 'arch'] as const;
+const SHAPES_WITH_HEIGHT = ['arch', 'rect', 'slanted', 'pointed', 'triangle'] as const;
 /** Formerna som kan ha luckor. Två halvcirklar blir inga riktiga luckor. */
 const SHAPES_WITH_SHUTTERS: readonly OpeningShape[] = WINDOW_SHAPES.filter((shape) => shape !== 'circle');
 
@@ -83,7 +82,7 @@ function hasShutters(params: WindowParams): boolean {
 function buildWindowOpening(params: WindowParams, targetPartId: string | undefined): Modifier[] {
   if (!targetPartId) return [];
   const size = windowSizeOf(params);
-  const panes = params.mullions === 'cross' ? crossPanes(size) : [openingOutline(size)];
+  const panes = listPanes(size, params.mullions);
   return panes.map((pane) => ({ kind: 'removeRegion', targetPartId, region: toWallPlane(pane) }));
 }
 

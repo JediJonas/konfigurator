@@ -8,7 +8,7 @@ import { designWithExtensions } from '../domains/extensionFixtures';
 import { doorOn, windowOn } from '../domains/openingFixtures';
 
 describe('tryck på fönster och dörrar i 3D-vyn', () => {
-  const design = designWithExtensions(windowOn('side-right', { mullions: 'cross', hasShutters: true }), doorOn('gable-front'));
+  const design = designWithExtensions(windowOn('side-right', { mullions: 'four', hasShutters: true }), doorOn('gable-front'));
   const placed = placeInstances(design, gingerbreadDomain);
 
   it('ger fönstrets rutor och dörrens öppning en yta att trycka på, men inte sektionerna', () => {

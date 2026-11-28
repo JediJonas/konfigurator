@@ -90,7 +90,7 @@ describe('förslag för fönster och dörrar', () => {
   });
 
   it('ger ett nytt fönster samma värden som det senast skapade på sektionen, även på en annan vägg', () => {
-    const style = { width: 35, height: 45, sillHeight: 25, shape: 'arch', mullions: 'cross', hasShutters: true };
+    const style = { width: 35, height: 45, sillHeight: 25, shape: 'arch', mullions: 'four', hasShutters: true };
     const design = designWithExtensions(windowOn('side-right', { width: 20, height: 20 }, -60, 'F1'), windowOn('side-right', style, 0, 'F2'));
     const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'side-left', objectTypeId: 'gb.window' });
     expect(proposal.violations).toEqual([]);
@@ -98,7 +98,7 @@ describe('förslag för fönster och dörrar', () => {
   });
 
   it('ger det första fönstret på en tillbyggnad samma värden som fönstren på huset, men tillbyggnadens egna fönster går före', () => {
-    const style = { width: 25, height: 35, sillHeight: 20, shape: 'arch', mullions: 'cross', hasShutters: false };
+    const style = { width: 25, height: 35, sillHeight: 20, shape: 'arch', mullions: 'four', hasShutters: false };
     const host = windowOn('side-left', style, 0, 'F1');
     const tallExtension = extension('side-right', { ...EXTENSION_PARAMS, wallHeight: 80, depth: 100 });
     const firstOnExtension = proposeChild(designWithExtensions(host, tallExtension), gingerbreadDomain, {
@@ -116,10 +116,10 @@ describe('förslag för fönster och dörrar', () => {
   });
 
   it('behåller förra fönstrets form, spröjs och luckor när storleken inte ryms', () => {
-    const design = designWithExtensions(windowOn('side-right', { width: 130, height: 60, sillHeight: 10, shape: 'arch', mullions: 'cross' }));
+    const design = designWithExtensions(windowOn('side-right', { width: 130, height: 60, sillHeight: 10, shape: 'arch', mullions: 'four' }));
     const proposal = proposeChild(design, gingerbreadDomain, { parentId: 'S1', socketId: 'gable-front', objectTypeId: 'gb.window' });
     expect(proposal.violations).toEqual([]);
-    expect(proposal.instance.params).toMatchObject({ shape: 'arch', mullions: 'cross', hasShutters: false });
+    expect(proposal.instance.params).toMatchObject({ shape: 'arch', mullions: 'four', hasShutters: false });
     expect(proposal.instance.params.width).toBeLessThan(130);
   });
 
