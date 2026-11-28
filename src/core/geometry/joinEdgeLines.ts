@@ -3,6 +3,8 @@ import { length3, subtract3 } from './vector';
 
 /** Ändar närmare än så här är samma punkt, t.ex. två kanter i hörnet på samma del. */
 const SAME_POINT_MM = 0.5;
+/** En ände flyttas inte till en annan linje om kanten då lutar mer än så här, så att t.ex. ett hörn inte blir snett mot takutsprånget. */
+const MAX_TILT_DEGREES = 1.5;
 
 interface LineEnd {
   lineIndex: number;
@@ -57,9 +59,17 @@ function snapLooseEnds(chains: Vec3[][], distance: Mm): void {
           if (gap <= distance && (!nearest || gap < nearest.gap)) nearest = { point, gap };
         }
       });
-      if (nearest && nearest.gap > SAME_POINT_MM) chain[endIndex] = nearest.point;
+      const neighbor = chain[endIndex === 0 ? 1 : chain.length - 2] as Vec3;
+      if (nearest && nearest.gap > SAME_POINT_MM && !isTilted(neighbor, end, nearest.point)) chain[endIndex] = nearest.point;
     }
   });
+}
+
+/** Sant när kanten från grannpunkten lutar mer än tillåtet om änden flyttas från `from` till `to`. */
+function isTilted(neighbor: Vec3, from: Vec3, to: Vec3): boolean {
+  const [before, after] = [subtract3(from, neighbor), subtract3(to, neighbor)];
+  const cosine = (before.x * after.x + before.y * after.y + before.z * after.z) / ((length3(before) * length3(after)) || 1);
+  return Math.acos(Math.min(1, cosine)) > (MAX_TILT_DEGREES * Math.PI) / 180;
 }
 
 function closestPointOnSegment(point: Vec3, start: Vec3, end: Vec3): Vec3 {

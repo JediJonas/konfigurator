@@ -16,6 +16,6 @@ const ICING_MERGE_DISTANCE_MM = MULLION_WIDTH_MM + 2;
 export const ICING: EdgeBead = {
   labelKey: 'setting.icing',
   color: '#fbfaf6',
-  radius: 2.2,
+  radius: 1.6,
   mergeDistance: ICING_MERGE_DISTANCE_MM,
 };
