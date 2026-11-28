@@ -122,3 +122,20 @@ describe('ytterkanter', () => {
     expect(segmentsOf(edges([windowed, ...box.slice(1), inner])).some(isNearInner)).toBe(false);
   });
 });
+
+describe('ytterkanter i en öppen tillbyggnad', () => {
+  it('ger ingen kant på värdens vägg inuti en tillbyggnad vars sidor slutar i väggens plan', () => {
+    // Värdväggens utsida (z = 0) ligger inne i en tillbyggnad vars sidor (z 0–60), tak och framvägg står runt hålet.
+    const host = plate('host', rectangle(-50, 0, 100, 80), { holes: [rectangle(-10, 20, 20, 30)], transform: basisMatrix(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(0, 0, -THICKNESS_MM)) });
+    const toFront = (x: number, z: number) => basisMatrix(vec3(0, 0, 1), vec3(0, 1, 0), vec3(1, 0, 0), vec3(x, 0, z));
+    const parts = [
+      host,
+      plate('left', rectangle(0, 0, 60, 70), { transform: toFront(-36, 0) }),
+      plate('right', rectangle(0, 0, 60, 70), { transform: toFront(36, 0) }),
+      plate('front', rectangle(-40, 0, 80, 70), { transform: basisMatrix(vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1), vec3(0, 0, 56)) }),
+      plate('roof', rectangle(-40, 0, 80, 60), { transform: basisMatrix(vec3(1, 0, 0), vec3(0, 0, 1), vec3(0, -1, 0), vec3(0, 70, 0)) }),
+    ];
+    const inside = segmentsOf(edges(parts)).filter(({ start, end }) => [start, end].every((point) => point.z > -1 && point.z < 55 && Math.abs(point.x) < 30 && point.y > 15 && point.y < 55));
+    expect(inside).toHaveLength(0);
+  });
+});

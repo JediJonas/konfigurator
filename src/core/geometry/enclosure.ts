@@ -1,5 +1,5 @@
 import type { Part } from '../model/part';
-import { distanceToBoundary, isPointInPolygon } from './hull';
+import { isPointInPolygon } from './hull';
 import type { Polygon } from './polygon';
 import { invertRigidMatrix, transformPoint } from './matrix';
 import type { Matrix4 } from './matrix';
@@ -65,12 +65,12 @@ function clipToThickness(startZ: Mm, endZ: Mm, thickness: Mm): [number, number] 
 
 /** Sant när sträckan i delens plan går genom konturen, med hålen fyllda. */
 function isSegmentInOutline(from: Vec2, to: Vec2, outline: Polygon): boolean {
-  if (isStrictlyInside(from, outline) || isStrictlyInside(to, outline)) return true;
+  if (isInsideOrOnEdge(from, outline) || isInsideOrOnEdge(to, outline)) return true;
   return outline.some((a, index) => doSegmentsCross(from, to, a, outline[(index + 1) % outline.length] ?? a));
 }
 
-function isStrictlyInside(point: Vec2, outline: Polygon): boolean {
-  return isPointInPolygon(point, outline, 0) && distanceToBoundary(point, outline) > GRAZE_TOLERANCE_MM;
+function isInsideOrOnEdge(point: Vec2, outline: Polygon): boolean {
+  return isPointInPolygon(point, outline, GRAZE_TOLERANCE_MM);
 }
 
 function doSegmentsCross(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
