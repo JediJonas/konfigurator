@@ -9,4 +9,9 @@ describe('growPolygon', () => {
     expect(growPolygon(square, 2)).toEqual(expected);
     expect(growPolygon([...square].reverse(), 2)).toEqual([...expected].reverse());
   });
+
+  it('förminskar polygonen när avståndet är negativt', () => {
+    const square = [vec2(0, 0), vec2(10, 0), vec2(10, 10), vec2(0, 10)];
+    expect(growPolygon(square, -2)).toEqual([vec2(2, 2), vec2(8, 2), vec2(8, 8), vec2(2, 8)]);
+  });
 });

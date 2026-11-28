@@ -34,6 +34,11 @@ export interface Part {
    */
   hasInsideAtZero?: boolean;
   /**
+   * Sant när kristyren läggs på delens framsida (z = tjockleken), kant i kant
+   * med delen, i stället för på delens kant, t.ex. på en fönsterlucka.
+   */
+  hasEdgeBeadOnFront?: boolean;
+  /**
    * Fältgruppen i objektets parametrar som styr delen, t.ex. taket. Trycker man
    * på delen i 3D-vyn öppnas den gruppen.
    */

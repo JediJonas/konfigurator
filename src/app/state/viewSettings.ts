@@ -5,12 +5,12 @@ export type ViewSettingsStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
 const EDGE_BEAD_STORAGE_KEY = 'konfigurator.showEdgeBead';
 
-/** Läser om randen längs ytterkanterna ska visas. Av från början och när lagringen inte går att läsa. */
+/** Läser om randen längs ytterkanterna ska visas. På från början (ägarens önskan) och när lagringen inte går att läsa; ett val som sparats gäller. */
 export function readShowEdgeBead(storage: ViewSettingsStorage | undefined): boolean {
   try {
-    return storage?.getItem(EDGE_BEAD_STORAGE_KEY) === '1';
+    return storage?.getItem(EDGE_BEAD_STORAGE_KEY) !== '0';
   } catch {
-    return false;
+    return true;
   }
 }
 

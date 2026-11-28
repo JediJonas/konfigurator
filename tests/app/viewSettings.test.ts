@@ -15,18 +15,18 @@ const blockedStorage: ViewSettingsStorage = {
 };
 
 describe('kristyr som inställning i vyn', () => {
-  it('är av från början och kommer ihåg valet', () => {
+  it('är på från början och kommer ihåg valet, även när det är av', () => {
     const storage = createMemoryStorage();
-    expect(readShowEdgeBead(storage)).toBe(false);
-    rememberShowEdgeBead(storage, true);
     expect(readShowEdgeBead(storage)).toBe(true);
     rememberShowEdgeBead(storage, false);
     expect(readShowEdgeBead(storage)).toBe(false);
+    rememberShowEdgeBead(storage, true);
+    expect(readShowEdgeBead(storage)).toBe(true);
   });
 
-  it('är av när lagringen saknas eller är blockerad', () => {
-    expect(readShowEdgeBead(undefined)).toBe(false);
-    expect(readShowEdgeBead(blockedStorage)).toBe(false);
+  it('är på när lagringen saknas eller är blockerad', () => {
+    expect(readShowEdgeBead(undefined)).toBe(true);
+    expect(readShowEdgeBead(blockedStorage)).toBe(true);
     expect(() => rememberShowEdgeBead(blockedStorage, true)).not.toThrow();
   });
 });
