@@ -53,7 +53,7 @@ describe('autospar', () => {
     const autosave = createAutosave(store, () => new Date('2026-11-27T10:00:00Z'));
     autosave.schedule({ design: houseWithWiderSection(), name: '' });
     autosave.flush();
-    await saveHouse(store, 'Kyrkan', simpleHousePreset.create(), new Date('2026-11-28T10:00:00Z'));
+    await saveHouse(store, { name: 'Kyrkan', design: simpleHousePreset.create() }, new Date('2026-11-28T10:00:00Z'));
     expect(await loadSavedDesign(store, gingerbreadDomain)).toEqual({ design: houseWithWiderSection(), name: '' });
   });
 });

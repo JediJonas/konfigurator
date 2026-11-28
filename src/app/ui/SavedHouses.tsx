@@ -23,7 +23,7 @@ export function SavedHouses({ isOpen, onToggle }: { isOpen: boolean; onToggle: (
     if (!store) return;
     try {
       const opened = await openHouse(store, house.id, activeDomain);
-      openDesign(opened.design, opened.name);
+      openDesign(opened.design, opened.name, opened.view);
       setStatus(uiStrings.houseOpened(opened.name));
     } catch {
       setStatus(uiStrings.openFailed(house.name));

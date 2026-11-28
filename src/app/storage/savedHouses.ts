@@ -1,6 +1,8 @@
 import type { Design } from '../../core/model/design';
 import type { Domain } from '../../core/model/domain';
 import { OPEN_PROJECT_ID } from './autosave';
+import type { CameraView } from '../state/cameraView';
+import { readCameraView } from '../state/cameraView';
 import type { ProjectMeta, ProjectStore } from './projectStore';
 import { readStoredDesign } from './storedDesign';
 
@@ -15,19 +17,27 @@ export function findHouseNamed(houses: readonly ProjectMeta[], name: string): Pr
   return houses.find((house) => normalizeName(house.name) === wanted);
 }
 
-/** Sparar huset under ett namn. Finns ett hus med samma namn ersätts det. */
-export async function saveHouse(store: ProjectStore, name: string, design: Design, now: Date = new Date()): Promise<ProjectMeta> {
+/** Huset som sparas, under vilket namn och med vilken vinkel. */
+export interface HouseToSave {
+  name: string;
+  design: Design;
+  view?: CameraView;
+}
+
+/** Sparar huset under ett namn, med kamerans vinkel om den finns. Finns ett hus med samma namn ersätts det. */
+export async function saveHouse(store: ProjectStore, house: HouseToSave, now: Date = new Date()): Promise<ProjectMeta> {
+  const { name, design, view } = house;
   const houses = await listSavedHouses(store, design.domain);
   const id = findHouseNamed(houses, name)?.id ?? createHouseId(now);
   const meta: ProjectMeta = { id, name: name.trim(), domain: design.domain, updatedAt: now.toISOString() };
-  await store.save({ ...meta, design });
+  await store.save({ ...meta, design, ...(view ? { view } : {}) });
   return meta;
 }
 
-/** Öppnar ett sparat hus i dagens format. Kastar om det inte går att öppna. */
-export async function openHouse(store: ProjectStore, id: string, domain: Domain): Promise<{ design: Design; name: string }> {
+/** Öppnar ett sparat hus i dagens format, med vinkeln det sparades med. Kastar om det inte går att öppna. */
+export async function openHouse(store: ProjectStore, id: string, domain: Domain): Promise<{ design: Design; name: string; view?: CameraView }> {
   const project = await store.load(id);
-  return { design: readStoredDesign(project.design, domain), name: project.name };
+  return { design: readStoredDesign(project.design, domain), name: project.name, view: readCameraView(project.view) };
 }
 
 /** Byter namn utan att ändra när huset ändrades senast. */

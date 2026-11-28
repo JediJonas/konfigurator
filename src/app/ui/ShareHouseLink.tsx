@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { activeDomain } from '../activeDomain';
+import { captureCameraView } from '../state/cameraView';
 import { useDesignStore } from '../state/designStore';
 import { createHouseLink } from '../storage/houseLink';
 import { uiStrings } from './strings.sv';
@@ -18,7 +19,7 @@ export function ShareHouseLink() {
 
   async function handleShare() {
     const pageUrl = window.location.href.split('#')[0] ?? window.location.href;
-    const created = await createHouseLink(pageUrl, design, activeDomain, houseName?.trim() || undefined);
+    const created = await createHouseLink(pageUrl, { design, name: houseName?.trim() || undefined, view: captureCameraView() }, activeDomain);
     if (isTouchDevice() && navigator.share) {
       // I mobilen och på iPad öppnas delningsmenyn, t.ex. för AirDrop eller Meddelanden.
       try {

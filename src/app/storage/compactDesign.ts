@@ -1,5 +1,7 @@
 import type { Design, Instance } from '../../core/model/design';
 import type { Domain } from '../../core/model/domain';
+import type { CameraView } from '../state/cameraView';
+import { packCameraView, readCameraView } from '../state/cameraView';
 
 /**
  * Ett objekt som en kort lista: id, typ, fält, kopplingspunkt, u, v, vridning
@@ -7,30 +9,32 @@ import type { Domain } from '../../core/model/domain';
  */
 type PackedInstance = [id: string, type: string, params?: Record<string, unknown> | 0, socketId?: string | 0, u?: number, v?: number, rotationDegrees?: number, children?: PackedInstance[]];
 
-/** En design som en kort lista: schemaversion, domänversion, material, tjocklek, roten och husets namn. */
-export type PackedDesign = [version: number, domainVersion: number, materialId: string, thickness: number, root: PackedInstance, name?: string];
+/** En design som en kort lista: schemaversion, domänversion, material, tjocklek, roten, husets namn (0 utan namn) och kamerans vinkel. */
+export type PackedDesign = [version: number, domainVersion: number, materialId: string, thickness: number, root: PackedInstance, name?: string | 0, view?: number[]];
 
 /**
  * Packar designen så kort som möjligt för en länk: fält med standardvärdet
  * tas bort, eftersom objekttypen fyller i dem igen när designen räknas.
  * Domänens id står inte med; länken öppnas i samma app.
  */
-export function packDesign(design: Design, domain: Domain, name?: string): PackedDesign {
+export function packDesign(design: Design, domain: Domain, name?: string, view?: CameraView): PackedDesign {
   const packed: PackedDesign = [design.version, design.domainVersion, design.material.id, design.material.thickness, packInstance(design.root, domain)];
-  if (name) packed.push(name);
+  if (name || view) packed.push(name || 0);
+  if (view) packed.push(packCameraView(view));
   return packed;
 }
 
 /** Packar upp en design från `packDesign`. Kastar om listan inte har rätt form. */
-export function unpackDesign(packed: unknown, domain: Domain): { design: Design; name?: string } {
+export function unpackDesign(packed: unknown, domain: Domain): { design: Design; name?: string; view?: CameraView } {
   if (!Array.isArray(packed)) throw new Error('Länken innehåller inget hus.');
-  const [version, domainVersion, materialId, thickness, root, name] = packed as unknown[];
+  const [version, domainVersion, materialId, thickness, root, name, view] = packed as unknown[];
   if (typeof version !== 'number' || typeof domainVersion !== 'number' || typeof materialId !== 'string' || typeof thickness !== 'number') {
     throw new Error('Länken innehåller inget hus.');
   }
   return {
     design: { version, domain: domain.id, domainVersion, material: { id: materialId, thickness }, root: unpackInstance(root) },
-    name: typeof name === 'string' ? name : undefined,
+    name: typeof name === 'string' && name ? name : undefined,
+    view: readCameraView(view),
   };
 }
 

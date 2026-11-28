@@ -38,7 +38,7 @@ async function openHouseFromAddress(): Promise<boolean> {
   try {
     const linked = await readHouseLink(window.location.hash, activeDomain);
     if (linked) {
-      useDesignStore.getState().openDesign(linked.design, linked.name);
+      useDesignStore.getState().openDesign(linked.design, linked.name, linked.view);
       useHouseNotice.getState().showNotice('linkOpened');
       isOpened = true;
     }

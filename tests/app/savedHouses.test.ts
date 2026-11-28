@@ -22,8 +22,8 @@ describe('sparade hus', () => {
     const autosave = createAutosave(store);
     autosave.schedule({ design: houseWithWidth(150), name: '' });
     autosave.flush();
-    await saveHouse(store, 'Kyrkan', houseWithWidth(160), new Date('2026-11-28T10:00:00Z'));
-    await saveHouse(store, ' Borgen ', houseWithWidth(170), new Date('2026-11-28T11:00:00Z'));
+    await saveHouse(store, { name: 'Kyrkan', design: houseWithWidth(160) }, new Date('2026-11-28T10:00:00Z'));
+    await saveHouse(store, { name: ' Borgen ', design: houseWithWidth(170) }, new Date('2026-11-28T11:00:00Z'));
     const houses = await listSavedHouses(store, gingerbreadDomain.id);
     expect(houses.map((house) => house.name)).toEqual(['Borgen', 'Kyrkan']);
     expect(await openHouse(store, houses[1]?.id ?? '', gingerbreadDomain)).toEqual({ design: houseWithWidth(160), name: 'Kyrkan' });
@@ -31,8 +31,8 @@ describe('sparade hus', () => {
 
   it('ersätter huset med samma namn, oavsett stora och små bokstäver', async () => {
     const store = createLocalProjectStore(createMemoryStorage());
-    const first = await saveHouse(store, 'Kyrkan', houseWithWidth(160), new Date('2026-11-28T10:00:00Z'));
-    const second = await saveHouse(store, 'kyrkan', houseWithWidth(180), new Date('2026-11-28T11:00:00Z'));
+    const first = await saveHouse(store, { name: 'Kyrkan', design: houseWithWidth(160) }, new Date('2026-11-28T10:00:00Z'));
+    const second = await saveHouse(store, { name: 'kyrkan', design: houseWithWidth(180) }, new Date('2026-11-28T11:00:00Z'));
     expect(second.id).toBe(first.id);
     const houses = await listSavedHouses(store, gingerbreadDomain.id);
     expect(houses).toHaveLength(1);
@@ -42,7 +42,7 @@ describe('sparade hus', () => {
 
   it('byter namn utan att ändra tiden', async () => {
     const store = createLocalProjectStore(createMemoryStorage());
-    const saved = await saveHouse(store, 'Kyrkan', houseWithWidth(160), new Date('2026-11-28T10:00:00Z'));
+    const saved = await saveHouse(store, { name: 'Kyrkan', design: houseWithWidth(160) }, new Date('2026-11-28T10:00:00Z'));
     await renameHouse(store, saved.id, 'Kapellet ');
     expect(await listSavedHouses(store, gingerbreadDomain.id)).toEqual([{ ...saved, name: 'Kapellet', thumbnail: undefined }]);
   });
@@ -52,7 +52,7 @@ describe('sparade hus', () => {
     const old = simpleHousePreset.create();
     old.domainVersion = 2;
     old.root.children[0]?.children.push({ id: 'D1', type: 'gb.door', params: { hinge: 'left', openAngle: 30 }, attachment: { socketId: 'gable-front', u: 0, v: 0, rotationDegrees: 0 }, children: [] });
-    const saved = await saveHouse(store, 'Gamla huset', old);
+    const saved = await saveHouse(store, { name: 'Gamla huset', design: old });
     const opened = await openHouse(store, saved.id, gingerbreadDomain);
     expect(opened.design.root.children[0]?.children[0]?.params).toEqual({ kind: 'single' });
   });
@@ -61,7 +61,7 @@ describe('sparade hus', () => {
     const store = createLocalProjectStore(createMemoryStorage());
     const broken = houseWithWidth(160);
     broken.version = 99;
-    const saved = await saveHouse(store, 'Framtiden', broken);
+    const saved = await saveHouse(store, { name: 'Framtiden', design: broken });
     await expect(openHouse(store, saved.id, gingerbreadDomain)).rejects.toThrow();
   });
 
@@ -69,7 +69,7 @@ describe('sparade hus', () => {
     const store = createLocalProjectStore(createMemoryStorage());
     useDesignStore.getState().resetDesign();
     useDesignStore.getState().addChild({ parentId: 'S1', socketId: 'roof-right', objectTypeId: 'gb.dormer' });
-    const saved = await saveHouse(store, 'Kupan', useDesignStore.getState().design);
+    const saved = await saveHouse(store, { name: 'Kupan', design: useDesignStore.getState().design });
     useDesignStore.getState().resetDesign();
     const opened = await openHouse(store, saved.id, gingerbreadDomain);
     useDesignStore.getState().openDesign(opened.design, opened.name);
@@ -78,5 +78,14 @@ describe('sparade hus', () => {
     const design = useDesignStore.getState().design;
     expect(findInstance(design.root, 'K1')?.attachment?.socketId).toBe('roof-front');
     expect(() => evaluateDesign(design, gingerbreadDomain, (key) => key)).not.toThrow();
+  });
+
+  it('sparar kamerans vinkel med huset, och äldre hus utan vinkel öppnas utan', async () => {
+    const store = createLocalProjectStore(createMemoryStorage());
+    const view = { position: [260, 230, 340] as [number, number, number], target: [0, 70, 0] as [number, number, number] };
+    const withView = await saveHouse(store, { name: 'Kyrkan', design: houseWithWidth(160), view });
+    const withoutView = await saveHouse(store, { name: 'Borgen', design: houseWithWidth(170) });
+    expect((await openHouse(store, withView.id, gingerbreadDomain)).view).toEqual(view);
+    expect((await openHouse(store, withoutView.id, gingerbreadDomain)).view).toBeUndefined();
   });
 });

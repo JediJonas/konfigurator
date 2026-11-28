@@ -1,5 +1,6 @@
 import type { Design } from '../../core/model/design';
 import type { Domain } from '../../core/model/domain';
+import type { CameraView } from '../state/cameraView';
 import { packDesign, unpackDesign } from './compactDesign';
 import { readStoredDesign } from './storedDesign';
 
@@ -12,14 +13,17 @@ const COMPRESSION_FORMAT = 'deflate-raw';
 export interface LinkedHouse {
   design: Design;
   name?: string;
+  /** Kamerans vinkel när länken skapades. Saknas i äldre länkar. */
+  view?: CameraView;
 }
 
 /**
  * Länk till huset med hela designen i adressen, packad och komprimerad så att
  * den blir kort. Den står efter `#`, så att den aldrig skickas till servern.
  */
-export async function createHouseLink(pageUrl: string, design: Design, domain: Domain, name?: string): Promise<string> {
-  const bytes = await transformBytes(new TextEncoder().encode(JSON.stringify(packDesign(design, domain, name))), new CompressionStream(COMPRESSION_FORMAT));
+export async function createHouseLink(pageUrl: string, house: LinkedHouse, domain: Domain): Promise<string> {
+  const { design, name, view } = house;
+  const bytes = await transformBytes(new TextEncoder().encode(JSON.stringify(packDesign(design, domain, name, view))), new CompressionStream(COMPRESSION_FORMAT));
   const url = new URL(pageUrl);
   url.hash = `${HOUSE_LINK_KEY}=${HOUSE_LINK_FORMAT}.${encodeBase64Url(bytes)}`;
   return url.toString();
@@ -32,8 +36,8 @@ export async function readHouseLink(hash: string, domain: Domain): Promise<Linke
   const [format, data] = value.split('.');
   if (format !== HOUSE_LINK_FORMAT || !data) throw new Error('Länken är från en nyare version av appen.');
   const bytes = await transformBytes(decodeBase64Url(data), new DecompressionStream(COMPRESSION_FORMAT));
-  const { design, name } = unpackDesign(JSON.parse(new TextDecoder().decode(bytes)), domain);
-  return { design: readStoredDesign(design, domain), name };
+  const { design, name, view } = unpackDesign(JSON.parse(new TextDecoder().decode(bytes)), domain);
+  return { design: readStoredDesign(design, domain), name, view };
 }
 
 async function transformBytes(bytes: Uint8Array, transform: CompressionStream | DecompressionStream): Promise<Uint8Array> {
