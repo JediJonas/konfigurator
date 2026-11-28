@@ -3,6 +3,7 @@ import { basisMatrix } from '../../../../core/geometry/matrix';
 import type { Mm } from '../../../../core/geometry/vector';
 import { vec3 } from '../../../../core/geometry/vector';
 import type { BuildContext, Socket } from '../../../../core/model/objectType';
+import { DORMER_WALL } from '../../socketKinds';
 
 /**
  * Så mycket hel vägg som måste finnas runt ett fönster eller en dörr, mot
@@ -10,6 +11,16 @@ import type { BuildContext, Socket } from '../../../../core/model/objectType';
  * väggen (SPEC.md avsnitt 5, `minClearance`).
  */
 export const OPENING_MARGIN_MM = 15;
+/**
+ * Kanten runt ett fönster i en takkupas framvägg (ägarens val). Framväggen är
+ * så låg att ett fönster med `OPENING_MARGIN_MM` runt sig sällan ryms.
+ */
+export const DORMER_OPENING_MARGIN_MM = 5;
+
+/** Så mycket hel vägg som behövs runt en öppning i väggen kopplingspunkten hör till. */
+export function openingMarginOf(socket: Socket | undefined): Mm {
+  return socket?.kind === DORMER_WALL ? DORMER_OPENING_MARGIN_MM : OPENING_MARGIN_MM;
+}
 /** Fönster och dörrar föreslås i jämna mått, som fälten. */
 export const OPENING_SIZE_STEP_MM = 5;
 

@@ -107,7 +107,7 @@ function buildWallSurfaceSockets(instance: Instance, params: SectionParams, cont
  * Väggens yta i kopplingspunktens (u, v), från hörn till hörn och upp till
  * överkanten. Överkanten är given från väggens början, där u = length / 2.
  */
-function wallBounds(topProfile: readonly Vec2[], length: Mm): Vec2[] {
+export function wallBounds(topProfile: readonly Vec2[], length: Mm): Vec2[] {
   const halfLength = length / 2;
   const toSocket = (point: Vec2) => vec2(length / 2 - point.x, point.y);
   const top = topProfile.map(toSocket).filter((point) => Math.abs(point.x) < halfLength);

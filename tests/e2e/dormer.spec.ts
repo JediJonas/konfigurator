@@ -15,9 +15,20 @@ test('lägger en takkupa på taket och visar den under Tak', async ({ page }) =>
 
   // Fältet ger bara lägen där kupan har 15 mm helt tak mot takfoten.
   const eaveDistance = page.getByLabel(/^Avstånd från takfoten/);
+  // Gränserna räknas vid sidan av; vänta tills de är kända, annars gäller schemats.
+  await expect(eaveDistance).toHaveAttribute('min', '15', { timeout: 15_000 });
   await eaveDistance.fill('0');
   await eaveDistance.blur();
   await expect(eaveDistance).toHaveValue('15');
+
+  // En ny kupa får ett fönster i framväggen direkt, under kupan.
+  const dormer = page.locator('[data-instance-id="K1"]');
+  const dormerWindow = dormer.getByRole('button', { name: /^Fönster F\d+$/ });
+  await expect(dormerWindow).toBeVisible();
+  await dormerWindow.click();
+  await expect(dormer.getByText(/^Sitter på K1 · kupans framvägg$/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Takkupa K1' })).toBeVisible();
+  await expect(dormer.getByRole('button', { name: 'Lägg till fönster' })).toBeVisible();
 
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Ladda ner ritning (PDF)' }).click()]);
   expect(download.suggestedFilename()).toBe('ritning.pdf');

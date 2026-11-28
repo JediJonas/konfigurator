@@ -12,6 +12,8 @@ import { buildWallParts } from '../sectionWalls';
 import type { PartDraft } from '../uprightPart';
 import type { DormerParams } from './dormerParams';
 import { dormerParams, MIN_DORMER_WALL_HEIGHT_MM, MIN_DORMER_WIDTH_MM } from './dormerParams';
+import { DORMER_FRONT_ID, buildDormerSockets } from './dormerSockets';
+import { WINDOW_TYPE_ID } from '../openings/window';
 import { describeDormer, DORMER_MARGIN_MM, dormerFootprintOnRoof, dormerHoleOnRoof, dormerMountMatrix } from './dormerShape';
 
 export const DORMER_TYPE_ID = 'gb.dormer';
@@ -23,6 +25,7 @@ const PART_LABEL_KEYS: Record<string, string> = {
   'side-left': 'part.dormerSide',
   'roof-right': 'part.dormerRoof',
   'roof-left': 'part.dormerRoof',
+  roof: 'part.dormerShedRoof',
 };
 
 /** Förslagens storlekar i förhållande till den största, från störst till minst. */
@@ -37,7 +40,7 @@ const PROPOSED_EAVE_DISTANCE_SHARE = 0.15;
 const ROOF_KEYS = ['roofPitch', 'eaveOverhang', 'gableOverhang'] as const;
 
 /**
- * Takkupa (SPEC.md avsnitt 8): en liten sektion med sadeltak som står på ett
+ * Takkupa (SPEC.md avsnitt 8): en liten sektion med sadel- eller pulpettak som står på ett
  * takfall. Framväggen och sidorna står upprätt och kapas mot husets takyta,
  * kupans tak läggs ovanpå husets tak i vinkelrännor (`interactions/dormers.ts`)
  * och husets takfall får ett hål innanför kupans väggar.
@@ -48,7 +51,8 @@ export const dormerType: ObjectType<DormerParams> = {
   params: dormerParams,
   instanceIdPrefix: 'K',
   attachesTo: [ROOF_SURFACE],
-  sockets: () => [],
+  sockets: (instance, params, context) => buildDormerSockets(instance, params, context),
+  startsWith: [{ socketId: DORMER_FRONT_ID, objectTypeId: WINDOW_TYPE_ID }],
   parts: (instance, params, context) => buildDormerParts(instance, params, context),
   modifiers: (_instance, params, context) => buildDormerHole(params, context),
   mountMatrix: (params, context) => dormerMountMatrix(params, context),

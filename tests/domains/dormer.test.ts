@@ -9,6 +9,7 @@ import type { Part } from '../../src/core/model/part';
 import { buildParts } from '../../src/core/pipeline/buildParts';
 import { placeInstances } from '../../src/core/pipeline/placeInstances';
 import { evaluateDesign } from '../../src/core/rules/evaluateDesign';
+import { setParamWithinRules } from '../../src/core/rules/paramAdjustment';
 import { proposeChild } from '../../src/core/rules/placement';
 import { gingerbreadDomain } from '../../src/domains/gingerbread';
 import { ROOF_SURFACE } from '../../src/domains/gingerbread/socketKinds';
@@ -219,4 +220,44 @@ it('kupan på andra takfallet blir en spegelbild', () => {
   const left = buildParts(designWithExtensions(dormerOn('roof-left')), gingerbreadDomain).filter((part) => part.sourceInstanceId === 'K1');
   const xs = (parts: Part[]) => parts.flatMap(planOf).map((point) => point.x);
   expect(Math.min(...xs(right))).toBeCloseTo(-Math.max(...xs(left)), 3);
+});
+
+describe('takkupa med pulpettak', () => {
+  const design = designWithExtensions(dormerOn('roof-right', { roof: 'shed', roofPitch: 15, wallHeight: 25 }));
+  const parts = buildParts(design, gingerbreadDomain);
+  const socket = socketById(design, 'roof-right');
+
+  it('har framvägg, två sidoväggar och ett tak som lutar ut från huset', () => {
+    expect(parts.filter((part) => part.sourceInstanceId === 'K1').map((part) => [part.id, part.labelKey])).toEqual([
+      ['K1/side-right', 'part.dormerSide'],
+      ['K1/side-left', 'part.dormerSide'],
+      ['K1/gable-front', 'part.dormerFront'],
+      ['K1/roof', 'part.dormerShedRoof'],
+    ]);
+  });
+
+  it('slutar taket där det möter husets tak, ovanpå det', () => {
+    const heights = worldCorners(partById(parts, 'K1/roof')).map((corner) => heightAboveRoof(socket, corner));
+    expect(Math.min(...heights)).toBeGreaterThan(-0.01);
+    expect(Math.min(...heights)).toBeLessThan(0.01);
+  });
+
+  it('har en rak framvägg och sidoväggar som följer taket', () => {
+    const front = boundsOf(partById(parts, 'K1/gable-front').outline);
+    expect(front.maxY - front.minY).toBeCloseTo(25, 0);
+    expect(partById(parts, 'K1/side-right').outline.length).toBeGreaterThanOrEqual(3);
+    expect(errorKeys(design)).toEqual([]);
+  });
+
+  it('går inte att bygga när taket lutar lika brant som husets', () => {
+    expect(errorKeys(designWithExtensions(dormerOn('roof-right', { roof: 'shed', roofPitch: 45 })))).toContain('rule.dormerRoofTooSteep');
+  });
+});
+
+it('rättar taklutningen när man väljer pulpettak, så att taket möter husets tak', () => {
+  const changed = setParamWithinRules(designWithExtensions(dormerOn('roof-right')), gingerbreadDomain, { instanceId: 'K1', key: 'roof', value: 'shed' });
+  const dormer = changed.root.children[0]?.children[0];
+  expect(dormer?.params.roof).toBe('shed');
+  expect(Number(dormer?.params.roofPitch)).toBeLessThan(45);
+  expect(errorKeys(changed)).toEqual([]);
 });

@@ -122,4 +122,15 @@ export interface ObjectType<P = Record<string, unknown>> {
    */
   prefersSizeOverCenter?: boolean;
   paramCandidates?(socket: Socket, context: BuildContext, inherited: Record<string, unknown>): Record<string, unknown>[];
+  /**
+   * Objekt som ett nytt objekt av typen får direkt, i sina egna
+   * kopplingspunkter, om de klarar reglerna, t.ex. ett fönster i en ny takkupa.
+   */
+  startsWith?: readonly StartingChild[];
+}
+
+/** Ett objekt som ett nytt objekt får direkt: objekttypen och kopplingspunkten det sitter i. */
+export interface StartingChild {
+  socketId: string;
+  objectTypeId: string;
 }

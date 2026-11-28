@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import type { Design } from '../../core/model/design';
 import type { PaperFormat } from '../../core/layout/paper';
-import { addChildInstance, removeInstance } from '../../core/model/instanceTree';
+import { removeInstance } from '../../core/model/instanceTree';
 import type { ChildRequest } from '../../core/rules/placement';
 import { setParamWithinRules } from '../../core/rules/paramAdjustment';
-import { proposeChild, snapAttachmentOffset } from '../../core/rules/placement';
+import { snapAttachmentOffset } from '../../core/rules/placement';
+import { addProposedChild } from '../../core/rules/addProposedChild';
 import { activeDomain } from '../activeDomain';
 
 /** Objektet eller fältgruppen som öppnades med ett tryck i 3D-vyn. */
@@ -86,9 +87,8 @@ export const useDesignStore = create<DesignState>((set) => ({
   setOpenInstanceId: (openInstanceId) => set({ openInstanceId, isOpenInstanceHighlighted: true }),
   addChild: (request) =>
     set((state) => {
-      const proposal = proposeChild(state.design, activeDomain, request);
-      if (proposal.violations.length > 0) return {};
-      return { design: { ...state.design, root: addChildInstance(state.design.root, request.parentId, proposal.instance) } };
+      const design = addProposedChild(state.design, activeDomain, request);
+      return design === state.design ? {} : { design };
     }),
   removeChild: (instanceId) =>
     set((state) => ({

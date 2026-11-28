@@ -49,8 +49,8 @@ export function SectionSettings(props: SectionSettingsProps) {
   const sectionFields = paramFields.filter((field) => !wallKeys.has(field.key));
   const ownViolations = violations.filter((violation) => violation.instanceId === instance.id);
   const violationsOf = (instanceId: string) => violations.filter((violation) => violation.instanceId === instanceId);
-  // Fel på t.ex. en takkupa syns på sektionen när taket är stängt, så att inget som stoppar ritningen göms.
-  const inClosedGroups = nested.filter((child) => child.socket?.paramGroupKey && child.socket.paramGroupKey !== openPart.groupKey);
+  // Fel på t.ex. en takkupa och fönstret i den syns på sektionen när taket är stängt, så att inget som stoppar ritningen göms.
+  const inClosedGroups = listInGroups(nested, (groupKey) => groupKey !== openPart.groupKey);
   const renderGroupExtra = (groupKey: string) => {
     const group = listGroupSockets(entry, nested, groupKey);
     if (group.sockets.length === 0) return null;
@@ -58,15 +58,21 @@ export function SectionSettings(props: SectionSettingsProps) {
       <>
         {group.nested.length > 0 ? (
           <div className="nested-instances">
-            {group.nested.map((child) => (
-              <InstanceSettings
-                key={child.instance.id}
-                entry={child}
-                isOpen={props.isNestedOpen(child.instance.id)}
-                onToggle={() => props.onToggleNested(child.instance.id)}
-                violations={violationsOf(child.instance.id)}
-              />
-            ))}
+            {group.nested.map((child) => {
+              const onChild = nested.filter((candidate) => candidate.parentId === child.instance.id);
+              return (
+                <InstanceSettings
+                  key={child.instance.id}
+                  entry={child}
+                  isOpen={props.isNestedOpen(child.instance.id)}
+                  onToggle={() => props.onToggleNested(child.instance.id)}
+                  violations={[child, ...onChild].flatMap((shown) => violationsOf(shown.instance.id))}
+                  nested={onChild}
+                  isNestedOpen={props.isNestedOpen}
+                  onToggleNested={props.onToggleNested}
+                />
+              );
+            })}
           </div>
         ) : null}
         {group.sockets.map((socket) => (
@@ -115,4 +121,14 @@ export function SectionSettings(props: SectionSettingsProps) {
       <ViolationList violations={isOpen ? ownViolations : violations} />
     </section>
   );
+}
+
+/**
+ * Det som visas i en fältgrupp där `isShown` gäller gruppen: t.ex. takkuporna
+ * under Tak och fönstren i dem, som sitter på kupan och inte i gruppen själva.
+ */
+function listInGroups(nested: readonly PlacedInstance[], isShown: (groupKey: string) => boolean): PlacedInstance[] {
+  const inGroups = nested.filter((child) => child.socket?.paramGroupKey !== undefined && isShown(child.socket.paramGroupKey));
+  const ids = new Set(inGroups.map((child) => child.instance.id));
+  return [...inGroups, ...nested.filter((child) => child.parentId !== undefined && ids.has(child.parentId))];
 }

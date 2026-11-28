@@ -10,7 +10,7 @@ import type { PlacedInstance } from '../../../core/pipeline/placeInstances';
 import { DORMER_TYPE_ID } from '../objects/dormer/dormer';
 import type { DormerParams } from '../objects/dormer/dormerParams';
 import type { DormerHalfSpace } from '../objects/dormer/dormerShape';
-import { describeDormer, dormerBody } from '../objects/dormer/dormerShape';
+import { describeDormer, dormerBody, meetingDistance } from '../objects/dormer/dormerShape';
 import { SECTION_TYPE_ID } from '../objects/section';
 import { ROOF_SURFACE } from '../socketKinds';
 import { beyondHost, describeHostRoof, hostWallPlan, isUpright, roofRegions } from './valleys';
@@ -69,6 +69,8 @@ function horizontalOutward(normal: Vec3): Vec3 {
 function findRoofConflicts(placed: readonly PlacedInstance[], entry: PlacedInstance): InteractionConflict[] {
   if (!findHost(placed, entry)) return [];
   const shape = describeDormer(entry.params as DormerParams, entry.context, false);
+  // Ett pulpettak som lutar lika brant som husets tak eller brantare möter det aldrig.
+  if (!Number.isFinite(meetingDistance(shape, 0, true))) return [{ instanceId: entry.instance.id, messageKey: 'rule.dormerRoofTooSteep' }];
   const body = dormerBody(entry.params as DormerParams, shape).map((space) => toWorld(entry, space));
   const others = placed.filter((other) => other !== entry && other.instance.id !== entry.parentId).flatMap((other) => other.parts);
   const hits = others.some((part) => {

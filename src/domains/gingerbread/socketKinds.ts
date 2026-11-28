@@ -8,3 +8,5 @@ export const WALL_SURFACE = 'wall-surface';
 export const WALL_BESIDE = 'wall-beside';
 /** Ovansidan av ett takfall med lutning, t.ex. för en takkupa. */
 export const ROOF_SURFACE = 'roof-surface';
+/** Utsidan av en takkupas framvägg, för fönster. Bara fönster fäster där. */
+export const DORMER_WALL = 'dormer-wall';

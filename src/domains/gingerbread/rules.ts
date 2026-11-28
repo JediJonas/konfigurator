@@ -4,7 +4,7 @@ import { DOOR_TYPE_ID } from './objects/openings/door';
 import { DORMER_TYPE_ID } from './objects/dormer/dormer';
 import { WINDOW_TYPE_ID } from './objects/openings/window';
 import { SECTION_TYPE_ID } from './objects/section';
-import { GROUND, ROOF_SURFACE, WALL_BESIDE, WALL_SURFACE } from './socketKinds';
+import { DORMER_WALL, GROUND, ROOF_SURFACE, WALL_BESIDE, WALL_SURFACE } from './socketKinds';
 
 /** Kopplingsreglerna för pepparkakshus, SPEC.md avsnitt 5. */
 export const gingerbreadRules: Rule[] = [
@@ -16,6 +16,7 @@ export const gingerbreadRules: Rule[] = [
   { kind: 'allowedParamValues', level: 'error', objectType: SECTION_TYPE_ID, socketKind: WALL_SURFACE, param: 'roof', values: EXTENSION_ROOF_TYPES, messageKey: 'rule.noSpireOnExtension' },
   { kind: 'noOverlap', level: 'error', objectType: SECTION_TYPE_ID, messageKey: 'rule.sectionsOverlap' },
   { kind: 'allowedRotations', level: 'error', objectType: WINDOW_TYPE_ID, socketKind: WALL_SURFACE, degrees: [0], messageKey: 'rule.openingUpright' },
+  { kind: 'allowedRotations', level: 'error', objectType: WINDOW_TYPE_ID, socketKind: DORMER_WALL, degrees: [0], messageKey: 'rule.openingUpright' },
   { kind: 'allowedRotations', level: 'error', objectType: DOOR_TYPE_ID, socketKind: WALL_SURFACE, degrees: [0], messageKey: 'rule.openingUpright' },
   { kind: 'onSolidPart', level: 'error', objectType: WINDOW_TYPE_ID, messageKey: 'rule.windowOnWall' },
   { kind: 'onSolidPart', level: 'error', objectType: DOOR_TYPE_ID, messageKey: 'rule.doorOnWall' },

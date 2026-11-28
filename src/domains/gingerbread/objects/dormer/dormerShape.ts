@@ -1,8 +1,7 @@
-import { lowestHeightAt } from '../../../../core/geometry/heightPlanes';
 import type { Matrix4 } from '../../../../core/geometry/matrix';
 import { basisMatrix, translationMatrix } from '../../../../core/geometry/matrix';
 import type { Mm, Vec3 } from '../../../../core/geometry/vector';
-import { degreesToRadians, vec2, vec3 } from '../../../../core/geometry/vector';
+import { degreesToRadians, vec3 } from '../../../../core/geometry/vector';
 import type { BuildContext } from '../../../../core/model/objectType';
 import type { RoofContext } from '../roof/roofLayout';
 import type { SectionParams } from '../sectionParams';
@@ -14,9 +13,15 @@ import type { DormerParams } from './dormerParams';
  * Väggarna börjar så här långt under takets ovansida och kapas sedan mot den
  * (`interactions/dormers.ts`), så att de går ner till taket hela vägen.
  */
-const WALL_DROP_MM = 1;
+export const WALL_DROP_MM = 1;
 /** Sidoväggarna räknas så här mycket längre in än där de möter taket, innan de kapas. */
 const DEPTH_MARGIN_MM = 2;
+/** Djupet i utkastet som takets plan räknas ur; vilket som helst går. */
+const PROVISIONAL_DEPTH_MM = 100;
+/** Längre än något takfall. Ett tak som aldrig möter husets tak räknas så långt. */
+const MAX_REACH_MM = 1000;
+/** Kupans tak måste närma sig husets takyta minst så här mycket per mm uppför den för att mötas. */
+const MIN_CLOSING = 1e-3;
 /** Husets taklutning när kupan ännu inte sitter på något tak, t.ex. i tester. */
 const FALLBACK_PITCH_DEGREES = 45;
 /** Så mycket av husets takfall som står kvar innanför kupans väggar runt hålet, som för en tillbyggnad. */
@@ -27,7 +32,7 @@ export const DORMER_MARGIN_MM = 15;
 const SECTION_DEFAULTS = sectionParams.parse({});
 
 /**
- * Takkupan byggs som en liten tillbyggnad med sadeltak, men står på ett
+ * Takkupan byggs som en liten tillbyggnad med sadel- eller pulpettak, men står på ett
  * takfall i stället för mot en vägg. Kupans egna koordinater: x längs taket
  * (åt höger sett utifrån), y uppåt och z vågrätt utåt, ner mot takfoten.
  * Origo ligger mitt på framväggens utsida, på husets takyta.
@@ -49,24 +54,26 @@ export interface DormerShape {
 export function describeDormer(params: DormerParams, context: BuildContext, reachesIntoHost: boolean): DormerShape {
   const hostPitch = measureHostPitch(context);
   const thickness = context.thickness;
-  const depth = params.wallHeight / Math.tan(hostPitch) + 2 * thickness + DEPTH_MARGIN_MM;
+  const roofContext: RoofContext = { thickness, isExtension: true, reachesIntoHost };
+  // Takets plan i kupans koordinater beror inte på djupet, så djupet kan räknas ur ett första utkast.
+  const draft = shapeWithDepth(params, hostPitch, roofContext, PROVISIONAL_DEPTH_MM);
+  const reach = Math.min(MAX_REACH_MM, meetingDistance(draft, params.width / 2, false));
+  return shapeWithDepth(params, hostPitch, roofContext, reach * Math.cos(hostPitch) + 2 * thickness + DEPTH_MARGIN_MM);
+}
+
+function shapeWithDepth(params: DormerParams, hostPitch: number, roofContext: RoofContext, depth: Mm): DormerShape {
   const section: SectionParams = {
     ...SECTION_DEFAULTS,
     width: params.width,
     depth,
     wallHeight: params.wallHeight + WALL_DROP_MM,
-    roof: 'gable',
+    roof: params.roof,
     isRoofTurned: false,
     roofPitch: params.roofPitch,
     eaveOverhang: params.eaveOverhang,
     gableOverhang: params.gableOverhang,
   };
-  return {
-    section,
-    sectionToDormer: translationMatrix(vec3(0, -WALL_DROP_MM, -depth / 2)),
-    roofContext: { thickness, isExtension: true, reachesIntoHost },
-    hostPitch,
-  };
+  return { section, sectionToDormer: translationMatrix(vec3(0, -WALL_DROP_MM, -depth / 2)), roofContext, hostPitch };
 }
 
 /** Lutningen på takfallet kupan sitter på, ur kopplingspunktens normal. */
@@ -91,19 +98,42 @@ export function pointOnHostRoof(shape: DormerShape, x: Mm, alongSlope: Mm): Vec3
   return vec3(x, alongSlope * Math.sin(shape.hostPitch), -alongSlope * Math.cos(shape.hostPitch));
 }
 
-/** Hur långt uppför husets takyta något är när det ligger på höjden `height` över framväggens nederkant. */
-function slopeDistanceAt(shape: DormerShape, height: Mm): Mm {
-  return height / Math.sin(shape.hostPitch);
+/** Ett takplan i kupans koordinater: y = slopeX · x + slopeZ · z + height. */
+interface DormerPlane {
+  slopeX: number;
+  slopeZ: number;
+  height: Mm;
 }
 
-/** Kupans takundersida vid x, i kupans koordinater. */
-function undersideAt(shape: DormerShape, x: Mm): Mm {
-  return lowestHeightAt(wallSupport(shape.section, shape.roofContext), vec2(x, 0)) - WALL_DROP_MM;
+/** Planen som kupans tak vilar på, undersidan eller ovansidan, i kupans koordinater. */
+export function dormerRoofPlanes(shape: DormerShape, isTop: boolean): DormerPlane[] {
+  const depth = shape.section.depth;
+  return wallSupport(shape.section, shape.roofContext).map((plane) => ({
+    slopeX: plane.slopeX,
+    slopeZ: plane.slopeZ,
+    // Sektionens z är kupans z + djup/2 och golvet ligger `WALL_DROP_MM` under kupans origo.
+    height: plane.slopeZ * (depth / 2) + plane.height - WALL_DROP_MM + (isTop ? shape.roofContext.thickness * Math.hypot(1, plane.slopeX, plane.slopeZ) : 0),
+  }));
 }
 
-/** Hur mycket högre takets ovansida ligger än undersidan, rakt ovanför. */
-function roofTopRise(shape: DormerShape): Mm {
-  return shape.roofContext.thickness / Math.cos(degreesToRadians(shape.section.roofPitch));
+/**
+ * Hur långt uppför husets takyta, från framväggens utsida, kupans tak möter
+ * den vid x: undersidan, eller ovansidan med `isTop`. Ett takplan som stiger
+ * lika brant som husets tak eller brantare möter det aldrig (oändligt långt).
+ */
+export function meetingDistance(shape: DormerShape, x: Mm, isTop: boolean): Mm {
+  const [cos, sin] = [Math.cos(shape.hostPitch), Math.sin(shape.hostPitch)];
+  // På takytan är punkten (x, s · sin, −s · cos); planet når den där s · sin = slopeX · x − slopeZ · s · cos + höjd.
+  const distances = dormerRoofPlanes(shape, isTop).map((plane) => {
+    const closing = sin + plane.slopeZ * cos;
+    return closing > MIN_CLOSING ? (plane.slopeX * x + plane.height) / closing : Number.POSITIVE_INFINITY;
+  });
+  return Math.min(...distances);
+}
+
+/** Som `meetingDistance`, men aldrig längre än `MAX_REACH_MM`, så att ytorna går att rita. */
+function reachAt(shape: DormerShape, x: Mm, isTop: boolean): Mm {
+  return Math.min(MAX_REACH_MM, meetingDistance(shape, x, isTop));
 }
 
 /**
@@ -113,8 +143,8 @@ function roofTopRise(shape: DormerShape): Mm {
  */
 export function dormerFootprintOnRoof(params: DormerParams, shape: DormerShape, margin: Mm): Vec3[] {
   const half = params.width / 2 + margin;
-  const side = slopeDistanceAt(shape, undersideAt(shape, params.width / 2) + roofTopRise(shape)) + margin;
-  const ridge = slopeDistanceAt(shape, undersideAt(shape, 0) + roofTopRise(shape)) + margin;
+  const side = Math.max(reachAt(shape, params.width / 2, true), reachAt(shape, -params.width / 2, true)) + margin;
+  const ridge = reachAt(shape, 0, true) + margin;
   return [
     pointOnHostRoof(shape, -half, -margin),
     pointOnHostRoof(shape, half, -margin),
@@ -133,7 +163,7 @@ export function dormerHoleOnRoof(params: DormerParams, shape: DormerShape): Vec3
   const thickness = shape.roofContext.thickness;
   const half = params.width / 2 - thickness - DORMER_HOLE_INSET_MM;
   const front = thickness / Math.cos(shape.hostPitch) + DORMER_HOLE_INSET_MM;
-  const backAt = (x: Mm) => slopeDistanceAt(shape, undersideAt(shape, x)) - DORMER_HOLE_INSET_MM;
+  const backAt = (x: Mm) => reachAt(shape, x, false) - DORMER_HOLE_INSET_MM;
   if (half <= 0 || backAt(half) <= front) return [];
   return [
     pointOnHostRoof(shape, -half, front),
@@ -156,15 +186,12 @@ export interface DormerHalfSpace {
  */
 export function dormerBody(params: DormerParams, shape: DormerShape): DormerHalfSpace[] {
   const thickness = shape.roofContext.thickness;
-  const half = params.width / 2 + params.eaveOverhang + thickness;
-  const front = params.gableOverhang + thickness;
+  // Sadeltaket har takfotens utsprång på sidorna och pulpettaket fram; det största räcker för båda.
+  const overhang = Math.max(params.eaveOverhang, params.gableOverhang) + thickness;
+  const half = params.width / 2 + overhang;
+  const front = overhang;
   const [cos, sin] = [Math.cos(shape.hostPitch), Math.sin(shape.hostPitch)];
-  const depth = shape.section.depth;
-  const underRoofTop = wallSupport(shape.section, shape.roofContext).map((plane) => ({
-    // y = slopeX · x + slopeZ · (z + djup/2) + höjd − fall, plus takets tjocklek rakt upp.
-    normal: vec3(-plane.slopeX, 1, -plane.slopeZ),
-    offset: plane.slopeZ * (depth / 2) + plane.height - WALL_DROP_MM + thickness * Math.hypot(1, plane.slopeX, plane.slopeZ),
-  }));
+  const underRoofTop = dormerRoofPlanes(shape, true).map((plane) => ({ normal: vec3(-plane.slopeX, 1, -plane.slopeZ), offset: plane.height }));
   return [
     { normal: vec3(0, -cos, -sin), offset: 0 },
     { normal: vec3(1, 0, 0), offset: half },
