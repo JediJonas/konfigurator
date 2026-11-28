@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ROOF_VALUES_WHEN_CHOSEN } from '../sectionParams';
 
 /** Kupans tak har en egen grupp, så att den inte blandas ihop med husets tak som den står under. */
 export const DORMER_ROOF_GROUP_KEY = 'group.dormerRoof';
@@ -23,7 +24,12 @@ export const dormerParams = z.object({
   roof: z
     .enum(DORMER_ROOF_TYPES)
     .default('gable')
-    .meta({ labelKey: 'param.roof', optionLabelKeys: Object.fromEntries(DORMER_ROOF_TYPES.map((roof) => [roof, `roof.${roof}`])), ...roofField }),
+    .meta({
+      labelKey: 'param.roof',
+      optionLabelKeys: Object.fromEntries(DORMER_ROOF_TYPES.map((roof) => [roof, `roof.${roof}`])),
+      valuesWhenChosen: ROOF_VALUES_WHEN_CHOSEN,
+      ...roofField,
+    }),
   roofPitch: z.number().min(10).max(60).default(45).meta({ labelKey: 'param.roofPitch', unit: '°', step: 1, ...roofField }),
   eaveOverhang: z.number().min(0).max(20).default(5).meta({ labelKey: 'param.eaveOverhang', unit: 'mm', step: 1, ...roofField }),
   gableOverhang: z.number().min(0).max(20).default(5).meta({ labelKey: 'param.gableOverhang', unit: 'mm', step: 1, ...roofField }),

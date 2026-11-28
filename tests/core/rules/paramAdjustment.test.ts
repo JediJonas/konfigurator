@@ -6,6 +6,8 @@ import { setParamWithinRules } from '../../../src/core/rules/paramAdjustment';
 import { proposeChild } from '../../../src/core/rules/placement';
 import { gingerbreadDomain } from '../../../src/domains/gingerbread';
 import { SECTION_TYPE_ID } from '../../../src/domains/gingerbread/objects/section';
+import { dormerParams } from '../../../src/domains/gingerbread/objects/dormer/dormerParams';
+import { SHED_ROOF_PITCH_DEGREES, sectionParams } from '../../../src/domains/gingerbread/objects/sectionParams';
 import { simpleHousePreset } from '../../../src/domains/gingerbread/presets/simpleHouse';
 
 /** Ursprungsläget med en föreslagen tillbyggnad (sadeltak 45°) på främre gaveln. */
@@ -30,14 +32,20 @@ function paramsOf(design: Design): Record<string, unknown> {
 }
 
 describe('byte av taktyp med en ärvd lutning', () => {
-  it('ger pulpettaket på gaveln den brantaste lutningen som ryms', () => {
+  it('ger pulpettaket på gaveln 15° när det ryms', () => {
     const design = setExtensionParam(startWithFrontExtension(), 'roof', 'shed');
-    const roofPitch = paramsOf(design).roofPitch as number;
-    expect(paramsOf(design).roof).toBe('shed');
+    expect(paramsOf(design)).toMatchObject({ roof: 'shed', roofPitch: SHED_ROOF_PITCH_DEGREES });
     expect(listErrors(design)).toEqual([]);
-    expect(roofPitch).toBeLessThan(45);
-    // En grad brantare går inte, så det är den närmaste lutningen som klarar reglerna.
-    expect(listErrors(setExtensionParam(design, 'roofPitch', roofPitch + 1))).not.toEqual([]);
+  });
+
+  it('sätter inte om lutningen när pulpettaket redan är valt', () => {
+    const shed = setExtensionParam(setExtensionParam(startWithFrontExtension(), 'roof', 'shed'), 'roofPitch', 20);
+    expect(paramsOf(setExtensionParam(shed, 'roof', 'shed'))).toMatchObject({ roof: 'shed', roofPitch: 20 });
+  });
+
+  it('ändrar inte standardvärdet, så att sparade hus och länkar läses som förut', () => {
+    expect(sectionParams.parse({ roof: 'shed' }).roofPitch).toBe(45);
+    expect(dormerParams.parse({ roof: 'shed' }).roofPitch).toBe(45);
   });
 
   it('behåller lutningen när den nya taktypen ryms med den', () => {
