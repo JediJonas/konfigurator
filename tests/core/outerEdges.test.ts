@@ -139,3 +139,14 @@ describe('ytterkanter i en öppen tillbyggnad', () => {
     expect(inside).toHaveLength(0);
   });
 });
+
+describe('ytterkanter på framsidan', () => {
+  it('lägger randen på framsidan, innanför kanten, för en del med hasEdgeBeadOnFront', () => {
+    const shutter = { ...plate('shutter', rectangle(0, 10, 30, 50), { hasInsideAtZero: false }), hasEdgeBeadOnFront: true };
+    const points = edges([shutter]).flat();
+    // Strängens mitt ligger en strängradie innanför kanten och en strängradie ovanför framsidan.
+    expect(points.every((point) => Math.abs(point.z - (THICKNESS_MM + HOLE_MARGIN_MM)) < 1e-9)).toBe(true);
+    expect(Math.min(...points.map((point) => point.x))).toBeCloseTo(HOLE_MARGIN_MM, 6);
+    expect(Math.max(...points.map((point) => point.x))).toBeCloseTo(30 - HOLE_MARGIN_MM, 6);
+  });
+});

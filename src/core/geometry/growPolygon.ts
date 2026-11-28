@@ -6,7 +6,7 @@ import type { Mm, Vec2 } from './vector';
 const MAX_MITER_RATIO = 3;
 
 /**
- * Polygonen förstorad med avståndet åt alla håll: varje kant flyttas ut
+ * Polygonen förstorad med avståndet åt alla håll (förminskad när avståndet är negativt): varje kant flyttas ut
  * vinkelrätt, och hörnen hamnar där de flyttade kanterna möts (gering).
  */
 export function growPolygon(polygon: Polygon, distance: Mm): Vec2[] {
@@ -24,7 +24,7 @@ export function growPolygon(polygon: Polygon, distance: Mm): Vec2[] {
     const bisectorLength = Math.hypot(bisector.x, bisector.y);
     if (bisectorLength < 1e-9) return { x: point.x + before.x * distance, y: point.y + before.y * distance };
     const cosHalf = (bisector.x * before.x + bisector.y * before.y) / bisectorLength;
-    const shift = Math.min(distance / Math.max(cosHalf, 1e-9), distance * MAX_MITER_RATIO);
+    const shift = Math.sign(distance) * Math.min(Math.abs(distance) / Math.max(cosHalf, 1e-9), Math.abs(distance) * MAX_MITER_RATIO);
     return { x: point.x + (bisector.x / bisectorLength) * shift, y: point.y + (bisector.y / bisectorLength) * shift };
   });
 }

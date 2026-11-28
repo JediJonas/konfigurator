@@ -117,6 +117,7 @@ function buildShutters(instanceId: string, params: WindowParams, thickness: Mm):
     // Luckan ligger mot väggens utsida, med tjockleken utåt.
     transform: identityMatrix(),
     buildStep: BUILD_STEP.details,
+    hasEdgeBeadOnFront: true,
   }));
 }
 

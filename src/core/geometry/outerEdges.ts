@@ -31,7 +31,9 @@ export interface OuterEdgeOptions {
   mergeDistance: Mm;
   /**
    * Kanterna runt hål flyttas så här långt ut från hålet, in på delens yta,
-   * så att randen ligger på ytan runt hålet och inte syns inifrån huset.
+   * så att randen ligger på ytan runt hålet och inte syns inifrån huset. Det är
+   * också avståndet som en del med `hasEdgeBeadOnFront` får randen innanför
+   * kanten och ovanför framsidan, så att den ligger kant i kant med delen.
    */
   holeMargin: Mm;
 }
@@ -64,9 +66,13 @@ export function listOuterEdges(parts: readonly Part[], options: OuterEdgeOptions
   const segments: Segment3[] = [];
   prepared.forEach((owner, ownerIndex) => {
     const isCovered = (point: Vec3) => point.y <= GROUND_LEVEL_MM || isHidden(point, prepared, ownerIndex) || isEnclosed(point, enclosureParts);
+    const isOnFace = owner.part.hasEdgeBeadOnFront === true;
+    // På framsidan ligger randen innanför konturen och ovanpå ytan, så att den går kant i kant med delen.
+    const outline = isOnFace ? growPolygon(owner.part.outline, -options.holeMargin) : owner.part.outline;
     const holes = owner.part.holes.map((hole) => growPolygon(hole, options.holeMargin));
-    for (const ring of [owner.part.outline, ...holes]) {
-      for (const z of owner.outerZs) {
+    const zs = isOnFace ? [owner.part.thickness + options.holeMargin] : owner.outerZs;
+    for (const ring of [outline, ...holes]) {
+      for (const z of zs) {
         ring.forEach((point, index) => {
           const next = ring[(index + 1) % ring.length] ?? point;
           const start = transformPoint(owner.part.transform, { x: point.x, y: point.y, z });
