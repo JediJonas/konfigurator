@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { countHousePixels, waitForViewToSettle } from './viewPixels';
 
 /** Luft mellan sista knappen och skärmens nederkant på pekskärm, se CLAUDE.md. */
 const BOTTOM_GAP_PX = 16;
@@ -8,10 +9,6 @@ const TAP_SIZE_PX = 44;
 /** Rubriken står överst i panelen med lite luft ovanför. */
 const HEADING_GAP_PX = 12;
 const VIEW_HINT = 'Dra för att vrida, nyp eller scrolla för att zooma.';
-
-/** Så länge mellan två bilder av 3D-vyn när man väntar på att kameran står still. */
-const VIEW_SETTLE_INTERVAL_MS = 300;
-const VIEW_SETTLE_TIMEOUT_MS = 10_000;
 
 test('laddar ner en ritning som PDF', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -420,27 +417,6 @@ test('centrerar huset igen efter att man zoomat ut', async ({ page }) => {
   expect(centered).toBeGreaterThan(atStart * 0.8);
 });
 
-/** Antal bruna bildpunkter i 3D-vyn, alltså hur stort huset syns. */
-function countHousePixels(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    const source = document.querySelector('.viewport canvas');
-    if (!(source instanceof HTMLCanvasElement)) return 0;
-    const copy = document.createElement('canvas');
-    copy.width = source.width;
-    copy.height = source.height;
-    const context = copy.getContext('2d');
-    if (!context) return 0;
-    context.drawImage(source, 0, 0);
-    const pixels = context.getImageData(0, 0, copy.width, copy.height).data;
-    let count = 0;
-    for (let i = 0; i < pixels.length; i += 4) {
-      const [red = 0, green = 0, blue = 0] = [pixels[i], pixels[i + 1], pixels[i + 2]];
-      if (red > green + 30 && green > blue && red < 220) count++;
-    }
-    return count;
-  });
-}
-
 /** Knappen − eller + bredvid ett måttfält. */
 function stepButton(page: Page, fieldLabel: string, name: 'Öka' | 'Minska') {
   return page.getByLabel(new RegExp(`^${fieldLabel}`)).locator('..').getByRole('button', { name });
@@ -457,26 +433,4 @@ async function measureHeadingGap(page: Page, name: RegExp) {
 async function openWall(page: Page, name: string) {
   const wall = page.getByRole('button', { name, exact: true });
   if ((await wall.getAttribute('aria-expanded')) !== 'true') await wall.click();
-}
-
-/**
- * Väntar tills kameran har slutat röra sig efter att den ställts in på huset,
- * så att ett tryck på en viss punkt i 3D-vyn träffar. En fast väntetid räcker
- * inte när CI ritar långsamt.
- */
-async function waitForViewToSettle(page: Page) {
-  const view = page.locator('.viewport canvas');
-  let previous = '';
-  await expect
-    .poll(
-      async () => {
-        await page.waitForTimeout(VIEW_SETTLE_INTERVAL_MS);
-        const current = (await view.screenshot({ scale: 'css' })).toString('base64');
-        const isStill = current === previous;
-        previous = current;
-        return isStill;
-      },
-      { timeout: VIEW_SETTLE_TIMEOUT_MS, intervals: [0] },
-    )
-    .toBe(true);
 }

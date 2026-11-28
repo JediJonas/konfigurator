@@ -27,6 +27,8 @@ interface DesignViewProps {
   captureRef: RefObject<CaptureOverview | null>;
   /** Fylls med en funktion som centrerar huset och anpassar zoomen. */
   fitRef: RefObject<FitView | null>;
+  /** Ökar när kameran ska ställas in på huset igen, t.ex. när ett sparat hus öppnas. */
+  fitCount: number;
   /** Det som är valt, t.ex. en vägg, ett tak eller ett fönster; det visas i en annan färg. */
   highlight: SelectionHighlight;
   /** Anropas när man trycker på en del, eller på tomma ytan (utan id). */
@@ -53,7 +55,7 @@ const CAMERA_TARGET_MM: [number, number, number] = [0, 70, 0];
 /** Närmaste avstånd till vyns mittpunkt. Husets egna väggar och tak stoppar zoomen långt innan dess. */
 const MIN_ORBIT_DISTANCE_MM = 20;
 
-export function DesignView({ parts: designParts, color, captureRef, fitRef, highlight, onSelectPart, pickAreas: designPickAreas, onSelectInstance, onUserMoveView }: DesignViewProps) {
+export function DesignView({ parts: designParts, color, captureRef, fitRef, fitCount, highlight, onSelectPart, pickAreas: designPickAreas, onSelectInstance, onUserMoveView }: DesignViewProps) {
   // Huset med alla tillbyggnader och sektioner står alltid mitt på fatet (ägarens önskan).
   const offset = useMemo(() => measurePlateCenteringOffset(designParts), [designParts]);
   const parts = useMemo(() => shiftParts(designParts, offset), [designParts, offset]);
@@ -90,7 +92,7 @@ export function DesignView({ parts: designParts, color, captureRef, fitRef, high
         <shadowMaterial opacity={FLOOR_SHADOW_OPACITY} />
       </mesh>
       <Bounds margin={1.6}>
-        <CameraFitting parts={parts} fitRef={fitRef} />
+        <CameraFitting parts={parts} fitRef={fitRef} fitCount={fitCount} />
         <group ref={partsRef}>
           {parts.map((part) => (
             <PartMesh key={part.id} part={part} color={color} isSelected={highlight.partIds.has(part.id)} onSelect={onSelectPart} />
@@ -125,13 +127,14 @@ export function DesignView({ parts: designParts, color, captureRef, fitRef, high
 
 /**
  * Ställer kameran så att hela huset syns när det visas första gången och när
- * man trycker på knappen för att centrera. Annars behåller kameran sitt läge
+ * man trycker på knappen för att centrera, och när ett annat hus öppnas. Annars behåller kameran sitt läge
  * när måtten ändras, så att vyn inte hoppar; ägaren vill zooma själv.
  * PDF:ens översiktsbild har en egen kamera.
  */
-function CameraFitting({ parts, fitRef }: { parts: Part[]; fitRef: RefObject<FitView | null> }) {
+function CameraFitting({ parts, fitRef, fitCount }: { parts: Part[]; fitRef: RefObject<FitView | null>; fitCount: number }) {
   const bounds = useBounds();
   const hasFittedRef = useRef(false);
+  const fittedCountRef = useRef(fitCount);
 
   useEffect(() => {
     fitRef.current = () => bounds.refresh().clip().fit();
@@ -145,6 +148,13 @@ function CameraFitting({ parts, fitRef }: { parts: Part[]; fitRef: RefObject<Fit
     hasFittedRef.current = true;
     bounds.refresh().clip().fit();
   }, [bounds, parts]);
+
+  // Ett annat hus har öppnats: kameran ställs in på det, som när man trycker på Centrera.
+  useEffect(() => {
+    if (fitCount === fittedCountRef.current || parts.length === 0) return;
+    fittedCountRef.current = fitCount;
+    bounds.refresh().clip().fit();
+  }, [bounds, parts, fitCount]);
   return null;
 }
 
