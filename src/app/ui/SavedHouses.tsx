@@ -14,7 +14,7 @@ import { useSavedHouses } from './useSavedHouses';
  * Mina hus: spara det öppna huset under ett namn, öppna, byt namn på och ta
  * bort sparade hus, och dela huset med en länk. Husen sparas i webbläsaren.
  */
-export function SavedHouses() {
+export function SavedHouses({ isOpen, onToggle }: { isOpen: boolean; onToggle: () => void }) {
   const { store, houses, reload } = useSavedHouses();
   const openDesign = useDesignStore((state) => state.openDesign);
   const [status, setStatus] = useState<string>();
@@ -54,7 +54,7 @@ export function SavedHouses() {
 
   return (
     <section className="panel-section">
-      <FieldGroup label={uiStrings.savedHouses} headingLevel={2}>
+      <FieldGroup label={uiStrings.savedHouses} headingLevel={2} isOpen={isOpen} onToggle={onToggle}>
         {store ? (
           <>
             <SaveHouseForm store={store} houses={houses} onSaved={() => void reload()} />

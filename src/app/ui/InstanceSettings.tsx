@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react';
+import { useId, useMemo, useState } from 'react';
 import type { Instance } from '../../core/model/design';
 import type { ParamField } from '../../core/model/paramForm';
 import { describeParams } from '../../core/model/paramForm';
@@ -46,13 +46,28 @@ export function InstanceSettings(props: InstanceSettingsProps) {
   const paramFields = useParamFieldsWithinRules(entry, knownRanges);
   const { instance } = entry;
   const violationsOf = (instanceId: string) => violations.filter((violation) => violation.instanceId === instanceId);
+  // Ett barn utfällt åt gången (ägarens val): t.ex. Kupans tak eller fönstret i takkupan.
+  const [openGroupKey, setOpenGroupKey] = useState<string>();
+  const openChild = nested.find((child) => props.isNestedOpen?.(child.instance.id));
+  if (openGroupKey !== undefined && openChild) setOpenGroupKey(undefined);
+  function toggleGroup(groupKey: string) {
+    if (openGroupKey === groupKey) return setOpenGroupKey(undefined);
+    if (openChild) props.onToggleNested?.(openChild.instance.id);
+    setOpenGroupKey(groupKey);
+  }
   return (
     <section className="panel-section" data-instance-id={instance.id}>
       <InstanceHeading entry={entry} headingLevel={headingLevel} isOpen={isOpen} onToggle={onToggle} bodyId={bodyId} />
       {isOpen ? (
         <div id={bodyId} className="instance-body">
           <OffsetInput entry={entry} knownRanges={knownRanges} />
-          <ParamForm fields={paramFields} values={instance.params} onChange={(key, value) => setParam(instance.id, key, value)} />
+          <ParamForm
+            fields={paramFields}
+            values={instance.params}
+            onChange={(key, value) => setParam(instance.id, key, value)}
+            openGroupKey={openGroupKey}
+            onToggleGroup={toggleGroup}
+          />
           {nested.length > 0 ? (
             <div className="nested-instances">
               {nested.map((child) => (

@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { findOutermostNested, groupPanelEntries, listOpenChain } from './panelEntries';
 import { useOpenInstance } from './useOpenInstance';
+import { usePanelGroup } from './usePanelGroup';
+import type { PanelGroupKey } from './usePanelGroup';
 import type { RefObject } from 'react';
 import { buildDrawingPages } from '../../core/export/drawingDocument';
 import { PAPER_FORMATS } from '../../core/layout/paper';
@@ -57,6 +59,8 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
     focus,
   );
   const openInstanceId = openInstance.openId;
+  // Bara en toppnod är utfälld åt gången: en sektion, Mina hus eller Inställningar.
+  const panelGroup = usePanelGroup(openInstanceId, () => openInstance.open(undefined));
   // 3D-vyn markerar fönstret eller dörren som är öppen i panelen.
   useEffect(() => setOpenInstanceId(openInstanceId), [openInstanceId, setOpenInstanceId]);
   const openLeaf = instanceEntries.find((entry) => entry.instance.id === openInstanceId && isShownUnderParent(entry));
@@ -69,7 +73,10 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   const [knownFocusKey, setKnownFocusKey] = useState(focusKey);
   if (focusKey !== knownFocusKey) {
     setKnownFocusKey(focusKey);
-    if (focusKey) setIsExpanded(true);
+    if (focusKey) {
+      setIsExpanded(true);
+      panelGroup.close();
+    }
     const focusedPart = describeFocusedPart(evaluation.placed, selectedSocket, focusedInstance);
     if (focusedPart) setStoredPart(focusedPart);
   }
@@ -96,6 +103,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
   /** Fäller ut en vägg eller taket och markerar det i 3D-vyn, eller fäller ihop det. En sak i taget. */
   function togglePart(entry: PlacedInstance, part: OpenPart) {
     const instanceId = entry.instance.id;
+    panelGroup.close();
     setStoredPart({ instanceId, part });
     openInstance.open(instanceId);
     const wall = part.wallPartId ? entry.sockets.find((socket) => socket.ownerPartId === part.wallPartId) : undefined;
@@ -106,9 +114,16 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
 
   /** Fönster och dörrar fälls ut ett i taget; fälls ett ihop står väggen kvar öppen. */
   function toggleNested(child: PlacedInstance) {
+    panelGroup.close();
     if (!openInstance.isOpen(child.instance.id)) return openInstance.open(child.instance.id);
     if (child.parentId) openInstance.open(child.parentId);
     setStoredPart(describeNestedPart(evaluation.placed, child));
+  }
+
+  /** Fäller ut Mina hus eller Inställningar och stänger sektionen och väggen som var öppen. */
+  function togglePanelGroup(key: PanelGroupKey) {
+    if (!panelGroup.isOpen(key)) selectSocket(undefined);
+    panelGroup.toggle(key);
   }
 
   async function handleDownload() {
@@ -146,6 +161,7 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
               onToggle={() => {
                 // Väggen som var markerad hör till den förra sektionen.
                 selectSocket(undefined);
+                panelGroup.close();
                 openInstance.toggle(entry.instance.id);
               }}
               violations={evaluation.violations.filter((violation) => shownIds.has(violation.instanceId))}
@@ -159,10 +175,10 @@ export function SettingsPanel({ evaluation, error, captureOverview }: SettingsPa
             />
           );
         })}
-        <SavedHouses />
+        <SavedHouses isOpen={panelGroup.isOpen('savedHouses')} onToggle={() => togglePanelGroup('savedHouses')} />
         {/* Ändras sällan, så sektionen är hopfälld från början som takets grupp. */}
         <section className="panel-section">
-          <FieldGroup label={uiStrings.settings} headingLevel={2}>
+          <FieldGroup label={uiStrings.settings} headingLevel={2} isOpen={panelGroup.isOpen('settings')} onToggle={() => togglePanelGroup('settings')}>
             <NumberInput id={thicknessId} label={uiStrings.thickness} field={THICKNESS_FIELD} value={design.material.thickness} onChange={setThickness} />
             <div className="field">
               <label htmlFor={paperId}>{uiStrings.paper}</label>
